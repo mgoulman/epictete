@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  getDocument,
-  GlobalWorkerOptions,
-  type PDFDocumentProxy,
-} from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker.min.js?url";
+import type { PDFDocumentProxy } from "pdfjs-dist/types/src/display/api";
 
 type MenuClientProps = {
   pdfHref: string;
@@ -41,14 +36,11 @@ function LoadingOverlay({
   );
 }
 
-if (typeof window !== "undefined" && GlobalWorkerOptions.workerSrc !== pdfWorker) {
-  GlobalWorkerOptions.workerSrc = pdfWorker;
-}
-
 export function MenuClient({ pdfHref }: MenuClientProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
   const pagesRef = useRef<HTMLDivElement>(null);
+  const workerSrcRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,7 +72,23 @@ export function MenuClient({ pdfHref }: MenuClientProps) {
         }
 
         const pdfData = await response.arrayBuffer();
-        const loadingTask = getDocument({ data: pdfData });
+
+        if (!workerSrcRef.current && typeof window !== "undefined") {
+          const workerModule = await import(
+            "pdfjs-dist/build/pdf.worker.min.mjs"
+          );
+          workerSrcRef.current = (workerModule as { default: string }).default;
+        }
+
+        const pdfjs = await import("pdfjs-dist");
+        if (
+          workerSrcRef.current &&
+          pdfjs.GlobalWorkerOptions.workerSrc !== workerSrcRef.current
+        ) {
+          pdfjs.GlobalWorkerOptions.workerSrc = workerSrcRef.current;
+        }
+
+        const loadingTask = pdfjs.getDocument({ data: pdfData });
         const pdf: PDFDocumentProxy = await loadingTask.promise;
         const pixelRatio = window.devicePixelRatio || 1;
         const baseScale = window.innerWidth < 768 ? 0.9 : 1.15;
