@@ -91,7 +91,9 @@ export function MenuClient({ pdfHref }: MenuClientProps) {
         const loadingTask = pdfjs.getDocument({ data: pdfData });
         const pdf: PDFDocumentProxy = await loadingTask.promise;
         const pixelRatio = window.devicePixelRatio || 1;
-        const baseScale = window.innerWidth < 768 ? 0.9 : 1.15;
+        const containerWidth =
+          container.clientWidth || window.innerWidth || 1024;
+        let firstPageRendered = false;
 
         for (
           let pageNumber = 1;
@@ -99,8 +101,11 @@ export function MenuClient({ pdfHref }: MenuClientProps) {
           pageNumber++
         ) {
           const page = await pdf.getPage(pageNumber);
+          const baseViewport = page.getViewport({ scale: 1 });
+          const scale =
+            (containerWidth / baseViewport.width) * (window.innerWidth < 768 ? 1 : 1.05);
           const viewport = page.getViewport({
-            scale: baseScale * pixelRatio,
+            scale: scale * pixelRatio,
           });
           const canvas = document.createElement("canvas");
           const context = canvas.getContext("2d");
@@ -122,10 +127,14 @@ export function MenuClient({ pdfHref }: MenuClientProps) {
 
           if (!cancelled) {
             container.appendChild(canvas);
+            if (!firstPageRendered) {
+              setIsLoaded(true);
+              firstPageRendered = true;
+            }
           }
         }
 
-        if (!cancelled) {
+        if (!cancelled && !firstPageRendered) {
           setIsLoaded(true);
         }
       } catch (error) {
