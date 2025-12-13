@@ -34,6 +34,10 @@ export function MenuClient({ pdfHref }: MenuClientProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
 
+  const embedUrl = pdfHref.startsWith("http")
+    ? `${pdfHref}#zoom=page-fit`
+    : pdfHref;
+
   return (
     <main className="flex min-h-screen flex-col bg-black text-white">
       <header className="flex flex-col gap-1 border-b border-white/10 bg-black/80 px-6 py-4 text-center text-sm uppercase tracking-[0.2em] text-white/70">
@@ -48,7 +52,7 @@ export function MenuClient({ pdfHref }: MenuClientProps) {
             <LoadingOverlay state={hasError ? "error" : "loading"} />
           )}
           <object
-            data={`${pdfHref}#zoom=page-fit`}
+            data={embedUrl}
             type="application/pdf"
             className="h-full w-full flex-1"
             onLoad={() => setIsLoaded(true)}
