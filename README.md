@@ -62,5 +62,5 @@ Visit:
 
 - Change texts/branding in `app/page.tsx`.
 - Adjust the menu page layout or styling in `app/menu/page.tsx`.
-- Keep static assets lightweight when possible (the current PDF is ~150 MB; consider compressing for faster mobile loads).
-- The `/menu` route now shows a spinner while the PDF loads on desktop and automatically suggests downloading the PDF on mobile to avoid slow in-browser renders.
+- Keep static assets lightweight when possible. The production menu now lives at `public/menu-optimized.pdf` (~4 MB), so replacing it is as simple as swapping that file and redeploying.
+- The `/menu` route shows a spinner while the PDF loads on desktop and includes a mobile hint to download the PDF if the inline viewer feels sluggish.

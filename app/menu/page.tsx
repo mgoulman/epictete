@@ -8,8 +8,7 @@ export const metadata: Metadata = {
   description: "View the latest Epictete restaurant menu.",
 };
 
-const DEFAULT_MENU_PDF =
-  "https://wkhcoeiuxhftzjcx.public.blob.vercel-storage.com/menu.pdf";
+const DEFAULT_MENU_PDF = "/menu-optimized.pdf";
 
 function LoadingOverlay({
   state,
