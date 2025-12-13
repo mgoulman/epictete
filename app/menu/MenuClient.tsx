@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 type MenuClientProps = {
   pdfHref: string;
@@ -31,25 +31,10 @@ function LoadingOverlay({
 export function MenuClient({ pdfHref }: MenuClientProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [viewerMode, setViewerMode] = useState<"object" | "iframe">("object");
 
-  const objectEmbedUrl = pdfHref.includes("#")
+  const embedUrl = pdfHref.includes("#")
     ? pdfHref
     : `${pdfHref}#zoom=page-fit`;
-
-  const absolutePdfUrl = useMemo(() => {
-    if (pdfHref.startsWith("http")) {
-      return pdfHref;
-    }
-    if (typeof window === "undefined") {
-      return pdfHref;
-    }
-    return new URL(pdfHref, window.location.origin).toString();
-  }, [pdfHref]);
-
-  const googleViewerUrl = `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(
-    absolutePdfUrl,
-  )}`;
 
   return (
     <main className="flex h-screen flex-col bg-black text-white">
@@ -64,57 +49,27 @@ export function MenuClient({ pdfHref }: MenuClientProps) {
           {!isLoaded && (
             <LoadingOverlay state={hasError ? "error" : "loading"} />
           )}
-          {viewerMode === "object" ? (
-            <object
-              data={objectEmbedUrl}
-              type="application/pdf"
-              className="h-full w-full"
-              onLoad={() => setIsLoaded(true)}
-              onError={() => {
-                setHasError(true);
-                setViewerMode("iframe");
-              }}
-            >
-              <div className="flex h-full flex-col items-center justify-center gap-3 bg-black px-6 text-center text-white/80">
-                <p className="text-base font-medium">
-                  Unable to load the embedded menu.
-                </p>
-                <a
-                  className="rounded-full border border-white/40 px-5 py-2 text-sm font-semibold text-white hover:border-white"
-                  href={pdfHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Open / Download menu PDF
-                </a>
-              </div>
-            </object>
-          ) : (
-            <iframe
-              src={googleViewerUrl}
-              className="h-full w-full"
-              title="Menu PDF viewer"
-              onLoad={() => setIsLoaded(true)}
-            />
-          )}
-        </div>
-
-        <div className="flex flex-col gap-3 border-t border-white/10 bg-black/80 px-6 py-4 text-center text-white md:hidden">
-          <p className="text-sm font-medium text-white/80">
-            PDF too slow? Open it in your device’s PDF app for smoother zoom &
-            scrolling.
-          </p>
-          <a
-            className="rounded-full border border-white/30 px-5 py-2 text-sm font-semibold text-white hover:border-white"
-            href={pdfHref}
-            target="_blank"
-            rel="noopener noreferrer"
+          <object
+            data={embedUrl}
+            type="application/pdf"
+            className="h-full w-full"
+            onLoad={() => setIsLoaded(true)}
+            onError={() => setHasError(true)}
           >
-            Download menu PDF
-          </a>
-          <p className="text-xs text-white/60">
-            Tip: the file is ~4 MB—download over Wi‑Fi for the fastest experience.
-          </p>
+            <div className="flex h-full flex-col items-center justify-center gap-3 bg-black px-6 text-center text-white/80">
+              <p className="text-base font-medium">
+                Unable to load the embedded menu.
+              </p>
+              <a
+                className="rounded-full border border-white/40 px-5 py-2 text-sm font-semibold text-white hover:border-white"
+                href={pdfHref}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open / Download menu PDF
+              </a>
+            </div>
+          </object>
         </div>
       </section>
       <footer className="bg-black/80 px-6 py-4 text-center text-xs text-white/60">
