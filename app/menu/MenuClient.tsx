@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  getDocument,
+  GlobalWorkerOptions,
+  type PDFDocumentProxy,
+} from "pdfjs-dist";
+import pdfWorker from "pdfjs-dist/build/pdf.worker.min.js?url";
 
 type MenuClientProps = {
   pdfHref: string;
@@ -35,11 +41,14 @@ function LoadingOverlay({
   );
 }
 
+if (typeof window !== "undefined" && GlobalWorkerOptions.workerSrc !== pdfWorker) {
+  GlobalWorkerOptions.workerSrc = pdfWorker;
+}
+
 export function MenuClient({ pdfHref }: MenuClientProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
   const pagesRef = useRef<HTMLDivElement>(null);
-  const workerSrcRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,27 +57,31 @@ export function MenuClient({ pdfHref }: MenuClientProps) {
       return;
     }
 
+    const resolvePdfSource = () => {
+      if (pdfHref.startsWith("http")) {
+        return pdfHref;
+      }
+      if (typeof window === "undefined") {
+        return pdfHref;
+      }
+      return new URL(pdfHref, window.location.origin).toString();
+    };
+
     const loadPdf = async () => {
       container.replaceChildren();
       setIsLoaded(false);
       setHasError(false);
 
       try {
-        const [{ getDocument, GlobalWorkerOptions }, workerModule] =
-          await Promise.all([
-            import("pdfjs-dist"),
-            import("pdfjs-dist/build/pdf.worker.min.js?url"),
-          ]);
-
-        if (!workerSrcRef.current) {
-          workerSrcRef.current = (workerModule as { default: string }).default;
+        const pdfSource = resolvePdfSource();
+        const response = await fetch(pdfSource);
+        if (!response.ok) {
+          throw new Error(`Unable to fetch PDF (${response.status})`);
         }
 
-        if (workerSrcRef.current && GlobalWorkerOptions.workerSrc !== workerSrcRef.current) {
-          GlobalWorkerOptions.workerSrc = workerSrcRef.current;
-        }
-
-        const pdf = await getDocument(pdfHref).promise;
+        const pdfData = await response.arrayBuffer();
+        const loadingTask = getDocument({ data: pdfData });
+        const pdf: PDFDocumentProxy = await loadingTask.promise;
         const pixelRatio = window.devicePixelRatio || 1;
         const baseScale = window.innerWidth < 768 ? 0.9 : 1.15;
 
