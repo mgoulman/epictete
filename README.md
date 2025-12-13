@@ -55,11 +55,12 @@ Visit:
 
 1. Return to **Vercel → Project → Settings → Domains**.
 2. Click **Verify** next to each domain. Vercel will detect the new DNS records and issue SSL certificates automatically.
-3. Once DNS propagates, both `https://epictetelerestaurant.ma/` and `https://menu.epictetelerestaurant.ma/` will serve the respective routes.
-   - `https://menu.epictetelerestaurant.ma/` loads the PDF viewer immediately.
+3. Once DNS propagates, both `https://epictetelerestaurant.ma/` and `https://epictetelerestaurant.ma/` serves the landing page.
+- `https://menu.epictetelerestaurant.ma/` loads the PDF viewer immediately.
 
 ## Notes
 
 - Change texts/branding in `app/page.tsx`.
 - Adjust the menu page layout or styling in `app/menu/page.tsx`.
 - Keep static assets lightweight when possible (the current PDF is ~150 MB; consider compressing for faster mobile loads).
+- The `/menu` route now shows a spinner while the PDF loads on desktop and automatically suggests downloading the PDF on mobile to avoid slow in-browser renders.
