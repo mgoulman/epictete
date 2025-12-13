@@ -5,8 +5,11 @@ export const metadata: Metadata = {
   description: "View the latest Epictete restaurant menu.",
 };
 
+const DEFAULT_MENU_PDF =
+  "https://wkhcoeiuxhftzjcx.public.blob.vercel-storage.com/menu.pdf";
+
 export default function MenuPage() {
-  const pdfHref = "/menu.pdf";
+  const pdfHref = process.env.NEXT_PUBLIC_MENU_PDF_URL ?? DEFAULT_MENU_PDF;
 
   return (
     <main className="flex min-h-screen flex-col bg-black text-white">
