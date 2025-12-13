@@ -17,7 +17,7 @@ export default function Home() {
           We&apos;re preparing a refreshed online experience with reservations,
           events, and chef updates. In the meantime, use{" "}
           <span className="font-semibold text-amber-200">
-            menu.epictelerestaurant.ma
+            menu.epictetelerestaurant.ma
           </span>{" "}
           to view the live menu.
         </p>

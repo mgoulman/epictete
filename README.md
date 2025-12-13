@@ -23,31 +23,40 @@ Visit:
 2. Commit the asset if you want it in version control, or upload directly in Vercel if preferred.
 3. Redeploy (Next.js will serve the new file automatically).
 
-## Deploying on Vercel with custom domains
+## Deploying on Vercel with Hostinger DNS
 
 1. Push this repo to GitHub (or another Git provider) and import it in [Vercel](https://vercel.com/import).
-2. During the import, Vercel detects `next build` automatically—no extra config needed.
-3. After the first deployment, add domains in **Settings → Domains**:
-   - `epictelerestaurant.ma` → set as primary.
-   - `menu.epictelerestaurant.ma` → add as an additional domain pointing to the same project.
-4. In your DNS provider, create the required `A`/`CNAME` records that Vercel shows. SSL certs issue automatically.
-5. Once DNS propagates, both `https://epictelerestaurant.ma/` and `https://menu.epictelerestaurant.ma/` will serve the respective routes.
+2. During import Vercel auto-detects `next build`.
+3. After the first deployment, open **Project → Settings → Domains** and add:
+   - `epictetelerestaurant.ma` (mark as Primary Domain).
+   - `menu.epictetelerestaurant.ma` (route handled by `/menu`).
+4. Leave Vercel open—it will show the DNS records it expects.
 
-### Hostinger DNS steps (example)
+### Configure Hostinger DNS
 
-1. Log into Hostinger → **hPanel → Domains → DNS / Nameservers**.
-2. Under **DNS Zone (A records)** delete any existing A record for `@`, then add:
-   - **Type:** A
-   - **Host:** `@`
-   - **Points to:** `76.76.21.21` (Vercel edge IP for apex domains)
-   - **TTL:** leave default (e.g., 14400 s)
-3. Under **CNAME (Aliases)** add the menu subdomain:
-   - **Type:** CNAME
-   - **Host:** `menu`
-   - **Points to:** `cname.vercel-dns.com` (or the exact target Vercel shows under the menu domain)
-   - **TTL:** default
-4. Save changes. Propagation can take up to an hour, but usually finishes sooner.
-5. Back in Vercel’s domain settings, run the “Verify” button for each domain. Once validated, both domains automatically receive SSL certificates.
+1. hPanel → **Domains → epictetelerestaurant.ma → DNS / Nameservers**.
+2. **Apex domain (`epictetelerestaurant.ma`)**
+   - Remove any existing `A` record with host `@`.
+   - Add new record:
+     - Type: **A**
+     - Host: `@`
+     - Points to: `76.76.21.21` (Vercel edge IP)
+     - TTL: default (e.g., 14400 sec)
+3. **Menu subdomain (`menu.epictetelerestaurant.ma`)**
+   - Remove conflicting records for host `menu`.
+   - Add new record:
+     - Type: **CNAME**
+     - Host: `menu`
+     - Points to: `cname.vercel-dns.com` *(or the exact target Vercel shows—copy/paste it)*
+     - TTL: default
+4. Save Hostinger DNS changes. Propagation usually finishes within minutes but can take up to 1 hour.
+
+### Verify in Vercel
+
+1. Return to **Vercel → Project → Settings → Domains**.
+2. Click **Verify** next to each domain. Vercel will detect the new DNS records and issue SSL certificates automatically.
+3. Once DNS propagates, both `https://epictetelerestaurant.ma/` and `https://menu.epictetelerestaurant.ma/` will serve the respective routes.
+   - `https://menu.epictetelerestaurant.ma/` loads the PDF viewer immediately.
 
 ## Notes
 
