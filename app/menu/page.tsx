@@ -1,14 +1,12 @@
- import type { Metadata } from "next";
-import { MenuClient } from "./MenuClient";
+import type { Metadata } from "next";
+import { DigitalMenuClient } from "./DigitalMenuClient";
 
 export const metadata: Metadata = {
-  title: "Menu | Epictete Restaurant",
-  description: "View the latest Epictete restaurant menu.",
+  title: "Notre Carte | Epictete Restaurant",
+  description: "Découvrez notre carte de cuisine italienne authentique. Antipasti, pâtes fraîches, pizzas napolitaines, viandes et poissons préparés avec des ingrédients frais de notre ferme biologique.",
+  keywords: ["menu", "carte", "restaurant italien", "pizza", "pâtes", "Casablanca", "Bouskoura"],
 };
 
-const DEFAULT_MENU_PDF = "/menu-optimized.pdf";
-
 export default function MenuPage() {
-  const pdfHref = process.env.NEXT_PUBLIC_MENU_PDF_URL ?? DEFAULT_MENU_PDF;
-  return <MenuClient pdfHref={pdfHref} />;
+  return <DigitalMenuClient />;
 }

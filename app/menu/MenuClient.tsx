@@ -66,12 +66,6 @@ export function MenuClient({ pdfHref }: MenuClientProps) {
 
       try {
         const pdfSource = resolvePdfSource();
-        const response = await fetch(pdfSource);
-        if (!response.ok) {
-          throw new Error(`Unable to fetch PDF (${response.status})`);
-        }
-
-        const pdfData = await response.arrayBuffer();
 
         if (!workerSrcRef.current && typeof window !== "undefined") {
           const workerModule = await import(
@@ -88,7 +82,10 @@ export function MenuClient({ pdfHref }: MenuClientProps) {
           pdfjs.GlobalWorkerOptions.workerSrc = workerSrcRef.current;
         }
 
-        const loadingTask = pdfjs.getDocument({ data: pdfData });
+        const loadingTask = pdfjs.getDocument({
+          url: pdfSource,
+          withCredentials: false,
+        });
         const pdf: PDFDocumentProxy = await loadingTask.promise;
         const pixelRatio = window.devicePixelRatio || 1;
         const containerWidth =
@@ -102,8 +99,9 @@ export function MenuClient({ pdfHref }: MenuClientProps) {
         ) {
           const page = await pdf.getPage(pageNumber);
           const baseViewport = page.getViewport({ scale: 1 });
+          const desktopMultiplier = window.innerWidth >= 768 ? 0.9 : 1;
           const scale =
-            (containerWidth / baseViewport.width) * (window.innerWidth < 768 ? 1 : 1.05);
+            (containerWidth / baseViewport.width) * desktopMultiplier;
           const viewport = page.getViewport({
             scale: scale * pixelRatio,
           });
