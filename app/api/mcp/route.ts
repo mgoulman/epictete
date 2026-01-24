@@ -1,8 +1,13 @@
 /**
- * MCP Server HTTP Endpoint
- * Provides Streamable HTTP transport for MCP clients like Claude Desktop
+ * MCP Server Unified Endpoint
+ * Supports both HTTP JSON-RPC and SSE transports
  * 
- * Endpoint: POST /api/mcp
+ * Endpoints:
+ * - POST /api/mcp - HTTP JSON-RPC (Claude Desktop)
+ * - GET /api/mcp - Server info / SSE discovery
+ * - GET /api/mcp/sse - SSE transport (Windsurf)
+ * - POST /api/mcp/sse - SSE message endpoint
+ * 
  * Authentication: Bearer token in Authorization header
  */
 
@@ -11,23 +16,35 @@ import { MCPHTTPHandler, MCPRequest } from '@/lib/mcp/http-handler';
 
 // Initialize handler with environment tokens
 function getHandler(): MCPHTTPHandler | null {
-  // Get Meta access token from env
   const metaToken = process.env.META_ACCESS_TOKEN;
-  
-  if (!metaToken) {
-    return null;
-  }
+  if (!metaToken) return null;
 
-  // API key for authenticating incoming MCP requests
   const apiKey = process.env.MCP_API_KEY;
-
   return new MCPHTTPHandler({
     accessToken: metaToken,
     apiKey,
   });
 }
 
+function validateAuth(request: NextRequest): boolean {
+  const apiKey = process.env.MCP_API_KEY;
+  if (!apiKey) return true;
+  
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader) return false;
+  
+  return authHeader.replace('Bearer ', '') === apiKey;
+}
+
 export async function POST(request: NextRequest) {
+  // Validate auth
+  if (!validateAuth(request)) {
+    return NextResponse.json(
+      { jsonrpc: '2.0', error: { code: -32001, message: 'Unauthorized' } },
+      { status: 401 }
+    );
+  }
+
   try {
     const handler = getHandler();
     
@@ -74,31 +91,42 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action');
 
+  // Server info endpoint
   if (action === 'info') {
     return NextResponse.json({
-      name: 'epictete-meta-ads',
+      name: 'epictete-mcp',
       version: '1.0.0',
       description: 'Meta Ads & Instagram MCP Server for Epictete Restaurant',
-      transport: 'streamable-http',
-      endpoint: '/api/mcp',
+      transports: {
+        http: '/api/mcp',
+        sse: '/api/mcp/sse',
+      },
       authentication: 'Bearer token required (MCP_API_KEY)',
       capabilities: {
         tools: true,
         resources: false,
         prompts: false,
       },
+      availableServers: [
+        { name: 'meta-ads', path: '/api/mcp', description: 'Meta Ads & Instagram API' },
+      ],
     });
   }
 
-  // Return MCP server info for discovery
+  // MCP protocol discovery
   return NextResponse.json({
     jsonrpc: '2.0',
     result: {
       protocolVersion: '2024-11-05',
       capabilities: { tools: {} },
       serverInfo: {
-        name: 'epictete-meta-ads',
+        name: 'epictete-mcp',
         version: '1.0.0',
+      },
+      transports: ['http', 'sse'],
+      endpoints: {
+        http: '/api/mcp',
+        sse: '/api/mcp/sse',
       },
     },
   });
