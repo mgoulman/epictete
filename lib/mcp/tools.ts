@@ -235,6 +235,107 @@ export const META_ADS_TOOLS: Tool[] = [
       required: ['account_id', 'targeting'],
     },
   },
+  // Ad Set Management
+  {
+    name: 'create_adset',
+    description: 'Create a new ad set with targeting. Optimization goals: LINK_CLICKS, REACH, IMPRESSIONS, CONVERSIONS, LANDING_PAGE_VIEWS, LEAD_GENERATION, VIDEO_VIEWS, ENGAGEMENT',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account_id: { type: 'string', description: 'Meta Ads account ID' },
+        campaign_id: { type: 'string', description: 'Campaign ID to attach this ad set to' },
+        name: { type: 'string', description: 'Ad set name' },
+        optimization_goal: { type: 'string', description: 'Optimization goal' },
+        billing_event: { type: 'string', description: 'Billing event: IMPRESSIONS, LINK_CLICKS (default: IMPRESSIONS)' },
+        daily_budget: { type: 'number', description: 'Daily budget in cents' },
+        targeting: { type: 'object', description: 'Targeting spec: {age_min, age_max, geo_locations, interests, behaviors}' },
+        status: { type: 'string', description: 'Initial status (default: PAUSED)' },
+        start_time: { type: 'string', description: 'Start time ISO format' },
+        end_time: { type: 'string', description: 'End time ISO format' },
+      },
+      required: ['account_id', 'campaign_id', 'name', 'optimization_goal'],
+    },
+  },
+  {
+    name: 'update_adset',
+    description: 'Update an existing ad set',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        adset_id: { type: 'string', description: 'Ad set ID' },
+        name: { type: 'string', description: 'New name' },
+        status: { type: 'string', description: 'New status: ACTIVE, PAUSED' },
+        daily_budget: { type: 'number', description: 'New daily budget in cents' },
+        targeting: { type: 'object', description: 'New targeting specification' },
+        bid_amount: { type: 'number', description: 'Bid amount in cents' },
+      },
+      required: ['adset_id'],
+    },
+  },
+  // Ad Management
+  {
+    name: 'create_ad',
+    description: 'Create a new ad using an existing creative',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account_id: { type: 'string', description: 'Meta Ads account ID' },
+        adset_id: { type: 'string', description: 'Ad set ID to attach this ad to' },
+        name: { type: 'string', description: 'Ad name' },
+        creative_id: { type: 'string', description: 'Creative ID to use' },
+        status: { type: 'string', description: 'Initial status (default: PAUSED)' },
+      },
+      required: ['account_id', 'adset_id', 'name', 'creative_id'],
+    },
+  },
+  {
+    name: 'update_ad',
+    description: 'Update an existing ad',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ad_id: { type: 'string', description: 'Ad ID' },
+        name: { type: 'string', description: 'New name' },
+        status: { type: 'string', description: 'New status: ACTIVE, PAUSED' },
+        creative_id: { type: 'string', description: 'New creative ID' },
+      },
+      required: ['ad_id'],
+    },
+  },
+  // Creative Management
+  {
+    name: 'create_ad_creative',
+    description: 'Create an ad creative with image, copy and CTA',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account_id: { type: 'string', description: 'Meta Ads account ID' },
+        image_hash: { type: 'string', description: 'Image hash from upload_ad_image' },
+        name: { type: 'string', description: 'Creative name' },
+        page_id: { type: 'string', description: 'Facebook Page ID' },
+        link_url: { type: 'string', description: 'Destination URL' },
+        message: { type: 'string', description: 'Primary text/caption' },
+        headline: { type: 'string', description: 'Headline text' },
+        description: { type: 'string', description: 'Description text' },
+        call_to_action: { type: 'string', description: 'CTA: LEARN_MORE, SHOP_NOW, BOOK_NOW, ORDER_NOW, GET_DIRECTIONS, CONTACT_US' },
+        instagram_actor_id: { type: 'string', description: 'Instagram account ID for Instagram placements' },
+      },
+      required: ['account_id', 'image_hash'],
+    },
+  },
+  {
+    name: 'upload_ad_image',
+    description: 'Upload an image for use in ads. Returns image hash.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account_id: { type: 'string', description: 'Meta Ads account ID' },
+        image_url: { type: 'string', description: 'Public URL of image to upload' },
+        name: { type: 'string', description: 'Image name for reference' },
+      },
+      required: ['account_id', 'image_url'],
+    },
+  },
 ];
 
 // Instagram Tool Definitions
@@ -344,6 +445,116 @@ export const INSTAGRAM_TOOLS: Tool[] = [
       required: ['account_id'],
     },
   },
+  {
+    name: 'instagram_get_comments',
+    description: 'Get comments on a specific Instagram media post',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        media_id: { type: 'string', description: 'Instagram media/post ID' },
+      },
+      required: ['media_id'],
+    },
+  },
+  {
+    name: 'instagram_reply_comment',
+    description: 'Reply to a comment on Instagram',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        comment_id: { type: 'string', description: 'Comment ID to reply to' },
+        message: { type: 'string', description: 'Reply message text' },
+      },
+      required: ['comment_id', 'message'],
+    },
+  },
+  {
+    name: 'instagram_hide_comment',
+    description: 'Hide or unhide a comment on Instagram',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        comment_id: { type: 'string', description: 'Comment ID to hide/unhide' },
+        hide: { type: 'boolean', description: 'True to hide, false to unhide (default: true)' },
+      },
+      required: ['comment_id'],
+    },
+  },
+  // Advanced Instagram Publishing
+  {
+    name: 'instagram_publish_video',
+    description: 'Publish a video or Reels to Instagram',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account_id: { type: 'string', description: 'Instagram business account ID' },
+        video_url: { type: 'string', description: 'Public URL of the video' },
+        caption: { type: 'string', description: 'Post caption with hashtags' },
+        media_type: { type: 'string', description: 'VIDEO or REELS (default: VIDEO)' },
+      },
+      required: ['account_id', 'video_url'],
+    },
+  },
+  {
+    name: 'instagram_publish_carousel',
+    description: 'Publish a carousel (multiple images/videos) to Instagram',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account_id: { type: 'string', description: 'Instagram business account ID' },
+        media_urls: { type: 'array', items: { type: 'string' }, description: 'Array of public image/video URLs (2-10 items)' },
+        caption: { type: 'string', description: 'Post caption with hashtags' },
+      },
+      required: ['account_id', 'media_urls'],
+    },
+  },
+  {
+    name: 'instagram_get_media_insights',
+    description: 'Get detailed insights/analytics for a specific post',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        media_id: { type: 'string', description: 'Instagram media/post ID' },
+        metrics: { type: 'array', items: { type: 'string' }, description: 'Metrics: engagement, impressions, reach, saved (default: all)' },
+      },
+      required: ['media_id'],
+    },
+  },
+  {
+    name: 'instagram_get_media_details',
+    description: 'Get detailed information about a specific Instagram post',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        media_id: { type: 'string', description: 'Instagram media/post ID' },
+      },
+      required: ['media_id'],
+    },
+  },
+  {
+    name: 'instagram_get_hashtag_top_media',
+    description: 'Get top performing posts for a hashtag',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account_id: { type: 'string', description: 'Instagram business account ID' },
+        hashtag_id: { type: 'string', description: 'Hashtag ID (from instagram_search_hashtag)' },
+      },
+      required: ['account_id', 'hashtag_id'],
+    },
+  },
+  {
+    name: 'instagram_get_hashtag_recent_media',
+    description: 'Get recent posts for a hashtag',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        account_id: { type: 'string', description: 'Instagram business account ID' },
+        hashtag_id: { type: 'string', description: 'Hashtag ID (from instagram_search_hashtag)' },
+      },
+      required: ['account_id', 'hashtag_id'],
+    },
+  },
 ];
 
 // Meta Ads Tool Executor
@@ -420,6 +631,59 @@ export async function executeMetaAdsTool(
         targeting: args?.targeting as Record<string, unknown>,
         optimizationGoal: args?.optimization_goal as string,
       });
+    // Ad Set Management
+    case 'create_adset':
+      return metaAdsets.createAdset(accessToken, args?.account_id as string, {
+        campaignId: args?.campaign_id as string,
+        name: args?.name as string,
+        optimizationGoal: args?.optimization_goal as metaAdsets.OptimizationGoal,
+        billingEvent: (args?.billing_event as metaAdsets.BillingEvent) || 'IMPRESSIONS',
+        dailyBudget: args?.daily_budget as number,
+        targeting: args?.targeting as metaAdsets.Targeting,
+        status: args?.status as string,
+        startTime: args?.start_time as string,
+        endTime: args?.end_time as string,
+      });
+    case 'update_adset':
+      return metaAdsets.updateAdset(accessToken, args?.adset_id as string, {
+        name: args?.name as string,
+        status: args?.status as string,
+        dailyBudget: args?.daily_budget as number,
+        targeting: args?.targeting as metaAdsets.Targeting,
+        bidAmount: args?.bid_amount as number,
+      });
+    // Ad Management
+    case 'create_ad':
+      return metaAds.createAd(accessToken, args?.account_id as string, {
+        name: args?.name as string,
+        adsetId: args?.adset_id as string,
+        creativeId: args?.creative_id as string,
+        status: (args?.status as metaAds.AdStatus) || 'PAUSED',
+      });
+    case 'update_ad':
+      return metaAds.updateAd(accessToken, args?.ad_id as string, {
+        name: args?.name as string,
+        status: args?.status as metaAds.AdStatus,
+        creativeId: args?.creative_id as string,
+      });
+    // Creative Management
+    case 'create_ad_creative':
+      return metaAds.createAdCreative(accessToken, args?.account_id as string, {
+        imageHash: args?.image_hash as string,
+        name: args?.name as string,
+        pageId: args?.page_id as string,
+        linkUrl: args?.link_url as string,
+        message: args?.message as string,
+        headline: args?.headline as string,
+        description: args?.description as string,
+        callToActionType: args?.call_to_action as metaAds.CallToActionType,
+        instagramActorId: args?.instagram_actor_id as string,
+      });
+    case 'upload_ad_image':
+      return metaAds.uploadAdImage(accessToken, args?.account_id as string, {
+        imageUrl: args?.image_url as string,
+        name: args?.name as string,
+      });
     default:
       throw new Error(`Unknown Meta Ads tool: ${name}`);
   }
@@ -464,6 +728,49 @@ export async function executeInstagramTool(
       return client.searchHashtag(args?.hashtag as string, args?.account_id as string);
     case 'instagram_get_mentions':
       return client.getMentions(args?.account_id as string);
+    case 'instagram_get_comments':
+      return client.getMediaComments(args?.media_id as string);
+    case 'instagram_reply_comment':
+      return client.replyToComment(args?.comment_id as string, args?.message as string);
+    case 'instagram_hide_comment':
+      return client.hideComment(args?.comment_id as string, (args?.hide as boolean) ?? true);
+    // Advanced Publishing
+    case 'instagram_publish_video': {
+      const videoContainer = await client.createVideoContainer(
+        args?.video_url as string,
+        args?.caption as string,
+        (args?.media_type as 'VIDEO' | 'REELS') || 'VIDEO',
+        args?.account_id as string
+      );
+      return client.publishMedia(videoContainer.id, args?.account_id as string);
+    }
+    case 'instagram_publish_carousel': {
+      const mediaUrls = args?.media_urls as string[];
+      const childContainers: string[] = [];
+      for (const url of mediaUrls) {
+        const container = await client.createImageContainer(url, undefined, args?.account_id as string);
+        childContainers.push(container.id);
+      }
+      const carouselContainer = await client.createCarouselContainer(
+        childContainers,
+        args?.caption as string,
+        args?.account_id as string
+      );
+      return client.publishMedia(carouselContainer.id, args?.account_id as string);
+    }
+    // Analytics
+    case 'instagram_get_media_insights':
+      return client.getMediaInsights(
+        args?.media_id as string,
+        (args?.metrics as string[]) || ['engagement', 'impressions', 'reach', 'saved']
+      );
+    case 'instagram_get_media_details':
+      return client.getMediaDetails(args?.media_id as string);
+    // Hashtag Research
+    case 'instagram_get_hashtag_top_media':
+      return client.getHashtagTopMedia(args?.hashtag_id as string, args?.account_id as string);
+    case 'instagram_get_hashtag_recent_media':
+      return client.getHashtagRecentMedia(args?.hashtag_id as string, args?.account_id as string);
     default:
       throw new Error(`Unknown Instagram tool: ${name}`);
   }

@@ -100,15 +100,18 @@ Replace:
 
 | Tool | Description |
 |------|-------------|
-| `instagram_get_profile` | Get profile info |
-| `instagram_get_media` | Get recent posts |
+| `instagram_get_profile` | Get profile info (followers, bio, post count) |
+| `instagram_get_media` | Get recent posts with engagement metrics |
 | `instagram_get_stories` | Get active stories |
-| `instagram_get_insights` | Get account insights |
-| `instagram_get_audience` | Get audience demographics |
+| `instagram_get_insights` | Get account insights (reach, impressions) |
+| `instagram_get_audience` | Get audience demographics (cities, countries, age/gender) |
 | `instagram_publish_image` | Publish image post |
 | `instagram_discover_business` | Competitor analysis |
 | `instagram_search_hashtag` | Search hashtag |
 | `instagram_get_mentions` | Get tagged posts |
+| `instagram_get_comments` | Get comments on a specific post |
+| `instagram_reply_comment` | Reply to a comment |
+| `instagram_hide_comment` | Hide/unhide a comment |
 
 ## Usage Examples with Claude
 
