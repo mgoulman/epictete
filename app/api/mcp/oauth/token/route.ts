@@ -45,12 +45,12 @@ export async function POST(request: NextRequest) {
   const clientId = params.get('client_id');
   const clientSecret = params.get('client_secret');
 
-  // Validate client credentials - accept static client or dynamic clients
+  // Validate client credentials
   const staticClientId = process.env.MCP_OAUTH_CLIENT_ID || 'epictete-mcp-client';
-  const staticClientSecret = process.env.MCP_OAUTH_CLIENT_SECRET || process.env.MCP_API_KEY;
+  const staticClientSecret = process.env.MCP_OAUTH_CLIENT_SECRET;
   
   const isStaticClient = clientId === staticClientId;
-  const isDynamicClient = clientId ? (dynamicClients.has(clientId) || clientId.startsWith('chatgpt_')) : false;
+  const isDynamicClient = clientId ? dynamicClients.has(clientId) : false;
   
   if (!clientId || (!isStaticClient && !isDynamicClient)) {
     return NextResponse.json(
@@ -59,18 +59,26 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Only validate secret for static client with secret configured
-  if (isStaticClient && staticClientSecret && clientSecret !== staticClientSecret) {
-    return NextResponse.json(
-      { error: 'invalid_client', error_description: 'Invalid client_secret' },
-      { status: 401, headers: { 'Access-Control-Allow-Origin': '*' } }
-    );
+  // Validate secret for static client (required if configured)
+  if (isStaticClient) {
+    if (staticClientSecret && clientSecret !== staticClientSecret) {
+      return NextResponse.json(
+        { error: 'invalid_client', error_description: 'Invalid client_secret' },
+        { status: 401, headers: { 'Access-Control-Allow-Origin': '*' } }
+      );
+    }
   }
   
-  // For dynamic clients, validate against stored secret if provided
-  if (isDynamicClient && dynamicClients.has(clientId!)) {
+  // For dynamic clients, always validate against stored secret
+  if (isDynamicClient) {
     const dynamicClient = dynamicClients.get(clientId!);
-    if (dynamicClient?.client_secret && clientSecret !== dynamicClient.client_secret) {
+    if (!dynamicClient) {
+      return NextResponse.json(
+        { error: 'invalid_client', error_description: 'Unknown dynamic client' },
+        { status: 401, headers: { 'Access-Control-Allow-Origin': '*' } }
+      );
+    }
+    if (dynamicClient.client_secret && clientSecret !== dynamicClient.client_secret) {
       return NextResponse.json(
         { error: 'invalid_client', error_description: 'Invalid client_secret' },
         { status: 401, headers: { 'Access-Control-Allow-Origin': '*' } }
