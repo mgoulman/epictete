@@ -1,14 +1,17 @@
 /**
  * OAuth 2.0 Authorization Server Metadata (RFC 8414)
- * GET /.well-known/oauth-authorization-server
+ * GET /api/mcp/oauth/well-known
  * 
+ * Also accessible via /.well-known/oauth-authorization-server (via rewrite)
  * Required by ChatGPT for MCP OAuth discovery
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://epictetelerestaurant.ma';
+export async function GET(request: NextRequest) {
+  const host = request.headers.get('host') || 'epictetelerestaurant.ma';
+  const protocol = host.includes('localhost') ? 'http' : 'https';
+  const baseUrl = `${protocol}://${host}`;
   
   return NextResponse.json({
     issuer: baseUrl,
