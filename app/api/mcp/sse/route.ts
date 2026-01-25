@@ -28,16 +28,9 @@ function getHandler(): MCPHTTPHandler | null {
 }
 
 // SSE endpoint - establishes connection
+// Allow unauthenticated GET for initial connection (ChatGPT OAuth flow)
+// Auth is validated on POST requests (tool calls)
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const authResult = validateAuth({
-    authHeader: request.headers.get('authorization'),
-    queryApiKey: searchParams.get('api_key'),
-  });
-  if (!authResult.valid) {
-    return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
-  }
-
   const handler = getHandler();
   if (!handler) {
     return NextResponse.json(
@@ -110,6 +103,19 @@ export async function GET(request: NextRequest) {
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
       'X-Connection-Id': connectionId,
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
+}
+
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }
