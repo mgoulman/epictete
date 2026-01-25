@@ -29,7 +29,11 @@ function getHandler(): MCPHTTPHandler | null {
 
 // SSE endpoint - establishes connection
 export async function GET(request: NextRequest) {
-  const authResult = validateAuth(request.headers.get('authorization'));
+  const { searchParams } = new URL(request.url);
+  const authResult = validateAuth({
+    authHeader: request.headers.get('authorization'),
+    queryApiKey: searchParams.get('api_key'),
+  });
   if (!authResult.valid) {
     return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
   }
@@ -112,12 +116,15 @@ export async function GET(request: NextRequest) {
 
 // POST endpoint - receive messages for SSE connection
 export async function POST(request: NextRequest) {
-  const authResult = validateAuth(request.headers.get('authorization'));
+  const { searchParams } = new URL(request.url);
+  const authResult = validateAuth({
+    authHeader: request.headers.get('authorization'),
+    queryApiKey: searchParams.get('api_key'),
+  });
   if (!authResult.valid) {
     return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
   }
 
-  const { searchParams } = new URL(request.url);
   const connectionId = searchParams.get('connectionId');
   
   // If no connectionId, handle as regular HTTP request

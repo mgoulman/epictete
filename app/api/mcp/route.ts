@@ -28,8 +28,12 @@ function getHandler(): MCPHTTPHandler | null {
 }
 
 export async function POST(request: NextRequest) {
-  // Validate auth (supports both Bearer token and OAuth)
-  const authResult = validateAuth(request.headers.get('authorization'));
+  // Validate auth (supports Bearer token, OAuth, and query param)
+  const { searchParams } = new URL(request.url);
+  const authResult = validateAuth({
+    authHeader: request.headers.get('authorization'),
+    queryApiKey: searchParams.get('api_key'),
+  });
   if (!authResult.valid) {
     return NextResponse.json(
       { jsonrpc: '2.0', error: { code: -32001, message: authResult.error || 'Unauthorized' } },
