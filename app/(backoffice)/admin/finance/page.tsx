@@ -5,11 +5,11 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { PermissionGate } from '@/components/backoffice/auth/PermissionGate';
 import { usePermissions } from '@/lib/auth/hooks';
 import {
-  DollarSign, TrendingUp, ShoppingCart, Upload, Plus, Filter,
+  DollarSign, TrendingUp, ShoppingCart, Upload, Plus,
   Download, RefreshCw, ChevronLeft, ChevronRight, X, Calendar,
   Search, FileSpreadsheet, Trash2, Eye, BarChart3, PieChart,
   Package, AlertTriangle, Edit2, Minus, Users, Phone, Mail, MapPin,
-  CreditCard, ArrowUpRight, ArrowDownRight
+  ArrowUpRight, ArrowDownRight
 } from 'lucide-react';
 
 interface SalesItem {
@@ -113,6 +113,23 @@ export default function FinancePage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
+  const [autoImporting, setAutoImporting] = useState(false);
+  const [showAutoImportModal, setShowAutoImportModal] = useState(false);
+  const [autoImportDates, setAutoImportDates] = useState(() => {
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    return {
+      startDate: weekAgo.toISOString().split('T')[0],
+      endDate: now.toISOString().split('T')[0]
+    };
+  });
+  const [autoImportResult, setAutoImportResult] = useState<{
+    success: boolean;
+    totalRows: number;
+    insertedRows: number;
+    skippedDuplicates: number;
+    message?: string;
+  } | null>(null);
 
   // Inventory state
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
@@ -267,17 +284,23 @@ export default function FinancePage() {
   }, []);
 
   useEffect(() => {
-    fetchStats();
-    fetchSales();
+    const loadData = async () => {
+      await fetchStats();
+      await fetchSales();
+    };
+    loadData();
   }, [fetchStats, fetchSales]);
 
   useEffect(() => {
-    if (activeTab === 'inventory') {
-      fetchInventory();
-    }
-    if (activeTab === 'vendors') {
-      fetchVendors();
-    }
+    const loadTabData = async () => {
+      if (activeTab === 'inventory') {
+        await fetchInventory();
+      }
+      if (activeTab === 'vendors') {
+        await fetchVendors();
+      }
+    };
+    loadTabData();
   }, [activeTab, fetchInventory, fetchVendors]);
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -308,6 +331,54 @@ export default function FinancePage() {
     }
     setImporting(false);
     e.target.value = '';
+  };
+
+  const handleAutoImport = async () => {
+    setAutoImporting(true);
+    setAutoImportResult(null);
+    
+    try {
+      const res = await fetch('/api/finance/auto-import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startDate: autoImportDates.startDate,
+          endDate: autoImportDates.endDate
+        })
+      });
+
+      const result = await res.json();
+      
+      if (res.ok) {
+        setAutoImportResult({
+          success: true,
+          totalRows: result.totalRows,
+          insertedRows: result.insertedRows,
+          skippedDuplicates: result.skippedDuplicates
+        });
+        fetchStats();
+        fetchSales();
+      } else {
+        setAutoImportResult({
+          success: false,
+          totalRows: 0,
+          insertedRows: 0,
+          skippedDuplicates: 0,
+          message: result.error || 'Auto-import failed'
+        });
+      }
+    } catch (err) {
+      console.error('Auto-import error:', err);
+      setAutoImportResult({
+        success: false,
+        totalRows: 0,
+        insertedRows: 0,
+        skippedDuplicates: 0,
+        message: 'Auto-import failed'
+      });
+    }
+    
+    setAutoImporting(false);
   };
 
   const handleAddSale = async () => {
@@ -648,6 +719,13 @@ export default function FinancePage() {
           <div className="flex items-center gap-2">
             {canWrite && (
               <>
+                <button
+                  onClick={() => setShowAutoImportModal(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-sm font-medium transition-colors"
+                >
+                  <RefreshCw className={`w-4 h-4 ${autoImporting ? 'animate-spin' : ''}`} />
+                  {autoImporting ? 'Syncing...' : 'Sync LaCaisse'}
+                </button>
                 <label className="flex items-center gap-2 px-4 py-2.5 bg-secondary border border-border rounded-lg text-foreground text-sm cursor-pointer hover:bg-card transition-colors">
                   <Upload className="w-4 h-4" />
                   {importing ? 'Importing...' : 'Import'}
@@ -661,7 +739,7 @@ export default function FinancePage() {
                 </label>
                 <button
                   onClick={() => setShowAddModal(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-linear-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium"
                 >
                   <Plus className="w-4 h-4" /> Add Sale
                 </button>
@@ -733,7 +811,7 @@ export default function FinancePage() {
           <div className="space-y-6">
             {/* Summary Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-gradient-to-br from-green-500/20 to-green-600/10 border border-green-500/20 rounded-2xl p-5">
+              <div className="bg-linear-to-br from-green-500/20 to-green-600/10 border border-green-500/20 rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-3">
                   <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
                     <DollarSign className="w-5 h-5 text-green-500" />
@@ -780,7 +858,7 @@ export default function FinancePage() {
               <div className="bg-secondary border border-border rounded-2xl p-5">
                 <h3 className="text-lg font-semibold text-foreground mb-4">Sales by Category</h3>
                 <div className="space-y-4">
-                  {stats.categoryStats.slice(0, 8).map((cat, i) => {
+                  {stats.categoryStats.slice(0, 8).map((cat) => {
                     const maxRevenue = stats.categoryStats[0]?.revenue || 1;
                     const percentage = (cat.revenue / maxRevenue) * 100;
                     return (
@@ -794,7 +872,7 @@ export default function FinancePage() {
                         </div>
                         <div className="h-2.5 bg-card rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-gradient-to-r from-[#606338] to-[#7A7B4E] rounded-full transition-all duration-500"
+                            className="h-full bg-linear-to-r from-[#606338] to-[#7A7B4E] rounded-full transition-all duration-500"
                             style={{ width: `${Math.max(percentage, 3)}%` }}
                           />
                         </div>
@@ -837,7 +915,7 @@ export default function FinancePage() {
                         <div key={day.date} className="flex flex-col items-center gap-2 w-16">
                           <div className="h-32 flex items-end">
                             <div
-                              className="w-10 bg-gradient-to-t from-[#606338] to-[#7A7B4E] rounded-t-lg"
+                              className="w-10 bg-linear-to-t from-[#606338] to-[#7A7B4E] rounded-t-lg"
                               style={{ height: `${Math.max(height, 4)}px` }}
                               title={formatCurrency(day.revenue)}
                             />
@@ -1071,7 +1149,7 @@ export default function FinancePage() {
               {canWrite && (
                 <button
                   onClick={() => setShowInventoryModal(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-linear-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium"
                 >
                   <Plus className="w-4 h-4" /> Add Item
                 </button>
@@ -1231,7 +1309,7 @@ export default function FinancePage() {
                 <p className="text-muted-foreground text-sm">Active Vendors</p>
                 <p className="text-2xl font-bold text-foreground">{vendors.filter(v => v.is_active).length}</p>
               </div>
-              <div className="bg-gradient-to-br from-red-500/20 to-red-600/10 border border-red-500/20 rounded-xl p-4">
+              <div className="bg-linear-to-br from-red-500/20 to-red-600/10 border border-red-500/20 rounded-xl p-4">
                 <p className="text-red-400 text-sm">Total Owed</p>
                 <p className="text-2xl font-bold text-red-500">{formatCurrency(totalOwedToVendors)}</p>
               </div>
@@ -1256,7 +1334,7 @@ export default function FinancePage() {
               {canWrite && (
                 <button
                   onClick={() => setShowVendorModal(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-linear-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium"
                 >
                   <Plus className="w-4 h-4" /> Add Vendor
                 </button>
@@ -2024,6 +2102,86 @@ export default function FinancePage() {
       )}
 
       {/* Add Sale Modal */}
+      {/* Auto Import Modal */}
+      {showAutoImportModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <h2 className="text-lg font-semibold text-foreground">Sync from LaCaisse</h2>
+              <button onClick={() => { setShowAutoImportModal(false); setAutoImportResult(null); }} className="p-2 text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              {autoImportResult ? (
+                <div className={`p-4 rounded-xl ${autoImportResult.success ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
+                  {autoImportResult.success ? (
+                    <>
+                      <p className="text-green-500 font-semibold mb-2">Import Successful!</p>
+                      <div className="text-sm text-foreground space-y-1">
+                        <p>Total rows processed: <span className="font-medium">{autoImportResult.totalRows}</span></p>
+                        <p>New records inserted: <span className="font-medium text-green-500">{autoImportResult.insertedRows}</span></p>
+                        <p>Duplicates skipped: <span className="font-medium text-muted-foreground">{autoImportResult.skippedDuplicates}</span></p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-red-500 font-semibold mb-2">Import Failed</p>
+                      <p className="text-sm text-muted-foreground">{autoImportResult.message}</p>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Automatically fetch and import sales data from LaCaisse.ma for the selected date range.
+                    Duplicate records will be automatically skipped.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-muted-foreground mb-1.5">Start Date</label>
+                      <input
+                        type="date"
+                        value={autoImportDates.startDate}
+                        onChange={e => setAutoImportDates(prev => ({ ...prev, startDate: e.target.value }))}
+                        className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-muted-foreground mb-1.5">End Date</label>
+                      <input
+                        type="date"
+                        value={autoImportDates.endDate}
+                        onChange={e => setAutoImportDates(prev => ({ ...prev, endDate: e.target.value }))}
+                        className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="flex justify-end gap-3 px-5 py-4 border-t border-border">
+              <button
+                onClick={() => { setShowAutoImportModal(false); setAutoImportResult(null); }}
+                className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm"
+              >
+                {autoImportResult ? 'Close' : 'Cancel'}
+              </button>
+              {!autoImportResult && (
+                <button
+                  onClick={handleAutoImport}
+                  disabled={autoImporting}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg text-white text-sm font-medium"
+                >
+                  <RefreshCw className={`w-4 h-4 ${autoImporting ? 'animate-spin' : ''}`} />
+                  {autoImporting ? 'Importing...' : 'Start Import'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {showAddModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl">
