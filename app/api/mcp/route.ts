@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { MCPHTTPHandler, MCPRequest } from '@/lib/mcp/http-handler';
+import { validateAuth } from '@/lib/mcp/auth';
 
 // Initialize handler with environment tokens
 function getHandler(): MCPHTTPHandler | null {
@@ -26,21 +27,12 @@ function getHandler(): MCPHTTPHandler | null {
   });
 }
 
-function validateAuth(request: NextRequest): boolean {
-  const apiKey = process.env.MCP_API_KEY;
-  if (!apiKey) return true;
-  
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader) return false;
-  
-  return authHeader.replace('Bearer ', '') === apiKey;
-}
-
 export async function POST(request: NextRequest) {
-  // Validate auth
-  if (!validateAuth(request)) {
+  // Validate auth (supports both Bearer token and OAuth)
+  const authResult = validateAuth(request.headers.get('authorization'));
+  if (!authResult.valid) {
     return NextResponse.json(
-      { jsonrpc: '2.0', error: { code: -32001, message: 'Unauthorized' } },
+      { jsonrpc: '2.0', error: { code: -32001, message: authResult.error || 'Unauthorized' } },
       { status: 401 }
     );
   }
@@ -101,7 +93,15 @@ export async function GET(request: NextRequest) {
         http: '/api/mcp',
         sse: '/api/mcp/sse',
       },
-      authentication: 'Bearer token required (MCP_API_KEY)',
+      authentication: {
+        methods: ['bearer', 'oauth2'],
+        bearer: 'Authorization: Bearer <MCP_API_KEY>',
+        oauth2: {
+          authorization_endpoint: '/api/mcp/oauth/authorize',
+          token_endpoint: '/api/mcp/oauth/token',
+          grant_types: ['authorization_code', 'client_credentials', 'refresh_token'],
+        },
+      },
       capabilities: {
         tools: true,
         resources: false,

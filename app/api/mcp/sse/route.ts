@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { MCPHTTPHandler, MCPRequest } from '@/lib/mcp/http-handler';
+import { validateAuth } from '@/lib/mcp/auth';
 
 // Store active SSE connections
 const connections = new Map<string, {
@@ -26,21 +27,11 @@ function getHandler(): MCPHTTPHandler | null {
   });
 }
 
-function validateAuth(request: NextRequest): boolean {
-  const apiKey = process.env.MCP_API_KEY;
-  if (!apiKey) return true; // No auth required if no key set
-  
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader) return false;
-  
-  const token = authHeader.replace('Bearer ', '');
-  return token === apiKey;
-}
-
 // SSE endpoint - establishes connection
 export async function GET(request: NextRequest) {
-  if (!validateAuth(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authResult = validateAuth(request.headers.get('authorization'));
+  if (!authResult.valid) {
+    return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
   }
 
   const handler = getHandler();
@@ -121,8 +112,9 @@ export async function GET(request: NextRequest) {
 
 // POST endpoint - receive messages for SSE connection
 export async function POST(request: NextRequest) {
-  if (!validateAuth(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authResult = validateAuth(request.headers.get('authorization'));
+  if (!authResult.valid) {
+    return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
   }
 
   const { searchParams } = new URL(request.url);
