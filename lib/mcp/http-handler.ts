@@ -40,10 +40,15 @@ export class MCPHTTPHandler {
 
   async handleRequest(
     request: MCPRequest,
-    authHeader?: string
+    authHeader?: string,
+    skipAuth?: boolean
   ): Promise<MCPResponse> {
-    // Validate API key if configured
-    if (this.config.apiKey) {
+    // Discovery methods don't require auth (for ChatGPT MCP compatibility)
+    const discoveryMethods = ['initialize', 'initialized', 'tools/list', 'ping', 'notifications/initialized'];
+    const isDiscoveryMethod = discoveryMethods.includes(request.method);
+    
+    // Validate API key if configured (skip for discovery methods or when explicitly skipped)
+    if (this.config.apiKey && !isDiscoveryMethod && !skipAuth) {
       if (!authHeader) {
         return {
           jsonrpc: '2.0',
