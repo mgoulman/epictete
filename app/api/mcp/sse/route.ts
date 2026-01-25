@@ -53,10 +53,14 @@ export async function GET(request: NextRequest) {
         method: 'connection/init',
         params: {
           connectionId,
-          protocolVersion: '2024-11-05',
-          capabilities: { tools: {} },
+          protocolVersion: '2025-03-26',
+          capabilities: {
+            tools: {
+              listChanged: true,
+            },
+          },
           serverInfo: {
-            name: 'epictete-meta-ads',
+            name: 'epictete-mcp',
             version: '1.0.0',
           },
         },
@@ -165,18 +169,19 @@ export async function POST(request: NextRequest) {
     }
   }
   
-  // If no connectionId, handle as regular HTTP request
+  // If no connectionId, handle as regular HTTP request (Streamable HTTP transport)
   if (!connectionId) {
     const handler = getHandler();
     if (!handler) {
       return NextResponse.json(
         { jsonrpc: '2.0', error: { code: -32001, message: 'Server not configured' } },
-        { status: 500 }
+        { status: 500, headers: { 'Access-Control-Allow-Origin': '*' } }
       );
     }
     
     const authHeader = request.headers.get('authorization') || undefined;
-    const response = await handler.handleRequest(body, authHeader);
+    // Pass isDiscoveryMethod to skip auth validation for discovery methods
+    const response = await handler.handleRequest(body, authHeader, isDiscoveryMethod);
     return NextResponse.json(response, {
       headers: {
         'Access-Control-Allow-Origin': '*',

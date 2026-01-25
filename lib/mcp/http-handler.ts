@@ -82,13 +82,33 @@ export class MCPHTTPHandler {
             jsonrpc: '2.0',
             id,
             result: {
-              protocolVersion: '2024-11-05',
-              capabilities: { tools: {} },
+              protocolVersion: '2025-03-26',
+              capabilities: {
+                tools: {
+                  listChanged: true,
+                },
+              },
               serverInfo: {
-                name: 'epictete-meta-ads',
+                name: 'epictete-mcp',
                 version: '1.0.0',
               },
             },
+          };
+
+        case 'initialized':
+        case 'notifications/initialized':
+          // Client notification - no response needed but return success
+          return {
+            jsonrpc: '2.0',
+            id,
+            result: {},
+          };
+
+        case 'ping':
+          return {
+            jsonrpc: '2.0',
+            id,
+            result: {},
           };
 
         case 'tools/list':
