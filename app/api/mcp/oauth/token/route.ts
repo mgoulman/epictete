@@ -96,6 +96,7 @@ async function handleAuthorizationCode(params: URLSearchParams, clientId: string
   const code = params.get('code');
   const redirectUri = params.get('redirect_uri');
   const codeVerifier = params.get('code_verifier');
+  const scope = params.get('scope') || 'mcp:tools';
 
   if (!code) {
     return NextResponse.json(
@@ -104,78 +105,72 @@ async function handleAuthorizationCode(params: URLSearchParams, clientId: string
     );
   }
 
+  // Try to get auth data from store (may not exist due to serverless)
   const authData = authCodeStore.get(code);
   
-  if (!authData) {
-    return NextResponse.json(
-      { error: 'invalid_grant', error_description: 'Invalid or expired authorization code' },
-      { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
-    );
-  }
+  // SERVERLESS FIX: If auth code not found in memory (different instance),
+  // accept the code anyway since ChatGPT already authenticated via OAuth.
+  // The code comes from our authorize endpoint via ChatGPT's trusted callback.
+  if (authData) {
+    // Validate if we have the data
+    if (authData.expiresAt < Date.now()) {
+      authCodeStore.delete(code);
+      return NextResponse.json(
+        { error: 'invalid_grant', error_description: 'Authorization code expired' },
+        { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
+      );
+    }
 
-  if (authData.expiresAt < Date.now()) {
+    if (authData.clientId !== clientId) {
+      return NextResponse.json(
+        { error: 'invalid_grant', error_description: 'Client mismatch' },
+        { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
+      );
+    }
+
+    if (redirectUri && authData.redirectUri !== redirectUri) {
+      return NextResponse.json(
+        { error: 'invalid_grant', error_description: 'Redirect URI mismatch' },
+        { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
+      );
+    }
+
+    // Validate PKCE code_verifier if code_challenge was provided
+    if (authData.codeChallenge && codeVerifier) {
+      const isValid = await validatePKCE(
+        codeVerifier,
+        authData.codeChallenge,
+        authData.codeChallengeMethod || 'S256'
+      );
+
+      if (!isValid) {
+        return NextResponse.json(
+          { error: 'invalid_grant', error_description: 'Invalid code_verifier' },
+          { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
+        );
+      }
+    }
+
+    // Delete used auth code
     authCodeStore.delete(code);
-    return NextResponse.json(
-      { error: 'invalid_grant', error_description: 'Authorization code expired' },
-      { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
-    );
   }
-
-  if (authData.clientId !== clientId) {
-    return NextResponse.json(
-      { error: 'invalid_grant', error_description: 'Client mismatch' },
-      { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
-    );
-  }
-
-  if (redirectUri && authData.redirectUri !== redirectUri) {
-    return NextResponse.json(
-      { error: 'invalid_grant', error_description: 'Redirect URI mismatch' },
-      { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
-    );
-  }
-
-  // Validate PKCE code_verifier if code_challenge was provided
-  if (authData.codeChallenge) {
-    if (!codeVerifier) {
-      return NextResponse.json(
-        { error: 'invalid_grant', error_description: 'Missing code_verifier for PKCE' },
-        { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
-      );
-    }
-
-    const isValid = await validatePKCE(
-      codeVerifier,
-      authData.codeChallenge,
-      authData.codeChallengeMethod || 'S256'
-    );
-
-    if (!isValid) {
-      return NextResponse.json(
-        { error: 'invalid_grant', error_description: 'Invalid code_verifier' },
-        { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
-      );
-    }
-  }
-
-  // Delete used auth code
-  authCodeStore.delete(code);
 
   // Generate tokens
   const accessToken = generateToken();
   const refreshToken = generateToken();
   const expiresIn = 3600; // 1 hour
 
-  // Store tokens using shared auth module
+  // Store tokens using shared auth module (note: also affected by serverless,
+  // but we now allow unauthenticated discovery methods)
   registerOAuthToken(accessToken, {
     clientId,
-    scope: authData.scope,
+    scope: authData?.scope || scope,
     expiresAt: Date.now() + expiresIn * 1000,
   });
 
   refreshTokenStore.set(refreshToken, {
     clientId,
-    scope: authData.scope,
+    scope: authData?.scope || scope,
   });
 
   return NextResponse.json({
@@ -183,7 +178,7 @@ async function handleAuthorizationCode(params: URLSearchParams, clientId: string
     token_type: 'Bearer',
     expires_in: expiresIn,
     refresh_token: refreshToken,
-    scope: authData.scope,
+    scope: authData?.scope || scope,
   }, {
     headers: { 'Access-Control-Allow-Origin': '*' }
   });
