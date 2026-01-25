@@ -22,7 +22,7 @@ export default function MarketingPage() {
           </div>
           <Link
             href="/admin/docs"
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-amber-600 to-amber-700 rounded-lg text-white text-sm font-medium no-underline"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium no-underline"
           >
             <FileText className="w-4 h-4" />
             View Docs

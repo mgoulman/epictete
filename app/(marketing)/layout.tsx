@@ -1,5 +1,6 @@
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
+import { SplashScreen } from "@/components/splash-screen";
 
 export default function MarketingLayout({
   children,
@@ -7,10 +8,11 @@ export default function MarketingLayout({
   children: React.ReactNode;
 }) {
   return (
-    <>
-      <Header />
+    <div className="dark">
+      <SplashScreen />
+      <Header hideThemeToggle />
       <main>{children}</main>
       <Footer />
-    </>
+    </div>
   );
 }

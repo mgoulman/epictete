@@ -101,7 +101,7 @@ export default function DocsPage() {
                 placeholder="Search documents..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full py-2.5 pl-10 pr-3 bg-secondary border border-border rounded-lg text-sm text-foreground outline-none focus:border-amber-600/40"
+                className="w-full py-2.5 pl-10 pr-3 bg-secondary border border-border rounded-lg text-sm text-foreground outline-none focus:border-[#606338]/40"
               />
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -111,7 +111,7 @@ export default function DocsPage() {
                   onClick={() => setCategory(cat)}
                   className={`px-3.5 py-1.5 text-[13px] rounded-lg border-none cursor-pointer transition-all ${
                     category === cat
-                      ? 'bg-amber-600 text-white'
+                      ? 'bg-[#606338] text-white'
                       : 'bg-secondary text-muted-foreground hover:text-foreground'
                   }`}
                 >
@@ -127,7 +127,7 @@ export default function DocsPage() {
               <button
                 key={doc.id}
                 onClick={() => loadDoc(doc)}
-                className="flex items-center gap-3 p-4 bg-secondary border border-border rounded-xl cursor-pointer text-left transition-all hover:border-amber-600/30 hover:bg-card group"
+                className="flex items-center gap-3 p-4 bg-secondary border border-border rounded-xl cursor-pointer text-left transition-all hover:border-[#606338]/30 hover:bg-card group"
               >
                 <span className="text-2xl">{doc.icon}</span>
                 <div className="flex-1 min-w-0">
@@ -174,7 +174,7 @@ export default function DocsPage() {
         <div className="bg-secondary border border-border rounded-xl p-6 min-h-[60vh]">
           {loading ? (
             <div className="flex items-center justify-center py-20">
-              <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-[#606338] border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
             <MarkdownRenderer content={content} />
@@ -213,7 +213,7 @@ function MarkdownRenderer({ content }: { content: string }) {
     text = text.replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-foreground">$1</strong>');
     text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
     text = text.replace(/`([^`]+)`/g, '<code class="bg-card px-1.5 py-0.5 rounded text-[13px]">$1</code>');
-    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-amber-600 no-underline hover:underline" target="_blank">$1</a>');
+    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-[#606338] no-underline hover:underline" target="_blank">$1</a>');
     return <span dangerouslySetInnerHTML={{ __html: text }} />;
   };
 
@@ -279,13 +279,13 @@ function MarkdownRenderer({ content }: { content: string }) {
     } else if (line.startsWith("#### ")) {
       elements.push(<h4 key={i} className="font-medium text-foreground mt-3 mb-1">{line.slice(5)}</h4>);
     } else if (line.startsWith("> ")) {
-      elements.push(<blockquote key={i} className="border-l-2 border-amber-600 pl-4 my-3 text-muted-foreground italic">{processInline(line.slice(2))}</blockquote>);
+      elements.push(<blockquote key={i} className="border-l-2 border-[#606338] pl-4 my-3 text-muted-foreground italic">{processInline(line.slice(2))}</blockquote>);
     } else if (line.match(/^[-*] /)) {
-      elements.push(<div key={i} className="flex gap-2 mt-1 ml-2"><span className="text-amber-600">•</span><span className="text-muted-foreground">{processInline(line.slice(2))}</span></div>);
+      elements.push(<div key={i} className="flex gap-2 mt-1 ml-2"><span className="text-[#606338]">•</span><span className="text-muted-foreground">{processInline(line.slice(2))}</span></div>);
     } else if (line.match(/^\d+\. /)) {
       const match = line.match(/^(\d+)\. (.+)/);
       if (match) {
-        elements.push(<div key={i} className="flex gap-2 mt-1 ml-2"><span className="text-amber-600 font-medium w-5">{match[1]}.</span><span className="text-muted-foreground">{processInline(match[2])}</span></div>);
+        elements.push(<div key={i} className="flex gap-2 mt-1 ml-2"><span className="text-[#606338] font-medium w-5">{match[1]}.</span><span className="text-muted-foreground">{processInline(match[2])}</span></div>);
       }
     } else if (line.match(/^---+$/)) {
       elements.push(<hr key={i} className="my-6 border-none border-t border-border" />);

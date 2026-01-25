@@ -2,12 +2,17 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Menu, X, Sun, Moon } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/theme-provider";
 
-export function Header() {
+interface HeaderProps {
+  hideThemeToggle?: boolean;
+}
+
+export function Header({ hideThemeToggle = false }: HeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { theme, setTheme, resolvedTheme } = useTheme();
@@ -46,8 +51,14 @@ export function Header() {
             href="/"
             className="flex items-center gap-3 group"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-accent/50 bg-secondary text-accent font-heading text-lg font-semibold group-hover:border-accent transition-colors">
-              E
+            <div className="h-11 w-11 rounded-full overflow-hidden bg-[#EDE6D6] flex items-center justify-center group-hover:scale-105 transition-transform shadow-lg">
+              <Image
+                src="/logos/logo-icon.png"
+                alt="Epictète"
+                width={44}
+                height={44}
+                className="w-11 h-11 object-cover"
+              />
             </div>
             <span className="hidden sm:block text-lg font-heading tracking-wide text-foreground">
               {siteConfig.shortName}
@@ -70,13 +81,15 @@ export function Header() {
 
           {/* Theme Toggle & CTA Button */}
           <div className="hidden md:flex items-center gap-4">
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              aria-label={resolvedTheme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}
-            >
-              {resolvedTheme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
-            </button>
+            {!hideThemeToggle && (
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                aria-label={resolvedTheme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}
+              >
+                {resolvedTheme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
+            )}
             <Button size="sm">
               Réserver
             </Button>
@@ -118,13 +131,15 @@ export function Header() {
             </Link>
           ))}
           <div className="pt-4 flex items-center gap-3">
-            <button
-              onClick={toggleTheme}
-              className="p-3 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              aria-label={resolvedTheme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}
-            >
-              {resolvedTheme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
-            </button>
+            {!hideThemeToggle && (
+              <button
+                onClick={toggleTheme}
+                className="p-3 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                aria-label={resolvedTheme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}
+              >
+                {resolvedTheme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
+            )}
             <Button className="flex-1">
               Réserver
             </Button>

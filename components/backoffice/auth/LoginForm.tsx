@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '@/lib/auth/hooks';
-import { UtensilsCrossed } from 'lucide-react';
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
@@ -35,29 +35,36 @@ export function LoginForm() {
     <div style={{ width: '100%', maxWidth: '380px' }}>
       <div style={{ textAlign: 'center', marginBottom: '32px' }}>
         <div style={{
-          width: '56px',
-          height: '56px',
-          borderRadius: '16px',
-          background: 'linear-gradient(135deg, #d97706, #b45309)',
+          width: '72px',
+          height: '72px',
+          borderRadius: '20px',
+          background: '#EDE6D6',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           margin: '0 auto 16px',
-          boxShadow: '0 8px 24px rgba(217, 119, 6, 0.25)'
+          boxShadow: '0 8px 24px rgba(96, 99, 56, 0.2)',
+          overflow: 'hidden'
         }}>
-          <UtensilsCrossed style={{ width: '28px', height: '28px', color: 'white' }} />
+          <Image
+            src="/logos/logo-icon.png"
+            alt="Epictète"
+            width={72}
+            height={72}
+            style={{ width: '72px', height: '72px', objectFit: 'cover' }}
+          />
         </div>
         <h1 style={{ fontSize: '22px', fontWeight: 600, color: 'white', margin: 0 }}>
-          Sign in to Epictete
+          Sign in to Epictète
         </h1>
-        <p style={{ fontSize: '14px', color: '#666', marginTop: '8px' }}>
+        <p style={{ fontSize: '14px', color: '#888', marginTop: '8px' }}>
           Enter your credentials to continue
         </p>
       </div>
 
       <div style={{
-        background: '#111',
-        border: '1px solid #1a1a1a',
+        background: '#1a1a18',
+        border: '1px solid #2d2d28',
         borderRadius: '16px',
         padding: '24px'
       }}>
@@ -83,7 +90,7 @@ export function LoginForm() {
                 display: 'block',
                 fontSize: '13px',
                 fontWeight: 500,
-                color: 'white',
+                color: '#faf9f5',
                 marginBottom: '6px'
               }}
             >
@@ -99,16 +106,16 @@ export function LoginForm() {
               style={{
                 width: '100%',
                 padding: '10px 14px',
-                background: '#0a0a0a',
-                border: '1px solid #1a1a1a',
+                background: '#141413',
+                border: '1px solid #2d2d28',
                 borderRadius: '8px',
-                color: 'white',
+                color: '#faf9f5',
                 fontSize: '14px',
                 outline: 'none',
                 transition: 'border-color 0.15s'
               }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = '#d97706'; }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = '#1a1a1a'; }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#606338'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#2d2d28'; }}
             />
           </div>
 
@@ -119,7 +126,7 @@ export function LoginForm() {
                 display: 'block',
                 fontSize: '13px',
                 fontWeight: 500,
-                color: 'white',
+                color: '#faf9f5',
                 marginBottom: '6px'
               }}
             >
@@ -135,16 +142,16 @@ export function LoginForm() {
               style={{
                 width: '100%',
                 padding: '10px 14px',
-                background: '#0a0a0a',
-                border: '1px solid #1a1a1a',
+                background: '#141413',
+                border: '1px solid #2d2d28',
                 borderRadius: '8px',
-                color: 'white',
+                color: '#faf9f5',
                 fontSize: '14px',
                 outline: 'none',
                 transition: 'border-color 0.15s'
               }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = '#d97706'; }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = '#1a1a1a'; }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#606338'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#2d2d28'; }}
             />
           </div>
 
@@ -154,7 +161,7 @@ export function LoginForm() {
             style={{
               width: '100%',
               padding: '12px',
-              background: isLoading ? '#b45309' : 'linear-gradient(135deg, #d97706, #b45309)',
+              background: isLoading ? '#4d4f2e' : 'linear-gradient(135deg, #606338, #4d4f2e)',
               border: 'none',
               borderRadius: '8px',
               color: 'white',

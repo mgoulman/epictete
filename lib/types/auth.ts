@@ -130,15 +130,40 @@ export interface NavItem {
   icon: string;
   permission?: PermissionName;
   children?: NavItem[];
+  defaultOpen?: boolean;
 }
 
 export const BACKOFFICE_NAV: NavItem[] = [
   { label: 'Dashboard', href: '/admin', icon: 'LayoutDashboard' },
-  { label: 'Menu Management', href: '/admin/menu', icon: 'UtensilsCrossed', permission: 'menu.read' },
+  {
+    label: 'Menu Management',
+    href: '/admin/menu',
+    icon: 'UtensilsCrossed',
+    permission: 'menu.read',
+    children: [
+      { label: 'Menu Items', href: '/admin/menu', icon: 'UtensilsCrossed' },
+      { label: 'Menus', href: '/admin/menus', icon: 'FileText' },
+      { label: 'Fiches Techniques', href: '/admin/recipes', icon: 'BookOpen' }
+    ]
+  },
   { label: 'Users', href: '/admin/users', icon: 'Users', permission: 'users.manage' },
+  { label: 'Personnel', href: '/admin/personnel', icon: 'UserCog', permission: 'users.manage' },
   { label: 'Marketing', href: '/admin/marketing', icon: 'Megaphone', permission: 'marketing.read' },
   { label: 'Docs', href: '/admin/docs', icon: 'FileText', permission: 'marketing.read' },
-  { label: 'Finance', href: '/admin/finance', icon: 'DollarSign', permission: 'finance.read' },
+  {
+    label: 'Finance',
+    href: '/admin/finance',
+    icon: 'DollarSign',
+    permission: 'finance.read',
+    defaultOpen: true,
+    children: [
+      { label: 'Overview', href: '/admin/finance?tab=overview', icon: 'BarChart3' },
+      { label: 'Sales', href: '/admin/finance?tab=sales', icon: 'TrendingUp' },
+      { label: 'Inventory', href: '/admin/finance?tab=inventory', icon: 'Package' },
+      { label: 'Vendors', href: '/admin/finance?tab=vendors', icon: 'Users' },
+      { label: 'Import', href: '/admin/finance?tab=import', icon: 'Upload' }
+    ]
+  },
   { label: 'Audit Logs', href: '/admin/audit', icon: 'ScrollText', permission: 'audit.read' },
   { label: 'Settings', href: '/admin/settings', icon: 'Settings', permission: 'settings.read' }
 ];

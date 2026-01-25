@@ -1,11 +1,14 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import Image from 'next/image';
+import { usePathname, useSearchParams } from 'next/navigation';
 import {
   LayoutDashboard,
   UtensilsCrossed,
   Users,
+  UserCog,
   TrendingUp,
   FileText,
   DollarSign,
@@ -13,21 +16,34 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  X
+  ChevronDown,
+  X,
+  LogOut,
+  BookOpen,
+  BarChart3,
+  Package,
+  Upload
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useAuth, usePermissions } from '@/lib/auth/hooks';
 import { BACKOFFICE_NAV } from '@/lib/types/auth';
-import type { PermissionName } from '@/lib/types/auth';
+import type { PermissionName, NavItem } from '@/lib/types/auth';
 
 const iconMap: Record<string, React.ElementType> = {
   LayoutDashboard,
   UtensilsCrossed,
   Users,
+  UserCog,
   Megaphone: TrendingUp,
+  TrendingUp,
   FileText,
   DollarSign,
   ScrollText,
-  Settings
+  Settings,
+  BookOpen,
+  BarChart3,
+  Package,
+  Upload
 };
 
 interface SidebarProps {
@@ -39,14 +55,66 @@ interface SidebarProps {
 
 export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { user, signOut } = useAuth();
   const { hasPermission, isAdmin } = usePermissions();
+
+  // Track expanded state for items with children
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+
+  // Initialize expanded state based on defaultOpen and current path
+  useEffect(() => {
+    const initialExpanded: Record<string, boolean> = {};
+    BACKOFFICE_NAV.forEach(item => {
+      if (item.children) {
+        const isChildActive = item.children.some(child => {
+          const childPath = child.href.split('?')[0];
+          return pathname === childPath || pathname.startsWith(childPath + '/');
+        });
+        initialExpanded[item.href] = item.defaultOpen || isChildActive;
+      }
+    });
+    setExpandedItems(initialExpanded);
+  }, [pathname]);
+
+  const toggleExpanded = (href: string) => {
+    setExpandedItems(prev => ({
+      ...prev,
+      [href]: !prev[href]
+    }));
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/login');
+    router.refresh();
+  };
 
   const filteredNav = BACKOFFICE_NAV.filter(item => {
     if (!item.permission) return true;
     if (isAdmin()) return true;
     return hasPermission(item.permission as PermissionName);
   });
+
+  // Check if a nav item or any of its children are active
+  const isItemActive = (item: NavItem): boolean => {
+    const itemPath = item.href.split('?')[0];
+    const itemTab = new URL(item.href, 'http://x').searchParams.get('tab');
+    const currentTab = searchParams.get('tab');
+
+    // For items with query params (like finance tabs)
+    if (itemTab) {
+      return pathname === itemPath && currentTab === itemTab;
+    }
+
+    // For regular items
+    if (item.children) {
+      return item.children.some(child => isItemActive(child));
+    }
+
+    return pathname === itemPath || (itemPath !== '/admin' && pathname.startsWith(itemPath + '/'));
+  };
 
   const getInitials = (name: string | null | undefined) => {
     if (!name) return 'U';
@@ -78,8 +146,14 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
           ${isCollapsed ? 'justify-center px-2' : 'justify-between pl-5 pr-3'}
         `}>
           <Link href="/admin" className={`flex items-center gap-3 no-underline ${isCollapsed ? '' : 'flex-1 min-w-0'}`}>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-600 to-amber-700 flex items-center justify-center shadow-lg shadow-amber-600/20 shrink-0">
-              <UtensilsCrossed className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-[#EDE6D6] flex items-center justify-center shadow-lg shadow-[#606338]/10 shrink-0 overflow-hidden">
+              <Image
+                src="/logos/logo-icon.png"
+                alt="Epictète"
+                width={40}
+                height={40}
+                className="w-10 h-10 object-cover"
+              />
             </div>
             {!isCollapsed && (
               <div className="overflow-hidden">
@@ -127,9 +201,90 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
           <div className="flex flex-col gap-1">
             {filteredNav.map((item) => {
               const Icon = iconMap[item.icon] || LayoutDashboard;
-              const isActive = pathname === item.href ||
-                              (item.href !== '/admin' && pathname.startsWith(item.href));
+              const isActive = isItemActive(item);
+              const hasChildren = item.children && item.children.length > 0;
+              const isExpanded = expandedItems[item.href];
 
+              // For items with children, render parent + collapsible children
+              if (hasChildren && !isCollapsed) {
+                return (
+                  <div key={item.href}>
+                    {/* Parent item - clickable to expand/collapse */}
+                    <button
+                      onClick={() => toggleExpanded(item.href)}
+                      className={`
+                        w-full flex items-center gap-3 rounded-lg transition-all py-2.5 px-3
+                        ${isActive
+                          ? 'bg-[#606338]/10 text-[#606338]'
+                          : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                        }
+                      `}
+                    >
+                      <Icon className="w-[18px] h-[18px] shrink-0" />
+                      <span className="text-[13px] font-medium flex-1 text-left">{item.label}</span>
+                      <ChevronDown
+                        className={`w-4 h-4 shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+
+                    {/* Children - collapsible */}
+                    <div
+                      className={`
+                        overflow-hidden transition-all duration-200
+                        ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}
+                      `}
+                    >
+                      <div className="ml-4 pl-3 border-l border-border/50 mt-1 flex flex-col gap-0.5">
+                        {item.children!.map((child) => {
+                          const ChildIcon = iconMap[child.icon] || LayoutDashboard;
+                          const isChildActive = isItemActive(child);
+
+                          return (
+                            <Link
+                              key={child.href}
+                              href={child.href}
+                              onClick={onMobileClose}
+                              className={`
+                                flex items-center gap-2.5 rounded-md no-underline transition-all py-2 px-2.5
+                                ${isChildActive
+                                  ? 'bg-[#606338]/10 text-[#606338]'
+                                  : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                                }
+                              `}
+                            >
+                              <ChildIcon className="w-4 h-4 shrink-0" />
+                              <span className="text-[12px] font-medium">{child.label}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // For collapsed sidebar with children, just show parent
+              if (hasChildren && isCollapsed) {
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.children![0].href}
+                    title={item.label}
+                    onClick={onMobileClose}
+                    className={`
+                      flex items-center gap-3 rounded-lg no-underline transition-all py-2.5 justify-center
+                      ${isActive
+                        ? 'bg-[#606338]/10 text-[#606338]'
+                        : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                      }
+                    `}
+                  >
+                    <Icon className="w-[18px] h-[18px] shrink-0" />
+                  </Link>
+                );
+              }
+
+              // Regular items without children
               return (
                 <Link
                   key={item.href}
@@ -140,7 +295,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                     flex items-center gap-3 rounded-lg no-underline transition-all
                     ${isCollapsed ? 'py-2.5 justify-center' : 'py-2.5 px-3'}
                     ${isActive
-                      ? 'bg-amber-600/10 text-amber-600'
+                      ? 'bg-[#606338]/10 text-[#606338]'
                       : 'text-muted-foreground hover:bg-card hover:text-foreground'
                     }
                   `}
@@ -155,11 +310,11 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
           </div>
         </nav>
 
-        {/* User */}
+        {/* User + Logout */}
         {user && (
           <div className="border-t border-border p-3">
             <div className={`flex items-center gap-3 p-2 ${isCollapsed ? 'justify-center' : ''}`}>
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-600 to-amber-700 flex items-center justify-center text-[13px] font-semibold text-white shrink-0">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#606338] to-[#4d4f2e] flex items-center justify-center text-[13px] font-semibold text-white shrink-0">
                 {getInitials(user.full_name)}
               </div>
               {!isCollapsed && (
@@ -173,6 +328,22 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                 </div>
               )}
             </div>
+
+            {/* Logout button */}
+            <button
+              onClick={handleSignOut}
+              title={isCollapsed ? 'Sign out' : undefined}
+              className={`
+                w-full flex items-center gap-3 rounded-lg transition-all mt-2
+                ${isCollapsed ? 'py-2.5 justify-center' : 'py-2.5 px-3'}
+                text-red-500 hover:bg-red-500/10
+              `}
+            >
+              <LogOut className="w-[18px] h-[18px] shrink-0" />
+              {!isCollapsed && (
+                <span className="text-[13px] font-medium">Sign out</span>
+              )}
+            </button>
           </div>
         )}
       </aside>

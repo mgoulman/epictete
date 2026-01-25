@@ -55,6 +55,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const typedProfile = profile as ProfileWithRole;
 
+        // Check if user is active
+        if (!typedProfile.is_active) {
+          await supabase.auth.signOut();
+          setUser(null);
+          setIsLoading(false);
+          return;
+        }
+
         // Fetch permissions
         const { data: perms } = await supabase
           .from("role_permissions")
@@ -131,12 +139,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (profileError || !profile) {
+        await supabase.auth.signOut();
         setError("Profile not found");
         setIsLoading(false);
         return { error: "Profile not found" };
       }
 
       const typedProfile = profile as ProfileWithRole;
+
+      // Check if user is active
+      if (!typedProfile.is_active) {
+        await supabase.auth.signOut();
+        setError("Your account has been deactivated. Please contact an administrator.");
+        setIsLoading(false);
+        return { error: "Your account has been deactivated. Please contact an administrator." };
+      }
 
       const { data: perms } = await supabase
         .from("role_permissions")

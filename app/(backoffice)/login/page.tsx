@@ -18,7 +18,7 @@ export default async function LoginPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#0a0a0a',
+      background: '#0f0f0e',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
