@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Menu, X, Sun, Moon } from "lucide-react";
@@ -25,6 +25,10 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
     }
   };
 
+  const closeMobileMenu = useCallback(() => {
+    setIsMobileMenuOpen(false);
+  }, []);
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
@@ -32,6 +36,17 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileMenuOpen]);
 
   return (
     <header
@@ -44,12 +59,13 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
         }
       `}
     >
-      <div className="max-w-7xl mx-auto px-6 lg:px-8">
-        <nav className="flex items-center justify-between h-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <nav className="flex items-center justify-between h-16 sm:h-20" aria-label="Navigation principale">
           {/* Logo */}
           <Link
             href="/"
-            className="flex items-center gap-3 group"
+            className="flex items-center gap-2 sm:gap-3 group z-10"
+            aria-label="Epictete Restaurant - Accueil"
           >
             <div className="h-11 w-11 rounded-full overflow-hidden bg-[#EDE6D6] flex items-center justify-center group-hover:scale-105 transition-transform shadow-lg">
               <Image
@@ -60,21 +76,21 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
                 className="w-11 h-11 object-cover"
               />
             </div>
-            <span className="hidden sm:block text-lg font-heading tracking-wide text-foreground">
+            <span className="hidden xs:block text-base sm:text-lg font-heading tracking-wide text-foreground">
               {siteConfig.shortName}
             </span>
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
+          <div className="hidden lg:flex items-center gap-6 xl:gap-8">
             {siteConfig.navigation.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors relative group"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors relative group py-2"
               >
                 {item.name}
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-accent transition-all duration-300 group-hover:w-full" />
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-accent transition-all duration-300 group-hover:w-full" />
               </Link>
             ))}
           </div>
@@ -97,26 +113,35 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
 
           {/* Mobile Menu Button */}
           <button
-            className="md:hidden p-2 text-foreground hover:text-accent transition-colors"
+            className="lg:hidden p-2 -mr-2 text-foreground hover:text-accent active:scale-95 transition-all touch-manipulation"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             aria-label={isMobileMenuOpen ? "Fermer le menu" : "Ouvrir le menu"}
+            aria-expanded={isMobileMenuOpen}
+            aria-controls="mobile-menu"
           >
-            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            {isMobileMenuOpen ? <X size={26} /> : <Menu size={26} />}
           </button>
         </nav>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu Overlay */}
       <div
         className={`
-          md:hidden
-          absolute top-full left-0 right-0
-          bg-primary/98 backdrop-blur-lg border-b border-border
-          transition-all duration-300 ease-smooth
-          ${isMobileMenuOpen
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 -translate-y-4 pointer-events-none"
-          }
+          lg:hidden fixed inset-0 bg-primary/60 backdrop-blur-sm z-40
+          transition-opacity duration-300
+          ${isMobileMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none"}
+        `}
+        onClick={closeMobileMenu}
+        aria-hidden="true"
+      />
+
+      {/* Mobile Menu Panel */}
+      <div
+        id="mobile-menu"
+        className={`
+          lg:hidden fixed top-0 right-0 h-full w-full max-w-sm bg-primary border-l border-border z-50
+          transform transition-transform duration-300 ease-out
+          ${isMobileMenuOpen ? "translate-x-0" : "translate-x-full"}
         `}
       >
         <div className="px-6 py-6 space-y-4">
