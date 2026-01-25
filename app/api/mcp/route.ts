@@ -28,59 +28,61 @@ function getHandler(): MCPHTTPHandler | null {
 }
 
 export async function POST(request: NextRequest) {
-  // Validate auth (supports Bearer token, OAuth, and query param)
   const { searchParams } = new URL(request.url);
-  const authResult = validateAuth({
-    authHeader: request.headers.get('authorization'),
-    queryApiKey: searchParams.get('api_key'),
-  });
-  if (!authResult.valid) {
+  
+  // Parse body first to check if it's a discovery method
+  let body: MCPRequest;
+  try {
+    body = await request.json() as MCPRequest;
+  } catch {
     return NextResponse.json(
-      { jsonrpc: '2.0', error: { code: -32001, message: authResult.error || 'Unauthorized' } },
-      { status: 401 }
+      { jsonrpc: '2.0', error: { code: -32700, message: 'Parse error' } },
+      { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
     );
   }
-
-  try {
-    const handler = getHandler();
-    
-    if (!handler) {
+  
+  // Discovery methods don't require auth (for ChatGPT MCP compatibility with serverless)
+  const discoveryMethods = ['initialize', 'initialized', 'tools/list', 'ping', 'notifications/initialized'];
+  const isDiscoveryMethod = discoveryMethods.includes(body.method);
+  
+  // Validate auth only for non-discovery methods
+  if (!isDiscoveryMethod) {
+    const authResult = validateAuth({
+      authHeader: request.headers.get('authorization'),
+      queryApiKey: searchParams.get('api_key'),
+    });
+    if (!authResult.valid) {
       return NextResponse.json(
-        {
-          jsonrpc: '2.0',
-          error: {
-            code: -32001,
-            message: 'Server not configured. Set META_ACCESS_TOKEN environment variable.',
-          },
-        },
-        { status: 500 }
+        { jsonrpc: '2.0', error: { code: -32001, message: authResult.error || 'Unauthorized' } },
+        { status: 401, headers: { 'Access-Control-Allow-Origin': '*' } }
       );
     }
+  }
 
-    const body = await request.json() as MCPRequest;
-    const authHeader = request.headers.get('authorization') || undefined;
-
-    const response = await handler.handleRequest(body, authHeader);
-
-    return NextResponse.json(response, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-  } catch (error) {
-    console.error('MCP endpoint error:', error);
+  const handler = getHandler();
+  
+  if (!handler) {
     return NextResponse.json(
       {
         jsonrpc: '2.0',
         error: {
-          code: -32700,
-          message: 'Parse error',
-          data: error instanceof Error ? error.message : 'Unknown error',
+          code: -32001,
+          message: 'Server not configured. Set META_ACCESS_TOKEN environment variable.',
         },
       },
-      { status: 400 }
+      { status: 500, headers: { 'Access-Control-Allow-Origin': '*' } }
     );
   }
+
+  const authHeader = request.headers.get('authorization') || undefined;
+  const response = await handler.handleRequest(body, authHeader, isDiscoveryMethod);
+
+  return NextResponse.json(response, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
 }
 
 export async function GET(request: NextRequest) {
