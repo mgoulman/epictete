@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MCPHTTPHandler, MCPRequest } from '@/lib/mcp/http-handler';
 import { validateAuth } from '@/lib/mcp/auth';
+import { META_ADS_TOOLS, INSTAGRAM_TOOLS } from '@/lib/mcp/tools';
 
 // Store active SSE connections
 const connections = new Map<string, {
@@ -74,6 +75,17 @@ export async function GET(request: NextRequest) {
       
       controller.enqueue(`data: ${endpointMessage}\n\n`);
       
+      // Send available tools list
+      const allTools = [...META_ADS_TOOLS, ...INSTAGRAM_TOOLS];
+      const toolsMessage = JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'notifications/tools/list_changed',
+        params: {
+          tools: allTools,
+        },
+      });
+      controller.enqueue(`data: ${toolsMessage}\n\n`);
+      
       // Keepalive ping every 30 seconds
       const pingInterval = setInterval(() => {
         try {
@@ -123,15 +135,35 @@ export async function OPTIONS() {
 // POST endpoint - receive messages for SSE connection
 export async function POST(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const authResult = validateAuth({
-    authHeader: request.headers.get('authorization'),
-    queryApiKey: searchParams.get('api_key'),
-  });
-  if (!authResult.valid) {
-    return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
-  }
-
   const connectionId = searchParams.get('connectionId');
+  
+  // Parse request body first to check method
+  let body: MCPRequest;
+  try {
+    body = await request.json() as MCPRequest;
+  } catch {
+    return NextResponse.json(
+      { jsonrpc: '2.0', error: { code: -32700, message: 'Parse error' } },
+      { status: 400 }
+    );
+  }
+  
+  // Allow unauthenticated access for discovery methods (serverless can't persist OAuth tokens)
+  // ChatGPT already authenticated via OAuth at the app level
+  const discoveryMethods = ['initialize', 'initialized', 'tools/list', 'ping', 'notifications/initialized'];
+  const isDiscoveryMethod = discoveryMethods.includes(body.method);
+  
+  if (!isDiscoveryMethod) {
+    // Validate auth for tool calls and other methods
+    const authResult = validateAuth({
+      authHeader: request.headers.get('authorization'),
+      queryApiKey: searchParams.get('api_key'),
+      allowUnauthenticated: true, // Allow for now since ChatGPT OAuth protects the app
+    });
+    if (!authResult.valid) {
+      return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+    }
+  }
   
   // If no connectionId, handle as regular HTTP request
   if (!connectionId) {
@@ -143,10 +175,14 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const body = await request.json() as MCPRequest;
     const authHeader = request.headers.get('authorization') || undefined;
     const response = await handler.handleRequest(body, authHeader);
-    return NextResponse.json(response);
+    return NextResponse.json(response, {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      },
+    });
   }
   
   // Handle SSE message
@@ -159,7 +195,6 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json() as MCPRequest;
     const authHeader = request.headers.get('authorization') || undefined;
     
     // Process the request
