@@ -13,6 +13,9 @@ const authCodeStore = new Map<string, {
   clientId: string;
   redirectUri: string;
   scope: string;
+  codeChallenge?: string;
+  codeChallengeMethod?: string;
+  resource?: string;
   expiresAt: number;
 }>();
 
@@ -60,7 +63,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (grantType === 'authorization_code') {
-    return handleAuthorizationCode(params, clientId);
+    return await handleAuthorizationCode(params, clientId);
   } else if (grantType === 'refresh_token') {
     return handleRefreshToken(params, clientId);
   } else if (grantType === 'client_credentials') {
@@ -73,14 +76,15 @@ export async function POST(request: NextRequest) {
   );
 }
 
-function handleAuthorizationCode(params: URLSearchParams, clientId: string) {
+async function handleAuthorizationCode(params: URLSearchParams, clientId: string) {
   const code = params.get('code');
   const redirectUri = params.get('redirect_uri');
+  const codeVerifier = params.get('code_verifier');
 
   if (!code) {
     return NextResponse.json(
       { error: 'invalid_request', error_description: 'Missing authorization code' },
-      { status: 400 }
+      { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
     );
   }
 
@@ -89,7 +93,7 @@ function handleAuthorizationCode(params: URLSearchParams, clientId: string) {
   if (!authData) {
     return NextResponse.json(
       { error: 'invalid_grant', error_description: 'Invalid or expired authorization code' },
-      { status: 400 }
+      { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
     );
   }
 
@@ -97,22 +101,45 @@ function handleAuthorizationCode(params: URLSearchParams, clientId: string) {
     authCodeStore.delete(code);
     return NextResponse.json(
       { error: 'invalid_grant', error_description: 'Authorization code expired' },
-      { status: 400 }
+      { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
     );
   }
 
   if (authData.clientId !== clientId) {
     return NextResponse.json(
       { error: 'invalid_grant', error_description: 'Client mismatch' },
-      { status: 400 }
+      { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
     );
   }
 
   if (redirectUri && authData.redirectUri !== redirectUri) {
     return NextResponse.json(
       { error: 'invalid_grant', error_description: 'Redirect URI mismatch' },
-      { status: 400 }
+      { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
     );
+  }
+
+  // Validate PKCE code_verifier if code_challenge was provided
+  if (authData.codeChallenge) {
+    if (!codeVerifier) {
+      return NextResponse.json(
+        { error: 'invalid_grant', error_description: 'Missing code_verifier for PKCE' },
+        { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
+      );
+    }
+
+    const isValid = await validatePKCE(
+      codeVerifier,
+      authData.codeChallenge,
+      authData.codeChallengeMethod || 'S256'
+    );
+
+    if (!isValid) {
+      return NextResponse.json(
+        { error: 'invalid_grant', error_description: 'Invalid code_verifier' },
+        { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
+      );
+    }
   }
 
   // Delete used auth code
@@ -141,7 +168,31 @@ function handleAuthorizationCode(params: URLSearchParams, clientId: string) {
     expires_in: expiresIn,
     refresh_token: refreshToken,
     scope: authData.scope,
+  }, {
+    headers: { 'Access-Control-Allow-Origin': '*' }
   });
+}
+
+async function validatePKCE(
+  codeVerifier: string,
+  codeChallenge: string,
+  method: string
+): Promise<boolean> {
+  if (method === 'plain') {
+    return codeVerifier === codeChallenge;
+  }
+  
+  // S256: BASE64URL(SHA256(code_verifier)) == code_challenge
+  const encoder = new TextEncoder();
+  const data = encoder.encode(codeVerifier);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = new Uint8Array(hashBuffer);
+  const base64 = btoa(String.fromCharCode(...hashArray))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  
+  return base64 === codeChallenge;
 }
 
 function handleRefreshToken(params: URLSearchParams, clientId: string) {
@@ -204,6 +255,17 @@ function generateToken(): string {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
   return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
 }
 
 // Export auth code store for use by authorize endpoint
