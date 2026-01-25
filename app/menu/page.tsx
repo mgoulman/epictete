@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Header } from "@/components/layout/header";
+import { Footer } from "@/components/layout/footer";
 import { DigitalMenuClient } from "./DigitalMenuClient";
 
 export const metadata: Metadata = {
@@ -8,5 +10,11 @@ export const metadata: Metadata = {
 };
 
 export default function MenuPage() {
-  return <DigitalMenuClient />;
+  return (
+    <>
+      <Header />
+      <DigitalMenuClient />
+      <Footer />
+    </>
+  );
 }

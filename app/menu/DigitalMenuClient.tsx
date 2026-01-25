@@ -1,22 +1,118 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Utensils } from "lucide-react";
-import { menuItems } from "@/lib/menu-data";
-import { MENU_CATEGORIES, MenuCategory, MenuTag, MenuItem } from "@/lib/menu-types";
-import { CategoryNav, MenuSection, SearchBar, MenuFilters, ItemDetailModal } from "./components";
+import { Utensils, Loader2 } from "lucide-react";
+import { MENU_CATEGORIES, MenuCategory, MenuTag, MenuItem, MenuCategoryInfo } from "@/lib/menu-types";
+import { supabase, MenuCategory as DBMenuCategory, MenuItem as DBMenuItem } from "@/lib/supabase";
+import { MenuSection, SearchBar, ItemDetailModal } from "./components";
+import { getCategoryAvailabilityStatus } from "@/lib/time-availability";
+
+// Transform DB item to frontend MenuItem format
+function transformDBItem(dbItem: DBMenuItem): MenuItem {
+  return {
+    id: dbItem.id,
+    name: dbItem.name,
+    nameFr: dbItem.name_fr,
+    price: dbItem.price,
+    priceSmall: dbItem.price_small || undefined,
+    priceLarge: dbItem.price_large || undefined,
+    description: dbItem.description || '',
+    descriptionEn: dbItem.description_en || undefined,
+    ingredients: dbItem.ingredients || [],
+    ingredientsEn: dbItem.ingredients_en || undefined,
+    category: dbItem.category_id as MenuCategory,
+    tags: (dbItem.tags || []) as MenuTag[],
+    isSignature: dbItem.is_signature || false,
+    chefNote: dbItem.chef_note || undefined,
+    image: dbItem.image_url || undefined,
+  };
+}
 
 export function DigitalMenuClient() {
-  const [activeCategory, setActiveCategory] = useState<MenuCategory | null>("antipasti");
+  const [, setActiveCategory] = useState<MenuCategory | null>("antipasti");
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTags, setActiveTags] = useState<MenuTag[]>([]);
+  const [activeTags] = useState<MenuTag[]>([]);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [dbCategories, setDbCategories] = useState<DBMenuCategory[]>([]);
+  const [dbMenuItems, setDbMenuItems] = useState<MenuItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch categories and items from Supabase
+  useEffect(() => {
+    async function fetchData() {
+      setIsLoading(true);
+      
+      const [categoriesRes, itemsRes] = await Promise.all([
+        supabase
+          .from('menu_categories')
+          .select('*')
+          .order('sort_order'),
+        supabase
+          .from('menu_items')
+          .select('*')
+          .eq('is_available', true)
+          .order('sort_order')
+      ]);
+      
+      if (categoriesRes.data && !categoriesRes.error) {
+        setDbCategories(categoriesRes.data);
+      }
+      
+      if (itemsRes.data && !itemsRes.error) {
+        setDbMenuItems(itemsRes.data.map(transformDBItem));
+      }
+      
+      setIsLoading(false);
+    }
+    fetchData();
+  }, []);
+
+  // Merge DB categories with static fallback (exclude brunch-extras from main list)
+  // Reorder: move unavailable time-based categories (brunch/breakfast) to bottom
+  const categories: MenuCategoryInfo[] = useMemo(() => {
+    if (dbCategories.length === 0) return MENU_CATEGORIES;
+    
+    const timeBasedCategoryIds = ['brunch', 'breakfast'];
+    
+    const mapped = dbCategories
+      .filter(dbCat => dbCat.id !== 'brunch-extras') // Hide extras from nav
+      .map(dbCat => ({
+        id: dbCat.id as MenuCategory,
+        name: dbCat.name,
+        nameFr: dbCat.name_fr,
+        icon: dbCat.icon || '🍽️',
+        description: dbCat.description || undefined,
+        _dbCategory: dbCat, // Keep reference for availability check
+      }));
+    
+    // Separate available and unavailable time-based categories
+    const availableCategories: typeof mapped = [];
+    const unavailableTimeBasedCategories: typeof mapped = [];
+    
+    mapped.forEach(cat => {
+      const isTimeBased = timeBasedCategoryIds.includes(cat.id);
+      if (isTimeBased) {
+        // Check availability using the DB category
+        const availability = getCategoryAvailabilityStatus(cat._dbCategory);
+        if (availability.isAvailable) {
+          availableCategories.push(cat);
+        } else {
+          unavailableTimeBasedCategories.push(cat);
+        }
+      } else {
+        availableCategories.push(cat);
+      }
+    });
+    
+    // Return available first, then unavailable time-based at bottom
+    return [...availableCategories, ...unavailableTimeBasedCategories].map(({ _dbCategory, ...rest }) => rest);
+  }, [dbCategories]);
 
   // Filter items based on search and tags
   const filteredItems = useMemo(() => {
-    let items = menuItems;
+    let items = dbMenuItems;
 
     // Search filter
     if (searchQuery.trim()) {
@@ -37,13 +133,18 @@ export function DigitalMenuClient() {
     }
 
     return items;
-  }, [searchQuery, activeTags]);
+  }, [dbMenuItems, searchQuery, activeTags]);
 
-  // Group filtered items by category
+  // Get brunch extras items separately (to display within brunch section)
+  const brunchExtrasItems = useMemo(() => {
+    return filteredItems.filter(item => item.category === ('brunch-extras' as MenuCategory));
+  }, [filteredItems]);
+
+  // Group filtered items by category (exclude brunch-extras as they go in brunch section)
   const itemsByCategory = useMemo(() => {
-    const grouped = new Map<MenuCategory, typeof menuItems>();
+    const grouped = new Map<MenuCategory, MenuItem[]>();
     
-    MENU_CATEGORIES.forEach((cat) => {
+    categories.forEach((cat) => {
       const categoryItems = filteredItems.filter((item) => item.category === cat.id);
       if (categoryItems.length > 0) {
         grouped.set(cat.id, categoryItems);
@@ -51,33 +152,11 @@ export function DigitalMenuClient() {
     });
 
     return grouped;
-  }, [filteredItems]);
-
-  // Handle category click - scroll to section
-  const handleCategoryClick = useCallback((category: MenuCategory) => {
-    setActiveCategory(category);
-    const element = document.getElementById(`category-${category}`);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, []);
-
-  // Handle tag toggle
-  const handleTagToggle = useCallback((tag: MenuTag) => {
-    setActiveTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-  }, []);
+  }, [filteredItems, categories]);
 
   // Handle category in view (from intersection observer)
   const handleCategoryInView = useCallback((categoryId: string) => {
     setActiveCategory(categoryId as MenuCategory);
-  }, []);
-
-  // Clear all filters
-  const handleClearFilters = useCallback(() => {
-    setActiveTags([]);
-    setSearchQuery("");
   }, []);
 
   // Handle item click - open modal
@@ -93,83 +172,75 @@ export function DigitalMenuClient() {
   }, []);
 
   const totalItems = filteredItems.length;
-  const isFiltered = searchQuery.trim() || activeTags.length > 0;
 
   return (
     <div className="min-h-screen bg-primary">
       {/* Hero Header */}
-      <section className="relative py-16 md:py-24 overflow-hidden">
-        <div className="absolute inset-0 bg-linear-to-b from-secondary to-primary" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(201,169,98,0.1)_0%,transparent_60%)]" />
-        
-        <div className="relative max-w-7xl mx-auto px-4 text-center">
+      <section className="relative pt-28 pb-12 md:pt-36 md:pb-16 overflow-hidden">
+        {/* Background layers */}
+        <div className="absolute inset-0 bg-linear-to-b from-secondary via-secondary/80 to-primary" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(201,169,98,0.15)_0%,transparent_50%)]" />
+                
+        <div className="relative max-w-7xl mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
+            className="text-center"
           >
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-accent/10 border border-accent/30 mb-6">
-              <Utensils className="w-8 h-8 text-accent" />
+            {/* Decorative line */}
+            <div className="flex items-center justify-center gap-4 mb-6">
+              <div className="h-px w-12 bg-linear-to-r from-transparent to-accent/50" />
+              <Utensils className="w-6 h-6 text-accent" />
+              <div className="h-px w-12 bg-linear-to-l from-transparent to-accent/50" />
             </div>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-semibold text-foreground">
+            
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-semibold text-foreground tracking-tight">
               Notre Carte
             </h1>
-            <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-              Découvrez notre sélection de plats italiens authentiques, préparés avec des ingrédients 
-              frais de notre ferme biologique.
+            <p className="mt-4 text-base md:text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed">
+              Une cuisine italienne authentique, des ingrédients frais de notre ferme biologique
             </p>
           </motion.div>
 
-          {/* Search Bar */}
+          {/* Search & Filters Container */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="mt-8 max-w-md mx-auto"
+            className="mt-8 max-w-2xl mx-auto"
           >
-            <SearchBar
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Rechercher un plat, ingrédient..."
-            />
-          </motion.div>
+            {/* Search Bar */}
+            <div className="relative">
+              <SearchBar
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Rechercher un plat..."
+              />
+            </div>
 
-          {/* Filters */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="mt-6 flex justify-center"
-          >
-            <MenuFilters
-              activeTags={activeTags}
-              onTagToggle={handleTagToggle}
-              onClearFilters={handleClearFilters}
-            />
+            {/* Results count */}
+            {searchQuery && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="mt-3 text-center text-sm text-muted-foreground"
+              >
+                {totalItems} {totalItems === 1 ? "résultat" : "résultats"}
+              </motion.p>
+            )}
           </motion.div>
-
-          {/* Results count */}
-          {isFiltered && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="mt-4 text-sm text-muted-foreground"
-            >
-              {totalItems} {totalItems === 1 ? "plat trouvé" : "plats trouvés"}
-            </motion.p>
-          )}
         </div>
       </section>
 
-      {/* Category Navigation */}
-      <CategoryNav
-        activeCategory={activeCategory}
-        onCategoryClick={handleCategoryClick}
-      />
-
       {/* Menu Content */}
       <main className="max-w-7xl mx-auto px-4 py-12">
-        {itemsByCategory.size === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <Loader2 className="w-10 h-10 text-accent animate-spin" />
+            <p className="mt-4 text-muted-foreground">Chargement du menu...</p>
+          </div>
+        ) : itemsByCategory.size === 0 ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -179,23 +250,31 @@ export function DigitalMenuClient() {
               Aucun plat ne correspond à votre recherche.
             </p>
             <button
-              onClick={handleClearFilters}
+              onClick={() => setSearchQuery("")}
               className="mt-4 text-accent hover:text-accent-hover underline"
             >
-              Effacer les filtres
+              Effacer la recherche
             </button>
           </motion.div>
         ) : (
           <div className="space-y-16">
-            {MENU_CATEGORIES.map((category) => {
+            {categories.map((category) => {
               const items = itemsByCategory.get(category.id);
               if (!items) return null;
+              
+              // Find the corresponding DB category for availability info
+              const dbCategory = dbCategories.find(c => c.id === category.id);
+              
+              // Pass extras to brunch section
+              const extras = category.id === 'brunch' ? brunchExtrasItems : undefined;
               
               return (
                 <MenuSection
                   key={category.id}
                   category={category}
+                  dbCategory={dbCategory}
                   items={items}
+                  extrasItems={extras}
                   onInView={handleCategoryInView}
                   onItemClick={handleItemClick}
                 />
@@ -205,84 +284,6 @@ export function DigitalMenuClient() {
         )}
       </main>
 
-      {/* Pasta & Sauce Info Footer */}
-      <section className="bg-secondary py-12">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* Pasta Options */}
-            <div className="bg-card rounded-xl p-6 border border-border">
-              <h3 className="font-heading text-lg font-semibold text-foreground flex items-center gap-2">
-                <span>🍝</span> Choix des Pâtes
-              </h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Toutes nos recettes de pâtes peuvent être préparées avec:
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {["Spaghetti", "Linguine", "Penne", "Rigatoni", "Tagliatelle fraîches"].map((pasta) => (
-                  <span
-                    key={pasta}
-                    className="px-3 py-1 bg-secondary rounded-full text-sm text-foreground"
-                  >
-                    {pasta}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Sauce Options */}
-            <div className="bg-card rounded-xl p-6 border border-border">
-              <h3 className="font-heading text-lg font-semibold text-foreground flex items-center gap-2">
-                <span>🥩</span> Sauces pour Viandes
-              </h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Nos plats de viande sont servis avec la sauce de votre choix:
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {["Champignons", "Poivre vert", "Crème de truffe", "Café de Paris"].map((sauce) => (
-                  <span
-                    key={sauce}
-                    className="px-3 py-1 bg-secondary rounded-full text-sm text-foreground"
-                  >
-                    {sauce}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Accompaniments */}
-          <div className="mt-8 bg-card rounded-xl p-6 border border-border">
-            <h3 className="font-heading text-lg font-semibold text-foreground flex items-center gap-2">
-              <span>🍽️</span> Accompagnements (Secondi Piatti)
-            </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Tous nos plats principaux sont servis avec 2 accompagnements au choix:
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {[
-                "Purée de pommes de terre maison",
-                "Pommes de terre rôties au four",
-                "Légumes sautés de saison",
-                "Pâtes avec sauce au choix"
-              ].map((side) => (
-                <span
-                  key={side}
-                  className="px-3 py-1 bg-secondary rounded-full text-sm text-foreground"
-                >
-                  {side}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* Farm Note */}
-          <div className="mt-8 text-center">
-            <p className="text-sm text-muted-foreground italic">
-              🌿 Nos ingrédients proviennent directement de notre ferme biologique
-            </p>
-          </div>
-        </div>
-      </section>
 
       {/* Item Detail Modal */}
       <ItemDetailModal
