@@ -1,6 +1,6 @@
 import { forwardRef, cloneElement, isValidElement, type ReactElement } from "react";
 
-type ButtonVariant = "primary" | "secondary" | "outline" | "ghost";
+type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger";
 type ButtonSize = "sm" | "md" | "lg";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -11,19 +11,21 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variants: Record<ButtonVariant, string> = {
   primary:
-    "bg-accent text-accent-foreground hover:bg-accent-hover shadow-sm hover:shadow-glow-sm",
+    "bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]",
   secondary:
-    "bg-secondary text-secondary-foreground hover:bg-border",
+    "bg-[var(--secondary)] text-[var(--foreground)] hover:bg-[var(--border)]",
   outline:
-    "border border-border bg-transparent text-foreground hover:bg-secondary hover:border-accent",
+    "border border-[var(--border)] bg-transparent text-[var(--foreground)] hover:bg-[var(--secondary)]",
   ghost:
-    "bg-transparent text-foreground hover:bg-secondary",
+    "bg-transparent text-[var(--foreground)] hover:bg-[var(--secondary)]",
+  danger:
+    "bg-red-600 text-white hover:bg-red-700",
 };
 
 const sizes: Record<ButtonSize, string> = {
   sm: "px-3 py-1.5 text-sm",
-  md: "px-5 py-2.5 text-base",
-  lg: "px-7 py-3.5 text-lg",
+  md: "px-4 py-2 text-sm",
+  lg: "px-5 py-2.5 text-base",
 };
 
 function mergeClasses(...classes: (string | undefined)[]): string {
@@ -54,7 +56,16 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         ref={ref}
-        className={buttonClasses}
+        className={`
+          inline-flex items-center justify-center gap-2
+          font-medium rounded-md
+          transition-colors duration-150
+          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]
+          disabled:pointer-events-none disabled:opacity-50
+          ${variants[variant]}
+          ${sizes[size]}
+          ${className}
+        `}
         {...props}
       >
         {children}

@@ -198,3 +198,25 @@ img, video {
     min-width: 44px;
   }
 }
+
+/* ========================================
+   BACKOFFICE-SPECIFIC STYLES
+   ======================================== */
+
+/* Backoffice uses sans-serif headings */
+.backoffice h1,
+.backoffice h2,
+.backoffice h3,
+.backoffice h4,
+.backoffice h5,
+.backoffice h6 {
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+/* Backoffice accent color override - subtle blue */
+.backoffice {
+  --color-accent: #5c6ac4;
+  --color-accent-hover: #4959bd;
+}
