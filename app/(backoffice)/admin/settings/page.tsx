@@ -84,7 +84,7 @@ function TabButton({
       onClick={onClick}
       className={`w-full flex items-center gap-3 py-2.5 px-3 rounded-lg border-none cursor-pointer transition-all mb-1 ${
         isActive
-          ? 'bg-amber-600 text-white'
+          ? 'bg-[#606338] text-white'
           : 'bg-transparent text-muted-foreground hover:bg-card hover:text-foreground'
       }`}
     >
@@ -114,7 +114,7 @@ function ProfileSettings({ user }: { user: import('@/lib/types/auth').AuthUser |
       <div className="flex flex-col gap-5">
         {/* Avatar */}
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-600 to-amber-700 flex items-center justify-center text-white text-2xl font-semibold">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#606338] to-[#4d4f2e] flex items-center justify-center text-white text-2xl font-semibold">
             {user?.full_name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
           </div>
           <div>
@@ -132,7 +132,7 @@ function ProfileSettings({ user }: { user: import('@/lib/types/auth').AuthUser |
             type="text"
             value={fullName}
             onChange={e => setFullName(e.target.value)}
-            className="w-full py-2.5 px-3.5 bg-background border border-border rounded-lg text-foreground text-sm outline-none focus:border-amber-600/40"
+            className="w-full py-2.5 px-3.5 bg-background border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/40"
           />
         </div>
 
@@ -161,7 +161,7 @@ function ProfileSettings({ user }: { user: import('@/lib/types/auth').AuthUser |
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-amber-600 to-amber-700 border-none rounded-lg text-white text-sm font-medium cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] border-none rounded-lg text-white text-sm font-medium cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
         >
           <Save className="w-4 h-4" />
           {isSaving ? 'Saving...' : 'Save Changes'}
@@ -220,7 +220,7 @@ function NotificationToggle({
       <button
         onClick={() => setChecked(!checked)}
         className={`relative w-12 h-6 rounded-full border-none cursor-pointer transition-colors ${
-          checked ? 'bg-amber-600' : 'bg-border'
+          checked ? 'bg-[#606338]' : 'bg-border'
         }`}
       >
         <span
@@ -262,12 +262,12 @@ function AppearanceSettings() {
                   onClick={() => setTheme(option.id)}
                   className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 cursor-pointer transition-all ${
                     isActive
-                      ? 'border-amber-600 bg-amber-600/10'
-                      : 'border-border bg-card hover:border-amber-600/30'
+                      ? 'border-[#606338] bg-[#606338]/10'
+                      : 'border-border bg-card hover:border-[#606338]/30'
                   }`}
                 >
-                  <Icon className={`w-6 h-6 ${isActive ? 'text-amber-600' : 'text-muted-foreground'}`} />
-                  <span className={`text-sm font-medium ${isActive ? 'text-amber-600' : 'text-foreground'}`}>
+                  <Icon className={`w-6 h-6 ${isActive ? 'text-[#606338]' : 'text-muted-foreground'}`} />
+                  <span className={`text-sm font-medium ${isActive ? 'text-[#606338]' : 'text-foreground'}`}>
                     {option.label}
                   </span>
                 </button>

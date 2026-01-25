@@ -151,7 +151,7 @@ export default function AuditPage() {
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
               <div className="flex flex-col items-center gap-4">
-                <div className="w-8 h-8 border-[3px] border-amber-600 border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 border-[3px] border-[#606338] border-t-transparent rounded-full animate-spin" />
                 <p className="text-muted-foreground">Loading logs...</p>
               </div>
             </div>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Instagram, Facebook, MapPin, Phone, Mail } from "lucide-react";
 import { siteConfig } from "@/config/site";
 
@@ -11,16 +12,22 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
           {/* Brand */}
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-accent/50 bg-primary text-accent font-heading text-lg font-semibold">
-                E
+            <Link href="/" className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-full overflow-hidden bg-[#EDE6D6] flex items-center justify-center shadow-lg">
+                <Image
+                  src="/logos/logo-icon.png"
+                  alt="Epictète"
+                  width={44}
+                  height={44}
+                  className="w-11 h-11 object-cover"
+                />
               </div>
               <span className="text-xl font-heading tracking-wide text-foreground">
                 {siteConfig.shortName}
               </span>
-            </div>
+            </Link>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Une philosophie du goût. Découvrez une expérience gastronomique unique 
+              Une philosophie du goût. Découvrez une expérience gastronomique unique
               inspirée de la sagesse stoïcienne.
             </p>
             {/* Social Links */}

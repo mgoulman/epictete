@@ -42,6 +42,31 @@ export interface MenuItem {
   is_available: boolean;
   image_url: string | null;
   sort_order: number;
+  recipe_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface Recipe {
+  id: string;
+  name: string;
+  name_fr: string | null;
+  category: string | null;
+  portions: number;
+  cost_price: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RecipeIngredient {
+  id: string;
+  recipe_id: string;
+  inventory_item_id: string | null;
+  ingredient_name: string;
+  quantity: number;
+  unit: string;
+  unit_cost: number;
+  total_cost: number;
+  created_at: string;
 }

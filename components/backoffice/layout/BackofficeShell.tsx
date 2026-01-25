@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/hooks';
 import { Sidebar } from './Sidebar';
@@ -68,7 +68,7 @@ export function BackofficeShell({ children }: BackofficeShellProps) {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-[#606338] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -79,12 +79,14 @@ export function BackofficeShell({ children }: BackofficeShellProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar
-        isCollapsed={sidebarCollapsed}
-        onToggle={handleSidebarToggle}
-        isMobileOpen={isMobileSidebarOpen}
-        onMobileClose={handleMobileSidebarClose}
-      />
+      <Suspense fallback={null}>
+        <Sidebar
+          isCollapsed={sidebarCollapsed}
+          onToggle={handleSidebarToggle}
+          isMobileOpen={isMobileSidebarOpen}
+          onMobileClose={handleMobileSidebarClose}
+        />
+      </Suspense>
       <Header
         sidebarCollapsed={sidebarCollapsed}
         onMobileMenuClick={handleMobileMenuClick}

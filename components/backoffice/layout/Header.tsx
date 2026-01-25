@@ -105,7 +105,7 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
                 ) : (
                   <Link
                     href={crumb.href}
-                    className="text-[11px] text-muted no-underline flex items-center gap-1 hover:text-amber-600"
+                    className="text-[11px] text-muted no-underline flex items-center gap-1 hover:text-[#606338]"
                   >
                     {index === 0 && <Home className="w-2.5 h-2.5" />}
                     {crumb.label}
@@ -125,7 +125,7 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
       {/* Center section: Search */}
       <div className="hidden md:flex flex-[0_1_400px] lg:flex-[0_1_400px]">
         <div className="relative w-full">
-          <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${isSearchFocused ? 'text-amber-600' : 'text-muted'}`} />
+          <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${isSearchFocused ? 'text-[#606338]' : 'text-muted'}`} />
           <input
             type="text"
             placeholder="Search..."
@@ -136,7 +136,7 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
             className={`
               w-full py-2.5 pl-10 pr-12 rounded-lg text-[13px] text-foreground outline-none transition-all bg-card
               ${isSearchFocused
-                ? 'border border-amber-600/40'
+                ? 'border border-[#606338]/40'
                 : 'border border-border'
               }
             `}
@@ -152,7 +152,7 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
         {/* Notifications */}
         <button className="hidden md:flex relative items-center justify-center w-10 h-10 rounded-lg border border-border bg-transparent text-muted-foreground hover:bg-card hover:border-muted hover:text-foreground transition-all">
           <Bell className="w-[18px] h-[18px]" />
-          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-600" />
+          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#606338]" />
         </button>
 
         {/* Profile dropdown */}
@@ -167,7 +167,7 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
               }
             `}
           >
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-600 to-amber-700 flex items-center justify-center text-white text-[13px] font-semibold">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#606338] to-[#4d4f2e] flex items-center justify-center text-white text-[13px] font-semibold">
               {user?.full_name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
             </div>
             <div className="hidden md:block text-left">
@@ -190,7 +190,7 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
                 <p className="text-xs text-muted-foreground mt-1 m-0">
                   {user?.email}
                 </p>
-                <span className="inline-block mt-2 px-2 py-1 text-[11px] rounded-md bg-amber-600/10 text-amber-600 capitalize font-medium">
+                <span className="inline-block mt-2 px-2 py-1 text-[11px] rounded-md bg-[#606338]/10 text-[#606338] capitalize font-medium">
                   {user?.role}
                 </span>
               </div>
