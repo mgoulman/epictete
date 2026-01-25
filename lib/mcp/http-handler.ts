@@ -47,8 +47,11 @@ export class MCPHTTPHandler {
     const discoveryMethods = ['initialize', 'initialized', 'tools/list', 'ping', 'notifications/initialized'];
     const isDiscoveryMethod = discoveryMethods.includes(request.method);
     
-    // Validate API key if configured (skip for discovery methods or when explicitly skipped)
-    if (this.config.apiKey && !isDiscoveryMethod && !skipAuth) {
+    // Check if unauthenticated access is allowed (for ChatGPT in serverless)
+    const allowUnauthenticated = process.env.MCP_ALLOW_UNAUTHENTICATED === 'true';
+    
+    // Validate API key if configured (skip for discovery methods, when explicitly skipped, or when unauthenticated allowed)
+    if (this.config.apiKey && !isDiscoveryMethod && !skipAuth && !allowUnauthenticated) {
       if (!authHeader) {
         return {
           jsonrpc: '2.0',
