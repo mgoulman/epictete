@@ -61,7 +61,7 @@ export function HeroSection() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.6 }}
-          className="mt-5 sm:mt-8 text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed px-2"
+          className="mt-5 sm:mt-8 text-sm sm:text-base md:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed"
         >
           Cuisine italienne et méditerranéenne gastronomique. Pizza au feu de bois, 
           pâtes fraîches maison, produits bio de notre ferme.
@@ -90,13 +90,13 @@ export function HeroSection() {
           transition={{ duration: 0.8, delay: 0.8 }}
           className="mt-8 sm:mt-10 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4 sm:px-0"
         >
-          <Button size="lg" className="w-full sm:w-auto text-base py-4 sm:py-3.5" asChild>
+          <Button variant="outline" size="lg" className="w-full sm:w-auto text-base px-8 py-4 sm:py-3.5 border-accent-foreground/40 text-accent-foreground hover:bg-accent-foreground/10" asChild>
             <a href={`tel:${siteConfig.contact.phone.replace(/\s/g, "")}`}>
               <Phone size={18} className="mr-2" />
               Réserver une table
             </a>
           </Button>
-          <Button variant="outline" size="lg" className="w-full sm:w-auto text-base py-4 sm:py-3.5" asChild>
+          <Button variant="outline" size="lg" className="w-full sm:w-auto text-base px-8 py-4 sm:py-3.5 border-accent-foreground/40 text-accent-foreground hover:bg-accent-foreground/10" asChild>
             <Link href="/menu">
               Découvrir le menu
             </Link>

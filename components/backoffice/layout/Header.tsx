@@ -3,8 +3,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LogOut, Settings, Menu, Search, Bell, ChevronRight, Home } from 'lucide-react';
+import { LogOut, Settings, Menu, Search, Bell, ChevronRight, Home, Download } from 'lucide-react';
 import { useAuth } from '@/lib/auth/hooks';
+import { usePWA } from '@/components/backoffice/PWAProvider';
 
 interface HeaderProps {
   sidebarCollapsed: boolean;
@@ -54,6 +55,7 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+  const { isInstalled, canInstall, triggerInstall } = usePWA();
 
   const pageInfo = PAGE_TITLES[pathname] || { title: 'Page', description: '' };
   const breadcrumbs = getBreadcrumbs(pathname);
@@ -149,6 +151,17 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
 
       {/* Right section: Notifications + Profile */}
       <div className="flex items-center gap-2 shrink-0">
+        {/* Install App */}
+        {canInstall && !isInstalled && (
+          <button
+            onClick={triggerInstall}
+            className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#606338] text-white text-sm font-medium hover:bg-[#4d4f2e] transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">Install</span>
+          </button>
+        )}
+
         {/* Notifications */}
         <button className="hidden md:flex relative items-center justify-center w-10 h-10 rounded-lg border border-border bg-transparent text-muted-foreground hover:bg-card hover:border-muted hover:text-foreground transition-all">
           <Bell className="w-[18px] h-[18px]" />

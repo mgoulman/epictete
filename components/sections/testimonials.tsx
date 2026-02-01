@@ -48,7 +48,7 @@ export function TestimonialsSection() {
         description="L'avis de nos clients qui ont vécu l'expérience Epictete."
       />
 
-      <div ref={ref} className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
+      <div ref={ref} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5 md:gap-8">
         {testimonials.map((testimonial, index) => (
           <motion.div
             key={testimonial.id}

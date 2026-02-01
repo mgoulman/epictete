@@ -38,6 +38,7 @@ export interface MenuItem {
   category_id: string | null;
   tags: string[];
   is_signature: boolean;
+  is_featured: boolean;
   chef_note: string | null;
   is_available: boolean;
   image_url: string | null;

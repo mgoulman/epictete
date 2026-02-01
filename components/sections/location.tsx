@@ -20,13 +20,13 @@ export function LocationSection() {
         description="Situé à Bouskoura Sud, aux portes de Casablanca, à proximité du Golf et de la Forêt de Bouskoura."
       />
 
-      <div ref={ref} className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-12 items-stretch">
+      <div ref={ref} className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 lg:gap-12 items-stretch">
         {/* Map */}
         <motion.div
           initial={{ opacity: 0, x: -40 }}
           animate={isInView ? { opacity: 1, x: 0 } : {}}
           transition={{ duration: 0.8 }}
-          className="relative aspect-video lg:aspect-auto lg:min-h-[400px] rounded-2xl overflow-hidden border border-border"
+          className="relative aspect-video md:aspect-auto md:min-h-[400px] rounded-2xl overflow-hidden border border-border"
         >
           <iframe
             src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${siteConfig.location.googleMapsQuery}&zoom=15`}
@@ -40,7 +40,7 @@ export function LocationSection() {
             className="grayscale hover:grayscale-0 transition-all duration-500"
           />
           {/* Mobile Directions Button Overlay */}
-          <div className="absolute bottom-4 left-4 right-4 lg:hidden">
+          <div className="absolute bottom-4 left-4 right-4 md:hidden">
             <Button className="w-full" asChild>
               <a
                 href={siteConfig.location.googleMapsDirections}
@@ -80,7 +80,7 @@ export function LocationSection() {
                 href={siteConfig.location.googleMapsDirections}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden lg:inline-flex items-center gap-1 mt-2 text-sm text-accent hover:text-accent-hover transition-colors"
+                className="hidden md:inline-flex items-center gap-1 mt-2 text-sm text-accent hover:text-accent-hover transition-colors"
               >
                 <Navigation size={14} />
                 Obtenir l&apos;itinéraire

@@ -47,7 +47,7 @@ export function PhilosophySection() {
             initial={{ opacity: 0, y: 40 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.8, delay: 0.1 }}
-            className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-heading font-semibold text-foreground px-4"
+            className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-heading font-semibold text-foreground"
           >
             Savoure chaque instant,
             <br className="hidden sm:block" />
@@ -58,7 +58,7 @@ export function PhilosophySection() {
             initial={{ opacity: 0, y: 40 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="mt-4 sm:mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed px-4"
+            className="mt-4 sm:mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed"
           >
             Inspirés par la philosophie stoïcienne d&apos;Épictète, nous créons une 
             expérience où chaque plat est une célébration des saveurs méditerranéennes.
@@ -70,7 +70,7 @@ export function PhilosophySection() {
           initial={{ opacity: 0, y: 40 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.8, delay: 0.3 }}
-          className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-10 sm:mb-16 px-4 sm:px-0"
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-10 sm:mb-16"
         >
           {features.map((feature, index) => (
             <div
@@ -97,7 +97,7 @@ export function PhilosophySection() {
           initial={{ opacity: 0, y: 40 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.8, delay: 0.4 }}
-          className="flex flex-wrap justify-center gap-6 sm:gap-8 md:gap-12 px-4"
+          className="flex flex-wrap justify-center gap-6 sm:gap-8 md:gap-12"
         >
           {[
             { number: "2025", label: "Ouverture" },

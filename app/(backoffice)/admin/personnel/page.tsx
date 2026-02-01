@@ -1,16 +1,96 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Users, Calendar, Clock, DollarSign, Plus, Search, Edit2, Trash2, X, Check,
-  ChevronLeft, ChevronRight, UserPlus, CalendarDays, Briefcase
+  ChevronLeft, ChevronRight, UserPlus, Briefcase, Minus
 } from 'lucide-react';
+import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared/SortHeader';
 
 interface StaffType {
   id: string;
   name: string;
   description: string | null;
   color: string;
+}
+
+interface Shift {
+  start_time: string;
+  end_time: string;
+}
+
+interface DaySchedule {
+  enabled: boolean;
+  shifts: Shift[];
+}
+
+interface WeeklyScheduleConfig {
+  monday: DaySchedule;
+  tuesday: DaySchedule;
+  wednesday: DaySchedule;
+  thursday: DaySchedule;
+  friday: DaySchedule;
+  saturday: DaySchedule;
+  sunday: DaySchedule;
+}
+
+interface MonthlyScheduleConfig {
+  default_shifts: Shift[];
+  days_per_month: number;
+  working_days: string[];
+}
+
+interface ComputedShift {
+  staff_id: string;
+  staff_name: string;
+  staff_type: StaffType;
+  start_time: string;
+  end_time: string;
+}
+
+// Normalizers for backward compatibility with old DB format
+function normalizeWeeklyConfig(raw: Record<string, unknown>): WeeklyScheduleConfig {
+  const days: (keyof WeeklyScheduleConfig)[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  const result: Record<string, DaySchedule> = {};
+  for (const day of days) {
+    const d = raw[day] as Record<string, unknown> | undefined;
+    if (!d) {
+      result[day] = { enabled: false, shifts: [{ start_time: '09:00', end_time: '17:00' }] };
+      continue;
+    }
+    // New format already has shifts array
+    if (Array.isArray(d.shifts)) {
+      result[day] = { enabled: !!d.enabled, shifts: d.shifts as Shift[] };
+    } else {
+      // Old format: {enabled, start_time, end_time}
+      result[day] = {
+        enabled: !!d.enabled,
+        shifts: [{ start_time: (d.start_time as string) || '09:00', end_time: (d.end_time as string) || '17:00' }]
+      };
+    }
+  }
+  return result as unknown as WeeklyScheduleConfig;
+}
+
+function normalizeMonthlyConfig(raw: Record<string, unknown>): MonthlyScheduleConfig {
+  const days_per_month = (raw.days_per_month as number) || 22;
+  // New format
+  if (Array.isArray(raw.default_shifts)) {
+    return {
+      default_shifts: raw.default_shifts as Shift[],
+      days_per_month,
+      working_days: Array.isArray(raw.working_days) ? raw.working_days as string[] : ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+    };
+  }
+  // Old format: {default_start_time, default_end_time, days_per_month}
+  return {
+    default_shifts: [{
+      start_time: (raw.default_start_time as string) || '09:00',
+      end_time: (raw.default_end_time as string) || '17:00',
+    }],
+    days_per_month,
+    working_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+  };
 }
 
 interface StaffMember {
@@ -27,22 +107,8 @@ interface StaffMember {
   is_active: boolean;
   notes: string | null;
   created_at: string;
-}
-
-interface Schedule {
-  id: string;
-  staff_id: string;
-  staff: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    staff_type: StaffType;
-  };
-  date: string;
-  start_time: string;
-  end_time: string;
-  shift_type: string;
-  notes: string | null;
+  schedule_type: 'weekly' | 'monthly' | null;
+  schedule_config: WeeklyScheduleConfig | MonthlyScheduleConfig | null;
 }
 
 interface TimeOff {
@@ -86,7 +152,6 @@ export default function PersonnelPage() {
   const [activeTab, setActiveTab] = useState<TabType>('staff');
   const [staffTypes, setStaffTypes] = useState<StaffType[]>([]);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [timeOffRecords, setTimeOffRecords] = useState<TimeOff[]>([]);
   const [salaryRecords, setSalaryRecords] = useState<SalaryRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,10 +159,9 @@ export default function PersonnelPage() {
 
   // Modal states
   const [showStaffModal, setShowStaffModal] = useState(false);
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showTimeOffModal, setShowTimeOffModal] = useState(false);
   const [showSalaryModal, setShowSalaryModal] = useState(false);
-  const [editingItem, setEditingItem] = useState<StaffMember | Schedule | TimeOff | SalaryRecord | null>(null);
+  const [editingItem, setEditingItem] = useState<StaffMember | TimeOff | SalaryRecord | null>(null);
 
   // Schedule week navigation
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
@@ -110,6 +174,10 @@ export default function PersonnelPage() {
   // Salary month/year
   const [salaryMonth, setSalaryMonth] = useState(new Date().getMonth() + 1);
   const [salaryYear, setSalaryYear] = useState(new Date().getFullYear());
+
+  // Salary table sort
+  const [salarySort, setSalarySort] = useState('');
+  const [salarySortDir, setSalarySortDir] = useState<SortDir>('asc');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -131,17 +199,6 @@ export default function PersonnelPage() {
     }
   }, []);
 
-  const fetchSchedules = useCallback(async () => {
-    const endDate = new Date(currentWeekStart);
-    endDate.setDate(endDate.getDate() + 6);
-
-    const res = await fetch(
-      `/api/personnel?type=schedules&startDate=${currentWeekStart.toISOString().split('T')[0]}&endDate=${endDate.toISOString().split('T')[0]}`
-    );
-    const data = await res.json();
-    setSchedules(data.schedules || []);
-  }, [currentWeekStart]);
-
   const fetchTimeOff = useCallback(async () => {
     const res = await fetch('/api/personnel?type=time-off');
     const data = await res.json();
@@ -159,23 +216,15 @@ export default function PersonnelPage() {
   }, [fetchData]);
 
   useEffect(() => {
-    if (activeTab === 'schedule') fetchSchedules();
     if (activeTab === 'time-off') fetchTimeOff();
     if (activeTab === 'salary') fetchSalary();
-  }, [activeTab, fetchSchedules, fetchTimeOff, fetchSalary]);
+  }, [activeTab, fetchTimeOff, fetchSalary]);
 
   const handleDeleteStaff = async (id: string) => {
     if (!confirm('Are you sure you want to delete this staff member?')) return;
 
     await fetch(`/api/personnel?type=staff&id=${id}`, { method: 'DELETE' });
     fetchData();
-  };
-
-  const handleDeleteSchedule = async (id: string) => {
-    if (!confirm('Delete this schedule entry?')) return;
-
-    await fetch(`/api/personnel?type=schedule&id=${id}`, { method: 'DELETE' });
-    fetchSchedules();
   };
 
   const handleDeleteTimeOff = async (id: string) => {
@@ -199,6 +248,15 @@ export default function PersonnelPage() {
       body: JSON.stringify({ type: 'time-off', id, status })
     });
     fetchTimeOff();
+  };
+
+  const handleSalarySort = (field: string) => {
+    if (salarySort === field) {
+      setSalarySortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSalarySort(field);
+      setSalarySortDir('asc');
+    }
   };
 
   const filteredStaff = staffMembers.filter(s =>
@@ -226,9 +284,60 @@ export default function PersonnelPage() {
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
-  const getSchedulesForDay = (date: Date) => {
+  // Auto-compute schedules from staff configs
+  const computedSchedules = useMemo(() => {
+    const weekDays = getWeekDays();
+    const dayMap: Record<number, string> = { 1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday', 5: 'friday', 6: 'saturday', 0: 'sunday' };
+    const result: Record<string, ComputedShift[]> = {};
+
+    for (const day of weekDays) {
+      const dateStr = day.toISOString().split('T')[0];
+      const shifts: ComputedShift[] = [];
+      const jsDay = day.getDay();
+      const dayName = dayMap[jsDay];
+
+      for (const staff of staffMembers) {
+        if (!staff.is_active || !staff.schedule_type || !staff.schedule_config) continue;
+
+        if (staff.schedule_type === 'weekly') {
+          const config = normalizeWeeklyConfig(staff.schedule_config as unknown as Record<string, unknown>);
+          const dayConfig = config[dayName as keyof WeeklyScheduleConfig];
+          if (dayConfig?.enabled) {
+            for (const shift of dayConfig.shifts) {
+              shifts.push({
+                staff_id: staff.id,
+                staff_name: `${staff.first_name} ${staff.last_name}`,
+                staff_type: staff.staff_type,
+                start_time: shift.start_time,
+                end_time: shift.end_time,
+              });
+            }
+          }
+        } else if (staff.schedule_type === 'monthly') {
+          const config = normalizeMonthlyConfig(staff.schedule_config as unknown as Record<string, unknown>);
+          if (config.working_days.includes(dayName)) {
+            for (const shift of config.default_shifts) {
+              shifts.push({
+                staff_id: staff.id,
+                staff_name: `${staff.first_name} ${staff.last_name}`,
+                staff_type: staff.staff_type,
+                start_time: shift.start_time,
+                end_time: shift.end_time,
+              });
+            }
+          }
+        }
+      }
+
+      result[dateStr] = shifts;
+    }
+
+    return result;
+  }, [staffMembers, currentWeekStart]);
+
+  const getSchedulesForDay = (date: Date): ComputedShift[] => {
     const dateStr = date.toISOString().split('T')[0];
-    return schedules.filter(s => s.date === dateStr);
+    return computedSchedules[dateStr] || [];
   };
 
   const tabs = [
@@ -302,13 +411,19 @@ export default function PersonnelPage() {
                     </div>
                     <div>
                       <h3 className="font-semibold text-foreground">{staff.first_name} {staff.last_name}</h3>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span
                           className="text-xs px-2 py-0.5 rounded-full text-white"
                           style={{ backgroundColor: staff.staff_type?.color || '#606338' }}
                         >
                           {staff.staff_type?.name}
                         </span>
+                        {staff.schedule_type && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-500 flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {staff.schedule_type === 'weekly' ? 'Weekly' : 'Monthly'}
+                          </span>
+                        )}
                         {!staff.is_active && (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-500">Inactive</span>
                         )}
@@ -381,13 +496,7 @@ export default function PersonnelPage() {
                 <ChevronRight className="w-5 h-5" />
               </button>
             </div>
-            <button
-              onClick={() => { setEditingItem(null); setShowScheduleModal(true); }}
-              className="flex items-center gap-2 px-4 py-2 bg-[#606338] text-white rounded-lg hover:bg-[#4d4f2e] transition-colors"
-            >
-              <CalendarDays className="w-4 h-4" />
-              Add Shift
-            </button>
+            <p className="text-sm text-muted-foreground">Auto-computed from staff configs</p>
           </div>
 
           <div className="grid grid-cols-7 gap-2">
@@ -399,34 +508,31 @@ export default function PersonnelPage() {
                   {formatDate(day)}
                 </div>
                 <div className="p-2 min-h-[200px] space-y-2">
-                  {getSchedulesForDay(day).map(schedule => (
+                  {getSchedulesForDay(day).map((shift, shiftIdx) => (
                     <div
-                      key={schedule.id}
+                      key={`${shift.staff_id}-${shiftIdx}`}
                       className="p-2 rounded-lg text-xs"
-                      style={{ backgroundColor: `${schedule.staff?.staff_type?.color || '#606338'}20` }}
+                      style={{ backgroundColor: `${shift.staff_type?.color || '#606338'}20` }}
                     >
                       <div className="font-medium text-foreground">
-                        {schedule.staff?.first_name} {schedule.staff?.last_name}
+                        {shift.staff_name}
                       </div>
                       <div className="text-muted-foreground">
-                        {schedule.start_time.slice(0, 5)} - {schedule.end_time.slice(0, 5)}
+                        {shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}
                       </div>
-                      <div className="flex justify-between items-center mt-1">
+                      <div className="mt-1">
                         <span
                           className="text-[10px] px-1.5 py-0.5 rounded text-white"
-                          style={{ backgroundColor: schedule.staff?.staff_type?.color || '#606338' }}
+                          style={{ backgroundColor: shift.staff_type?.color || '#606338' }}
                         >
-                          {schedule.shift_type}
+                          {shift.staff_type?.name}
                         </span>
-                        <button
-                          onClick={() => handleDeleteSchedule(schedule.id)}
-                          className="text-red-400 hover:text-red-500"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
                       </div>
                     </div>
                   ))}
+                  {getSchedulesForDay(day).length === 0 && (
+                    <div className="text-xs text-muted-foreground text-center py-4">No shifts</div>
+                  )}
                 </div>
               </div>
             ))}
@@ -556,18 +662,18 @@ export default function PersonnelPage() {
             <table className="w-full">
               <thead className="bg-secondary">
                 <tr>
-                  <th className="text-left p-3 text-sm font-medium text-muted-foreground">Employee</th>
-                  <th className="text-left p-3 text-sm font-medium text-muted-foreground">Type</th>
-                  <th className="text-right p-3 text-sm font-medium text-muted-foreground">Base Salary</th>
-                  <th className="text-right p-3 text-sm font-medium text-muted-foreground">Bonuses</th>
-                  <th className="text-right p-3 text-sm font-medium text-muted-foreground">Deductions</th>
-                  <th className="text-right p-3 text-sm font-medium text-muted-foreground">Total</th>
-                  <th className="text-center p-3 text-sm font-medium text-muted-foreground">Status</th>
+                  <th className="text-left p-3"><SortHeader label="Employee" field="staff.first_name" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="left" className="text-sm font-medium text-muted-foreground" /></th>
+                  <th className="text-left p-3"><SortHeader label="Type" field="staff.staff_type.name" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="left" className="text-sm font-medium text-muted-foreground" /></th>
+                  <th className="text-right p-3"><SortHeader label="Base Salary" field="base_salary" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="right" className="text-sm font-medium text-muted-foreground" /></th>
+                  <th className="text-right p-3"><SortHeader label="Bonuses" field="bonuses" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="right" className="text-sm font-medium text-muted-foreground" /></th>
+                  <th className="text-right p-3"><SortHeader label="Deductions" field="deductions" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="right" className="text-sm font-medium text-muted-foreground" /></th>
+                  <th className="text-right p-3"><SortHeader label="Total" field="total" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="right" className="text-sm font-medium text-muted-foreground" /></th>
+                  <th className="text-center p-3"><SortHeader label="Status" field="paid_at" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="center" className="text-sm font-medium text-muted-foreground" /></th>
                   <th className="text-right p-3 text-sm font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {salaryRecords.map(record => (
+                {[...salaryRecords].sort((a, b) => salarySort ? sortCompare(a, b, salarySort, salarySortDir) : 0).map(record => (
                   <tr key={record.id} className="border-t border-border">
                     <td className="p-3">
                       <span className="font-medium text-foreground">
@@ -638,17 +744,9 @@ export default function PersonnelPage() {
         <StaffModal
           staffTypes={staffTypes}
           editingStaff={editingItem as StaffMember | null}
+          staffMembers={staffMembers}
           onClose={() => { setShowStaffModal(false); setEditingItem(null); }}
           onSave={() => { setShowStaffModal(false); setEditingItem(null); fetchData(); }}
-        />
-      )}
-
-      {/* Schedule Modal */}
-      {showScheduleModal && (
-        <ScheduleModal
-          staffMembers={staffMembers}
-          onClose={() => { setShowScheduleModal(false); setEditingItem(null); }}
-          onSave={() => { setShowScheduleModal(false); setEditingItem(null); fetchSchedules(); }}
         />
       )}
 
@@ -676,15 +774,51 @@ export default function PersonnelPage() {
   );
 }
 
+// Default schedule configurations
+const getDefaultWeeklySchedule = (): WeeklyScheduleConfig => ({
+  monday: { enabled: true, shifts: [{ start_time: '09:00', end_time: '17:00' }] },
+  tuesday: { enabled: true, shifts: [{ start_time: '09:00', end_time: '17:00' }] },
+  wednesday: { enabled: true, shifts: [{ start_time: '09:00', end_time: '17:00' }] },
+  thursday: { enabled: true, shifts: [{ start_time: '09:00', end_time: '17:00' }] },
+  friday: { enabled: true, shifts: [{ start_time: '09:00', end_time: '17:00' }] },
+  saturday: { enabled: false, shifts: [{ start_time: '09:00', end_time: '17:00' }] },
+  sunday: { enabled: false, shifts: [{ start_time: '09:00', end_time: '17:00' }] },
+});
+
+const getDefaultMonthlySchedule = (): MonthlyScheduleConfig => ({
+  default_shifts: [{ start_time: '09:00', end_time: '17:00' }],
+  days_per_month: 22,
+  working_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+});
+
+const dayNames: (keyof WeeklyScheduleConfig)[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+const dayLabels: Record<keyof WeeklyScheduleConfig, string> = {
+  monday: 'Monday',
+  tuesday: 'Tuesday',
+  wednesday: 'Wednesday',
+  thursday: 'Thursday',
+  friday: 'Friday',
+  saturday: 'Saturday',
+  sunday: 'Sunday',
+};
+
+interface ProfileOption {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+}
+
 // Staff Modal Component
 function StaffModal({
   staffTypes,
   editingStaff,
+  staffMembers,
   onClose,
   onSave
 }: {
   staffTypes: StaffType[];
   editingStaff: StaffMember | null;
+  staffMembers: StaffMember[];
   onClose: () => void;
   onSave: () => void;
 }) {
@@ -698,9 +832,119 @@ function StaffModal({
     hourly_rate: editingStaff?.hourly_rate || '',
     monthly_salary: editingStaff?.monthly_salary || '',
     is_active: editingStaff?.is_active ?? true,
-    notes: editingStaff?.notes || ''
+    notes: editingStaff?.notes || '',
+    profile_id: (editingStaff as StaffMember & { profile_id?: string })?.profile_id || ''
   });
+
+  const [availableProfiles, setAvailableProfiles] = useState<ProfileOption[]>([]);
+
+  useEffect(() => {
+    const fetchProfiles = async () => {
+      try {
+        const res = await fetch('/api/salle?type=available-profiles');
+        const data = await res.json();
+        const profiles: ProfileOption[] = data.profiles || [];
+        // Include the currently linked profile if editing
+        const currentProfileId = (editingStaff as StaffMember & { profile_id?: string })?.profile_id;
+        const linkedProfileIds = staffMembers
+          .filter(s => s.id !== editingStaff?.id)
+          .map(s => (s as StaffMember & { profile_id?: string }).profile_id)
+          .filter(Boolean);
+        const filtered = profiles.filter(p =>
+          !linkedProfileIds.includes(p.id) || p.id === currentProfileId
+        );
+        setAvailableProfiles(filtered);
+      } catch {
+        // Ignore fetch errors
+      }
+    };
+    fetchProfiles();
+  }, [editingStaff, staffMembers]);
+
+  const [scheduleType, setScheduleType] = useState<'weekly' | 'monthly' | 'none'>(
+    editingStaff?.schedule_type || 'none'
+  );
+  const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleConfig>(
+    editingStaff?.schedule_type === 'weekly'
+      ? normalizeWeeklyConfig(editingStaff.schedule_config as unknown as Record<string, unknown>)
+      : getDefaultWeeklySchedule()
+  );
+  const [monthlySchedule, setMonthlySchedule] = useState<MonthlyScheduleConfig>(
+    editingStaff?.schedule_type === 'monthly'
+      ? normalizeMonthlyConfig(editingStaff.schedule_config as unknown as Record<string, unknown>)
+      : getDefaultMonthlySchedule()
+  );
+
   const [saving, setSaving] = useState(false);
+
+  // Weekly helpers
+  const updateDayEnabled = (day: keyof WeeklyScheduleConfig, enabled: boolean) => {
+    setWeeklySchedule(prev => ({
+      ...prev,
+      [day]: { ...prev[day], enabled }
+    }));
+  };
+
+  const updateShift = (day: keyof WeeklyScheduleConfig, shiftIndex: number, field: keyof Shift, value: string) => {
+    setWeeklySchedule(prev => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        shifts: prev[day].shifts.map((s, i) => i === shiftIndex ? { ...s, [field]: value } : s)
+      }
+    }));
+  };
+
+  const addShift = (day: keyof WeeklyScheduleConfig) => {
+    setWeeklySchedule(prev => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        shifts: [...prev[day].shifts, { start_time: '18:00', end_time: '23:00' }]
+      }
+    }));
+  };
+
+  const removeShift = (day: keyof WeeklyScheduleConfig, shiftIndex: number) => {
+    setWeeklySchedule(prev => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        shifts: prev[day].shifts.filter((_, i) => i !== shiftIndex)
+      }
+    }));
+  };
+
+  // Monthly helpers
+  const toggleMonthlyWorkingDay = (day: string) => {
+    setMonthlySchedule(prev => ({
+      ...prev,
+      working_days: prev.working_days.includes(day)
+        ? prev.working_days.filter(d => d !== day)
+        : [...prev.working_days, day]
+    }));
+  };
+
+  const updateMonthlyShift = (shiftIndex: number, field: keyof Shift, value: string) => {
+    setMonthlySchedule(prev => ({
+      ...prev,
+      default_shifts: prev.default_shifts.map((s, i) => i === shiftIndex ? { ...s, [field]: value } : s)
+    }));
+  };
+
+  const addMonthlyShift = () => {
+    setMonthlySchedule(prev => ({
+      ...prev,
+      default_shifts: [...prev.default_shifts, { start_time: '18:00', end_time: '23:00' }]
+    }));
+  };
+
+  const removeMonthlyShift = (shiftIndex: number) => {
+    setMonthlySchedule(prev => ({
+      ...prev,
+      default_shifts: prev.default_shifts.filter((_, i) => i !== shiftIndex)
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -711,6 +955,13 @@ function StaffModal({
       ...formData,
       hourly_rate: formData.hourly_rate ? Number(formData.hourly_rate) : null,
       monthly_salary: formData.monthly_salary ? Number(formData.monthly_salary) : null,
+      profile_id: formData.profile_id || null,
+      schedule_type: scheduleType === 'none' ? null : scheduleType,
+      schedule_config: scheduleType === 'weekly'
+        ? weeklySchedule
+        : scheduleType === 'monthly'
+          ? monthlySchedule
+          : null,
       ...(editingStaff && { id: editingStaff.id })
     };
 
@@ -836,6 +1087,226 @@ function StaffModal({
             />
           </div>
 
+          {/* Link to Auth Profile */}
+          <div>
+            <label className="block text-sm font-medium mb-1">Linked Auth Profile</label>
+            <select
+              value={formData.profile_id}
+              onChange={(e) => setFormData({ ...formData, profile_id: e.target.value })}
+              className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
+            >
+              <option value="">No linked profile</option>
+              {availableProfiles.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.full_name || p.email || p.id}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Link to a user account so they can log in as this staff member (required for waiters)
+            </p>
+          </div>
+
+          {/* Schedule Configuration Section */}
+          <div className="border-t border-border pt-4 mt-4">
+            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              Schedule Configuration
+            </h3>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Schedule Type</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setScheduleType('none')}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                    scheduleType === 'none'
+                      ? 'bg-[#606338] text-white'
+                      : 'bg-secondary text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  No Schedule
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScheduleType('weekly')}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                    scheduleType === 'weekly'
+                      ? 'bg-[#606338] text-white'
+                      : 'bg-secondary text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Weekly (Days)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScheduleType('monthly')}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                    scheduleType === 'monthly'
+                      ? 'bg-[#606338] text-white'
+                      : 'bg-secondary text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Monthly
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {scheduleType === 'weekly' && 'Configure specific working days and hours for each day of the week'}
+                {scheduleType === 'monthly' && 'Set default working hours and working days for the month'}
+                {scheduleType === 'none' && 'No default schedule - shifts will be assigned manually'}
+              </p>
+            </div>
+
+            {/* Weekly Schedule Config — double shifts */}
+            {scheduleType === 'weekly' && (
+              <div className="space-y-3 bg-secondary/50 p-3 rounded-lg">
+                {dayNames.map((day) => (
+                  <div key={day} className="space-y-1">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id={`day-${day}`}
+                        checked={weeklySchedule[day].enabled}
+                        onChange={(e) => updateDayEnabled(day, e.target.checked)}
+                        className="w-4 h-4 rounded border-border text-[#606338] focus:ring-[#606338]"
+                      />
+                      <label htmlFor={`day-${day}`} className="w-20 text-sm font-medium">
+                        {dayLabels[day]}
+                      </label>
+                      {weeklySchedule[day].enabled && weeklySchedule[day].shifts.length < 2 && (
+                        <button
+                          type="button"
+                          onClick={() => addShift(day)}
+                          className="ml-auto text-xs text-[#606338] hover:text-[#4d4f2e] flex items-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Add shift
+                        </button>
+                      )}
+                    </div>
+                    {weeklySchedule[day].enabled && weeklySchedule[day].shifts.map((shift, sIdx) => (
+                      <div key={sIdx} className="flex items-center gap-2 ml-7">
+                        <span className="text-xs text-muted-foreground w-8">#{sIdx + 1}</span>
+                        <input
+                          type="time"
+                          value={shift.start_time}
+                          onChange={(e) => updateShift(day, sIdx, 'start_time', e.target.value)}
+                          className="px-2 py-1 bg-card border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-[#606338]/50"
+                        />
+                        <span className="text-muted-foreground text-sm">to</span>
+                        <input
+                          type="time"
+                          value={shift.end_time}
+                          onChange={(e) => updateShift(day, sIdx, 'end_time', e.target.value)}
+                          className="px-2 py-1 bg-card border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-[#606338]/50"
+                        />
+                        {sIdx > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => removeShift(day, sIdx)}
+                            className="p-1 text-red-400 hover:text-red-500"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Monthly Schedule Config — working days + double shifts */}
+            {scheduleType === 'monthly' && (
+              <div className="space-y-4 bg-secondary/50 p-3 rounded-lg">
+                {/* Working days checkboxes */}
+                <div>
+                  <label className="block text-xs font-medium mb-2">Working Days</label>
+                  <div className="flex flex-wrap gap-2">
+                    {dayNames.map((day) => (
+                      <label
+                        key={day}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+                          monthlySchedule.working_days.includes(day)
+                            ? 'bg-[#606338] text-white'
+                            : 'bg-card text-muted-foreground border border-border hover:text-foreground'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={monthlySchedule.working_days.includes(day)}
+                          onChange={() => toggleMonthlyWorkingDay(day)}
+                          className="sr-only"
+                        />
+                        {dayLabels[day].slice(0, 3)}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Default shifts */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-medium">Default Shifts</label>
+                    {monthlySchedule.default_shifts.length < 2 && (
+                      <button
+                        type="button"
+                        onClick={addMonthlyShift}
+                        className="text-xs text-[#606338] hover:text-[#4d4f2e] flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        Add shift
+                      </button>
+                    )}
+                  </div>
+                  {monthlySchedule.default_shifts.map((shift, sIdx) => (
+                    <div key={sIdx} className="flex items-center gap-2 mb-2">
+                      <span className="text-xs text-muted-foreground w-8">#{sIdx + 1}</span>
+                      <input
+                        type="time"
+                        value={shift.start_time}
+                        onChange={(e) => updateMonthlyShift(sIdx, 'start_time', e.target.value)}
+                        className="flex-1 px-3 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
+                      />
+                      <span className="text-muted-foreground text-sm">to</span>
+                      <input
+                        type="time"
+                        value={shift.end_time}
+                        onChange={(e) => updateMonthlyShift(sIdx, 'end_time', e.target.value)}
+                        className="flex-1 px-3 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
+                      />
+                      {sIdx > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => removeMonthlyShift(sIdx)}
+                          className="p-1 text-red-400 hover:text-red-500"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium mb-1">Working Days per Month</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={monthlySchedule.days_per_month}
+                    onChange={(e) => setMonthlySchedule(prev => ({ ...prev, days_per_month: parseInt(e.target.value) || 22 }))}
+                    className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Total expected working days in a month (used for salary calculations)
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -861,147 +1332,6 @@ function StaffModal({
               className="px-4 py-2 bg-[#606338] text-white rounded-lg hover:bg-[#4d4f2e] transition-colors disabled:opacity-50"
             >
               {saving ? 'Saving...' : editingStaff ? 'Update' : 'Add Staff'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-// Schedule Modal Component
-function ScheduleModal({
-  staffMembers,
-  onClose,
-  onSave
-}: {
-  staffMembers: StaffMember[];
-  onClose: () => void;
-  onSave: () => void;
-}) {
-  const [formData, setFormData] = useState({
-    staff_id: staffMembers[0]?.id || '',
-    date: new Date().toISOString().split('T')[0],
-    start_time: '09:00',
-    end_time: '17:00',
-    shift_type: 'regular',
-    notes: ''
-  });
-  const [saving, setSaving] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-
-    await fetch('/api/personnel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'schedule', ...formData })
-    });
-
-    setSaving(false);
-    onSave();
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-md">
-        <div className="p-4 border-b border-border flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Add Shift</h2>
-          <button onClick={onClose} className="p-2 hover:bg-secondary rounded-lg">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Staff Member *</label>
-            <select
-              required
-              value={formData.staff_id}
-              onChange={(e) => setFormData({ ...formData, staff_id: e.target.value })}
-              className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
-            >
-              {staffMembers.filter(s => s.is_active).map(staff => (
-                <option key={staff.id} value={staff.id}>
-                  {staff.first_name} {staff.last_name} ({staff.staff_type?.name})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Date *</label>
-            <input
-              type="date"
-              required
-              value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Start Time *</label>
-              <input
-                type="time"
-                required
-                value={formData.start_time}
-                onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">End Time *</label>
-              <input
-                type="time"
-                required
-                value={formData.end_time}
-                onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Shift Type</label>
-            <select
-              value={formData.shift_type}
-              onChange={(e) => setFormData({ ...formData, shift_type: e.target.value })}
-              className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
-            >
-              <option value="morning">Morning</option>
-              <option value="afternoon">Afternoon</option>
-              <option value="evening">Evening</option>
-              <option value="night">Night</option>
-              <option value="regular">Regular</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Notes</label>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              rows={2}
-              className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-border">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 py-2 bg-[#606338] text-white rounded-lg hover:bg-[#4d4f2e] transition-colors disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Add Shift'}
             </button>
           </div>
         </form>

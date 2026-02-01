@@ -18,12 +18,12 @@ export function Section({
   return (
     <section
       id={id}
-      className={`py-20 md:py-28 lg:py-32 ${className}`}
+      className={`py-14 sm:py-20 md:py-28 lg:py-32 ${className}`}
     >
       {fullWidth ? (
         children
       ) : (
-        <div className={`max-w-7xl mx-auto px-6 lg:px-8 ${containerClassName}`}>
+        <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${containerClassName}`}>
           {children}
         </div>
       )}
@@ -47,17 +47,17 @@ export function SectionHeader({
   className = "",
 }: SectionHeaderProps) {
   return (
-    <div className={`${centered ? "text-center" : ""} mb-12 md:mb-16 ${className}`}>
+    <div className={`${centered ? "text-center" : ""} mb-8 sm:mb-12 md:mb-16 ${className}`}>
       {eyebrow && (
         <p className="text-accent text-sm font-medium uppercase tracking-[0.2em] mb-3">
           {eyebrow}
         </p>
       )}
-      <h2 className="text-3xl md:text-4xl lg:text-5xl font-heading font-semibold text-foreground">
+      <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-heading font-semibold text-foreground">
         {title}
       </h2>
       {description && (
-        <p className={`mt-4 text-muted-foreground text-lg ${centered ? "max-w-2xl mx-auto" : ""}`}>
+        <p className={`mt-3 sm:mt-4 text-muted-foreground text-base sm:text-lg ${centered ? "max-w-2xl mx-auto" : ""}`}>
           {description}
         </p>
       )}

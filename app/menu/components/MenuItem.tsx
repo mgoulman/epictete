@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { Star, ImageIcon, Leaf, Fish, Flame, Milk, Beef, Heart } from "lucide-react";
+import { Star, UtensilsCrossed, Leaf, Fish, Flame, Milk, Beef, Heart } from "lucide-react";
 import { MenuItem as MenuItemType, MenuTag } from "@/lib/menu-types";
 
 // Elegant tag icons
@@ -43,8 +43,8 @@ export function MenuItem({ item, index, onClick }: MenuItemProps) {
       `}
     >
       {/* Image Section */}
-      <div className="relative aspect-4/3 bg-secondary overflow-hidden">
-        {hasImage ? (
+      {hasImage ? (
+        <div className="relative aspect-4/3 bg-secondary overflow-hidden">
           <Image
             src={item.image!}
             alt={item.name}
@@ -52,29 +52,41 @@ export function MenuItem({ item, index, onClick }: MenuItemProps) {
             className="object-cover transition-transform duration-300 group-hover:scale-105"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-linear-to-br from-secondary to-secondary/60">
-            <ImageIcon className="w-8 h-8 text-muted-foreground/20" />
-          </div>
-        )}
-        
-        {/* Signature Badge */}
-        {item.isSignature && (
-          <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 bg-accent text-accent-foreground text-[10px] font-bold uppercase tracking-wide rounded-md shadow-lg">
-            <Star size={10} className="fill-current" />
-            <span>Signature</span>
-          </div>
-        )}
 
-        {/* Price Badge */}
-        <div className="absolute bottom-2 right-2 px-2.5 py-1 bg-primary/90 backdrop-blur-sm rounded-lg shadow-lg">
-          <span className="text-lg font-bold text-accent">{item.price}</span>
-          <span className="text-[10px] text-muted-foreground ml-0.5">DH</span>
+          {/* Signature Badge */}
+          {item.isSignature && (
+            <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 bg-accent text-accent-foreground text-[10px] font-bold uppercase tracking-wide rounded-md shadow-lg">
+              <Star size={10} className="fill-current" />
+              <span>Signature</span>
+            </div>
+          )}
+
+          {/* Price Badge */}
+          <div className="absolute bottom-2 right-2 px-2.5 py-1 bg-primary/90 backdrop-blur-sm rounded-lg shadow-lg">
+            <span className="text-lg font-bold text-accent">{item.price}</span>
+            <span className="text-[10px] text-muted-foreground ml-0.5">DH</span>
+          </div>
+
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 bg-linear-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
-
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-linear-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-      </div>
+      ) : (
+        <div className="relative flex items-center justify-between px-3 py-2.5 bg-secondary/40">
+          <div className="flex items-center gap-2">
+            <UtensilsCrossed className="w-4 h-4 text-accent/40" />
+            {item.isSignature && (
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-accent text-accent-foreground text-[10px] font-bold uppercase tracking-wide rounded">
+                <Star size={8} className="fill-current" />
+                <span>Signature</span>
+              </div>
+            )}
+          </div>
+          <div className="px-2 py-0.5 bg-primary/80 rounded-md">
+            <span className="text-sm font-bold text-accent">{item.price}</span>
+            <span className="text-[9px] text-muted-foreground ml-0.5">DH</span>
+          </div>
+        </div>
+      )}
 
       {/* Content Section */}
       <div className="p-3">

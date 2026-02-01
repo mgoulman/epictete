@@ -6,10 +6,12 @@ import type { MenuItem, MenuCategory, Recipe, RecipeIngredient } from '@/lib/sup
 import { PermissionGate, CanEditMenu } from '@/components/backoffice/auth/PermissionGate';
 import { usePermissions } from '@/lib/auth/hooks';
 import {
-  Plus, Pencil, Trash2, X, UtensilsCrossed, Search, Image,
+  Plus, Pencil, Trash2, X, UtensilsCrossed, Search, Image, Images,
   LayoutGrid, List, Star, Eye, EyeOff, MoreVertical, Filter,
-  Upload, Loader2, BookOpen, ChevronDown, ChevronUp
+  Upload, Loader2, BookOpen, ChevronDown, ChevronUp, Flame, ArrowLeft, Check
 } from 'lucide-react';
+import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared/SortHeader';
+import Link from 'next/link';
 
 interface MenuItemForm {
   name: string;
@@ -19,6 +21,7 @@ interface MenuItemForm {
   description_en: string;
   category_id: string;
   is_signature: boolean;
+  is_featured: boolean;
   is_available: boolean;
   chef_note: string;
   image_url: string;
@@ -41,7 +44,7 @@ interface RecipeWithIngredients extends Recipe {
 const emptyForm: MenuItemForm = {
   name: '', name_fr: '', price: '',
   description: '', description_en: '', category_id: '',
-  is_signature: false, is_available: true, chef_note: '', image_url: '',
+  is_signature: false, is_featured: false, is_available: true, chef_note: '', image_url: '',
   recipe_id: '', recipe_mode: 'none', new_recipe_name: '', new_recipe_portions: '1',
   new_recipe_ingredients: []
 };
@@ -58,6 +61,8 @@ export default function MenuPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [filterAvailable, setFilterAvailable] = useState<'all' | 'available' | 'unavailable'>('all');
   const [filterSignature, setFilterSignature] = useState(false);
+  const [sortField, setSortField] = useState('');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
@@ -70,6 +75,12 @@ export default function MenuPage() {
   const [viewingItem, setViewingItem] = useState<MenuItem | null>(null);
   const [viewingRecipe, setViewingRecipe] = useState<RecipeWithIngredients | null>(null);
   const [showRecipeSection, setShowRecipeSection] = useState(false);
+  const [showRecipeMatch, setShowRecipeMatch] = useState(false);
+  const [recipeMatchSaving, setRecipeMatchSaving] = useState(false);
+  const [recipeMatchSuccess, setRecipeMatchSuccess] = useState<string | null>(null);
+  const [recipeMatchSkipped, setRecipeMatchSkipped] = useState<Set<string>>(new Set());
+  const [recipeMatchCount, setRecipeMatchCount] = useState(0);
+  const [recipeSearchQuery, setRecipeSearchQuery] = useState('');
 
   const { hasPermission } = usePermissions();
   const canEdit = hasPermission('menu.write');
@@ -109,7 +120,7 @@ export default function MenuPage() {
         price: item.price?.toString() || '',
         description: item.description || '',
         description_en: item.description_en || '', category_id: item.category_id || '',
-        is_signature: item.is_signature || false, is_available: item.is_available !== false,
+        is_signature: item.is_signature || false, is_featured: item.is_featured || false, is_available: item.is_available !== false,
         chef_note: item.chef_note || '', image_url: item.image_url || '',
         recipe_id: item.recipe_id || '',
         recipe_mode: item.recipe_id ? 'existing' : 'none',
@@ -181,10 +192,24 @@ export default function MenuPage() {
     if (e.target.files && e.target.files[0]) {
       handleImageUpload(e.target.files[0]);
     }
+    // Reset input so the same file can be re-selected
+    e.target.value = '';
   };
 
-  const removeImage = () => {
+  const removeImage = async () => {
+    const currentUrl = formData.image_url;
     setFormData(prev => ({ ...prev, image_url: '' }));
+    // Also delete from storage if it's a Supabase storage URL
+    if (currentUrl && currentUrl.includes('supabase.co/storage')) {
+      try {
+        const path = currentUrl.split('/menu-images/').pop();
+        if (path) {
+          await fetch(`/api/upload?path=${encodeURIComponent(path)}&bucket=menu-images`, { method: 'DELETE' });
+        }
+      } catch (err) {
+        console.error('Failed to delete image from storage:', err);
+      }
+    }
   };
 
   const handleSave = async () => {
@@ -245,7 +270,7 @@ export default function MenuPage() {
         price: parseFloat(formData.price),
         description: formData.description || null, description_en: formData.description_en || null,
         category_id: formData.category_id || null, is_signature: formData.is_signature,
-        is_available: formData.is_available, chef_note: formData.chef_note || null,
+        is_featured: formData.is_featured, is_available: formData.is_available, chef_note: formData.chef_note || null,
         image_url: formData.image_url || null,
         recipe_id: recipeId,
         updated_at: new Date().toISOString()
@@ -305,9 +330,23 @@ export default function MenuPage() {
     return matchesSearch && matchesCategory && matchesAvailable && matchesSignature;
   });
 
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const sortedItems = [...filteredItems].sort((a, b) =>
+    sortField ? sortCompare(a, b, sortField, sortDir) : 0
+  );
+
   const totalItems = menuItems.length;
   const availableItems = menuItems.filter(i => i.is_available).length;
   const signatureItems = menuItems.filter(i => i.is_signature).length;
+  const featuredItems = menuItems.filter(i => i.is_featured).length;
   const itemsWithImages = menuItems.filter(i => i.image_url).length;
 
   const getCategoryName = (id: string | null) => id ? categories.find(c => c.id === id)?.name_fr || 'Unknown' : 'Uncategorized';
@@ -356,6 +395,59 @@ export default function MenuPage() {
     }
   };
 
+  // Recipe matching — random dish one at a time
+  const unlinkedItems = menuItems.filter(i => !i.recipe_id && !recipeMatchSkipped.has(i.id));
+  const totalUnlinked = menuItems.filter(i => !i.recipe_id).length;
+
+  // Pick a random dish from unlinked (stable until state changes)
+  const currentMatchDish = unlinkedItems.length > 0
+    ? unlinkedItems[Math.floor(Math.random() * unlinkedItems.length)]
+    : null;
+  // Store it in a ref-like pattern via state to keep it stable
+  const [stableMatchDish, setStableMatchDish] = useState<MenuItem | null>(null);
+
+  useEffect(() => {
+    if (showRecipeMatch && !recipeMatchSuccess) {
+      if (unlinkedItems.length > 0) {
+        setStableMatchDish(unlinkedItems[Math.floor(Math.random() * unlinkedItems.length)]);
+      } else {
+        setStableMatchDish(null);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showRecipeMatch, recipeMatchSuccess, totalUnlinked, recipeMatchSkipped.size]);
+
+  const skipDish = () => {
+    if (stableMatchDish) {
+      setRecipeMatchSkipped(prev => new Set(prev).add(stableMatchDish.id));
+    }
+  };
+
+  const assignRecipe = async (recipeId: string) => {
+    if (!stableMatchDish || recipeMatchSaving) return;
+    setRecipeMatchSaving(true);
+    try {
+      const { error } = await supabase
+        .from('menu_items')
+        .update({ recipe_id: recipeId, updated_at: new Date().toISOString() })
+        .eq('id', stableMatchDish.id);
+      if (error) throw error;
+
+      const recipeName = recipes.find(r => r.id === recipeId)?.name || '';
+      setMenuItems(prev => prev.map(i => i.id === stableMatchDish.id ? { ...i, recipe_id: recipeId } : i));
+      setRecipeMatchSaving(false);
+      setRecipeMatchCount(c => c + 1);
+      setRecipeMatchSuccess(`${stableMatchDish.name_fr} → ${recipeName}`);
+
+      setTimeout(() => {
+        setRecipeMatchSuccess(null);
+      }, 1500);
+    } catch (err) {
+      console.error('Recipe assign error:', err);
+      setRecipeMatchSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[50vh]">
@@ -374,18 +466,27 @@ export default function MenuPage() {
             <p className="text-muted-foreground mt-1 text-sm">Manage your restaurant menu items</p>
           </div>
           <CanEditMenu>
-            <button onClick={() => handleOpenModal()} className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium">
-              <Plus className="w-4 h-4" />Add Item
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowRecipeMatch(true)} className="flex items-center gap-2 px-4 py-2.5 bg-secondary border border-border rounded-lg text-foreground text-sm font-medium hover:bg-card transition-colors">
+                <BookOpen className="w-4 h-4" />Match Recipes
+              </button>
+              <Link href="/admin/menu/match-images" className="flex items-center gap-2 px-4 py-2.5 bg-secondary border border-border rounded-lg text-foreground text-sm font-medium hover:bg-card transition-colors">
+                <Images className="w-4 h-4" />Match Images
+              </Link>
+              <button onClick={() => handleOpenModal()} className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium">
+                <Plus className="w-4 h-4" />Add Item
+              </button>
+            </div>
           </CanEditMenu>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {[
             { label: 'Total Items', value: totalItems, colorClass: 'text-[#606338]' },
             { label: 'Available', value: availableItems, colorClass: 'text-green-500' },
             { label: 'Signature', value: signatureItems, colorClass: 'text-yellow-500' },
+            { label: 'Featured', value: featuredItems, colorClass: 'text-orange-500' },
             { label: 'With Images', value: itemsWithImages, colorClass: 'text-blue-500' }
           ].map(stat => (
             <div key={stat.label} className="bg-secondary border border-border rounded-lg p-4">
@@ -450,12 +551,13 @@ export default function MenuPage() {
         {/* Grid View */}
         {viewMode === 'grid' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-            {filteredItems.map(item => (
+            {sortedItems.map(item => (
               <div key={item.id} onClick={() => { setViewingItem(item); loadRecipeForView(item); }} className={`bg-secondary border border-border rounded-xl overflow-hidden transition-all hover:border-[#606338]/30 cursor-pointer ${!item.is_available ? 'opacity-60' : ''}`}>
                 <div className="h-40 bg-card relative flex items-center justify-center">
                   {item.image_url ? <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" /> : <Image className="w-8 h-8 text-muted" />}
                   <div className="absolute top-2.5 left-2.5 flex gap-1.5">
                     {item.is_signature && <span className="flex items-center gap-1 px-2 py-1 bg-yellow-500/90 rounded-md text-[11px] font-semibold text-black"><Star className="w-3 h-3" />Signature</span>}
+                    {item.is_featured && <span className="flex items-center gap-1 px-2 py-1 bg-orange-500/90 rounded-md text-[11px] font-semibold text-white"><Flame className="w-3 h-3" />Featured</span>}
                     {!item.is_available && <span className="px-2 py-1 bg-red-500/90 rounded-md text-[11px] font-semibold text-white">Unavailable</span>}
                     {item.recipe_id && <span className="flex items-center gap-1 px-2 py-1 bg-[#606338]/90 rounded-md text-[11px] font-semibold text-white"><BookOpen className="w-3 h-3" /></span>}
                   </div>
@@ -497,12 +599,12 @@ export default function MenuPage() {
         {viewMode === 'list' && (
           <div className="bg-secondary border border-border rounded-xl overflow-hidden">
             <div className="hidden md:grid grid-cols-[1fr_120px_140px_100px] gap-4 px-4 py-3 border-b border-border bg-card">
-              <span className="text-xs font-semibold text-muted uppercase">Item</span>
-              <span className="text-xs font-semibold text-muted uppercase">Category</span>
-              <span className="text-xs font-semibold text-muted uppercase">Status</span>
-              <span className="text-xs font-semibold text-muted uppercase text-right">Price</span>
+              <SortHeader label="Item" field="name_fr" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
+              <SortHeader label="Category" field="category_id" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
+              <SortHeader label="Status" field="is_available" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
+              <SortHeader label="Price" field="price" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="right" className="text-xs font-semibold text-muted uppercase" />
             </div>
-            {filteredItems.map((item, index) => (
+            {sortedItems.map((item, index) => (
               <div key={item.id} onClick={() => { setViewingItem(item); loadRecipeForView(item); }} className={`grid grid-cols-1 md:grid-cols-[1fr_120px_140px_100px] gap-4 px-4 py-3 items-center cursor-pointer hover:bg-card transition-colors ${index > 0 ? 'border-t border-border' : ''} ${!item.is_available ? 'opacity-60' : ''}`}>
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-11 h-11 rounded-lg bg-card overflow-hidden shrink-0 flex items-center justify-center">
@@ -512,6 +614,7 @@ export default function MenuPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-foreground truncate">{item.name_fr}</span>
                       {item.is_signature && <Star className="w-3.5 h-3.5 text-yellow-500 shrink-0" />}
+                      {item.is_featured && <Flame className="w-3.5 h-3.5 text-orange-500 shrink-0" />}
                       {item.recipe_id && <BookOpen className="w-3.5 h-3.5 text-[#606338] shrink-0" />}
                     </div>
                     <p className="text-xs text-muted-foreground truncate">{item.name}</p>
@@ -579,22 +682,38 @@ export default function MenuPage() {
                       alt="Preview"
                       className="w-full h-48 object-cover rounded-lg border border-border"
                     />
-                    <button
-                      type="button"
-                      onClick={removeImage}
-                      className="absolute top-2 right-2 p-1.5 bg-black/70 border-none rounded-md cursor-pointer text-white hover:bg-black/90"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                    <label className="absolute bottom-2 right-2 px-3 py-1.5 bg-black/70 border-none rounded-md cursor-pointer text-white text-xs hover:bg-black/90">
-                      Change
+                    <div className="absolute top-2 right-2 flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={removeImage}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600/90 border-none rounded-md cursor-pointer text-white text-xs font-medium hover:bg-red-700 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Remove
+                      </button>
+                    </div>
+                    <div className="absolute bottom-2 right-2">
                       <input
+                        id="image-change-input"
                         type="file"
                         accept="image/jpeg,image/png,image/webp,image/gif"
                         onChange={handleFileSelect}
                         className="hidden"
                       />
-                    </label>
+                      <button
+                        type="button"
+                        onClick={() => document.getElementById('image-change-input')?.click()}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-black/70 border-none rounded-md cursor-pointer text-white text-xs font-medium hover:bg-black/90 transition-colors"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        Change Image
+                      </button>
+                    </div>
+                    {uploadingImage && (
+                      <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
+                        <Loader2 className="w-8 h-8 text-white animate-spin" />
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div
@@ -886,14 +1005,21 @@ export default function MenuPage() {
               </div>
 
               {/* Toggles */}
-              <div className="flex gap-6">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={formData.is_signature} onChange={(e) => setFormData({ ...formData, is_signature: e.target.checked })} className="w-4 h-4 accent-[#606338]" />
-                  <span className="text-sm text-foreground">Signature dish</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={formData.is_available} onChange={(e) => setFormData({ ...formData, is_available: e.target.checked })} className="w-4 h-4 accent-[#606338]" />
-                  <span className="text-sm text-foreground">Available</span>
+              <div className="flex flex-col gap-3">
+                <div className="flex gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={formData.is_signature} onChange={(e) => setFormData({ ...formData, is_signature: e.target.checked })} className="w-4 h-4 accent-[#606338]" />
+                    <span className="text-sm text-foreground">Signature dish</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={formData.is_available} onChange={(e) => setFormData({ ...formData, is_available: e.target.checked })} className="w-4 h-4 accent-[#606338]" />
+                    <span className="text-sm text-foreground">Available</span>
+                  </label>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer p-2.5 bg-orange-500/5 border border-orange-500/20 rounded-lg">
+                  <input type="checkbox" checked={formData.is_featured} onChange={(e) => setFormData({ ...formData, is_featured: e.target.checked })} className="w-4 h-4 accent-orange-500" />
+                  <Flame className="w-4 h-4 text-orange-500" />
+                  <span className="text-sm text-foreground">Show on landing page</span>
                 </label>
               </div>
             </div>
@@ -939,6 +1065,11 @@ export default function MenuPage() {
                 {viewingItem.is_signature && (
                   <span className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500 rounded-full text-xs font-bold text-black shadow-lg">
                     <Star className="w-3.5 h-3.5 fill-current" /> Signature
+                  </span>
+                )}
+                {viewingItem.is_featured && (
+                  <span className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 rounded-full text-xs font-bold text-white shadow-lg">
+                    <Flame className="w-3.5 h-3.5" /> Featured
                   </span>
                 )}
               </div>
@@ -1098,6 +1229,151 @@ export default function MenuPage() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {/* Recipe Match Modal */}
+      {showRecipeMatch && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => { setShowRecipeMatch(false); setRecipeMatchSuccess(null); setRecipeMatchSkipped(new Set()); setRecipeMatchCount(0); setRecipeSearchQuery(''); }}>
+          <div className="bg-secondary border border-border rounded-2xl w-full max-w-lg max-h-[85vh] overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Match Recipes</h2>
+                <p className="text-xs text-muted-foreground">
+                  {totalUnlinked} dishes without recipe{recipeMatchCount > 0 && <> &middot; {recipeMatchCount} matched</>}{recipeMatchSkipped.size > 0 && <> &middot; {recipeMatchSkipped.size} skipped</>}
+                </p>
+              </div>
+              <button onClick={() => { setShowRecipeMatch(false); setRecipeMatchSuccess(null); setRecipeMatchSkipped(new Set()); setRecipeMatchCount(0); setRecipeSearchQuery(''); }} className="p-2 bg-transparent border-none rounded-md cursor-pointer text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+            </div>
+
+            {/* Progress */}
+            {menuItems.length > 0 && (
+              <div className="h-1.5 bg-card">
+                <div className="h-full bg-[#606338] transition-all duration-500" style={{ width: `${((menuItems.length - totalUnlinked) / menuItems.length) * 100}%` }} />
+              </div>
+            )}
+
+            <div className="p-5 overflow-y-auto max-h-[calc(85vh-100px)]">
+              {/* Success toast */}
+              {recipeMatchSuccess && (
+                <div className="flex items-center gap-3 p-3 mb-4 bg-green-500/10 border border-green-500/20 rounded-xl animate-in fade-in duration-300">
+                  <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
+                    <Check className="w-4 h-4 text-green-500" />
+                  </div>
+                  <p className="text-sm text-green-600 font-medium">{recipeMatchSuccess}</p>
+                </div>
+              )}
+
+              {!stableMatchDish || totalUnlinked === 0 ? (
+                /* All done */
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <div className="w-14 h-14 rounded-full bg-green-500/10 flex items-center justify-center">
+                    <Check className="w-7 h-7 text-green-500" />
+                  </div>
+                  <p className="text-foreground font-medium">
+                    {totalUnlinked === 0 ? 'All dishes have recipes!' : 'All remaining dishes skipped'}
+                  </p>
+                  {recipeMatchCount > 0 && <p className="text-sm text-muted-foreground">{recipeMatchCount} matched this session</p>}
+                  {recipeMatchSkipped.size > 0 && totalUnlinked > 0 && (
+                    <button onClick={() => setRecipeMatchSkipped(new Set())} className="mt-2 px-4 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-card transition-colors">
+                      Show skipped dishes again
+                    </button>
+                  )}
+                </div>
+              ) : (
+                /* Current dish + recipe list */
+                <>
+                  {/* Dish card with image or placeholder */}
+                  <div className="mb-4 bg-card border border-border rounded-xl overflow-hidden">
+                    <div className="h-44 overflow-hidden">
+                      {stableMatchDish.image_url ? (
+                        <img src={stableMatchDish.image_url} alt={stableMatchDish.name_fr} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-card to-secondary flex flex-col items-center justify-center gap-2">
+                          <Image className="w-10 h-10 text-muted" />
+                          <p className="text-xs text-muted-foreground">No image</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-base font-semibold text-foreground">{stableMatchDish.name_fr}</p>
+                          <p className="text-sm text-muted-foreground">{stableMatchDish.name}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {getCategoryIcon(stableMatchDish.category_id)} {getCategoryName(stableMatchDish.category_id)} &middot; {stableMatchDish.price} DH
+                          </p>
+                        </div>
+                        <button
+                          onClick={skipDish}
+                          className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors shrink-0"
+                        >
+                          Skip
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Saving */}
+                  {recipeMatchSaving && (
+                    <div className="flex items-center justify-center gap-2 py-3">
+                      <Loader2 className="w-4 h-4 text-[#606338] animate-spin" />
+                      <p className="text-sm text-muted-foreground">Saving...</p>
+                    </div>
+                  )}
+
+                  {/* Recipe search */}
+                  <p className="text-xs text-muted-foreground mb-2">Select a fiche technique:</p>
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={recipeSearchQuery}
+                      onChange={e => setRecipeSearchQuery(e.target.value)}
+                      placeholder="Search recipes..."
+                      className="w-full pl-9 pr-4 py-2.5 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[#606338]"
+                    />
+                  </div>
+
+                  {/* Recipe list */}
+                  <div className="grid gap-2">
+                    {recipes
+                      .filter(r => {
+                        if (!recipeSearchQuery) return true;
+                        const q = recipeSearchQuery.toLowerCase();
+                        return r.name.toLowerCase().includes(q) || (r.name_fr && r.name_fr.toLowerCase().includes(q)) || (r.category && r.category.toLowerCase().includes(q));
+                      })
+                      .map(recipe => (
+                      <button
+                        key={recipe.id}
+                        disabled={recipeMatchSaving}
+                        onClick={() => { assignRecipe(recipe.id); setRecipeSearchQuery(''); }}
+                        className="flex items-center justify-between gap-3 px-3 py-3 bg-card border border-border rounded-lg text-left hover:bg-[#606338]/10 hover:border-[#606338]/30 transition-all disabled:opacity-50"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{recipe.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {recipe.category} &middot; {recipe.ingredients?.length || 0} ingredients &middot; {recipe.portions} portions
+                          </p>
+                        </div>
+                        <span className="text-sm font-semibold text-[#606338] shrink-0">{recipe.cost_price?.toFixed(2)} DH</span>
+                      </button>
+                    ))}
+                    {recipes.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-8">No recipes available. Create recipes first in the Recipes page.</p>
+                    )}
+                    {recipes.length > 0 && recipes.filter(r => {
+                      if (!recipeSearchQuery) return true;
+                      const q = recipeSearchQuery.toLowerCase();
+                      return r.name.toLowerCase().includes(q) || (r.name_fr && r.name_fr.toLowerCase().includes(q)) || (r.category && r.category.toLowerCase().includes(q));
+                    }).length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">No recipes match your search</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

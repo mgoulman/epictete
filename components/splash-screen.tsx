@@ -9,19 +9,9 @@ export function SplashScreen() {
   const [hasAnimated, setHasAnimated] = useState(false);
 
   useEffect(() => {
-    // Check if splash has been shown in this session
-    const hasSeenSplash = sessionStorage.getItem("hasSeenSplash");
-
-    if (hasSeenSplash) {
-      setIsVisible(false);
-      setHasAnimated(true);
-      return;
-    }
-
     // Show splash for 4 seconds then fade out
     const timer = setTimeout(() => {
       setIsVisible(false);
-      sessionStorage.setItem("hasSeenSplash", "true");
     }, 4000);
 
     return () => clearTimeout(timer);
@@ -39,53 +29,34 @@ export function SplashScreen() {
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.8, ease: "easeInOut" }}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-[#EDE6D6]"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-[#F0E7CE]"
         >
-          <div className="flex flex-col items-center">
-            {/* Logo Icon with animation */}
+          <div className="flex flex-col items-center px-8 w-full max-w-md">
+            {/* Full logo with name */}
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6, ease: "easeOut" }}
+              className="w-full flex justify-center"
             >
               <Image
-                src="/logos/logo-icon.png"
-                alt="Epictète"
-                width={180}
-                height={180}
+                src="/logos/logo-full.png"
+                alt="Epictète Restaurant"
+                width={400}
+                height={400}
                 priority
-                className="w-36 h-36 md:w-44 md:h-44"
+                className="w-full max-w-[280px] sm:max-w-[320px] md:max-w-[384px] h-auto"
               />
             </motion.div>
-
-            {/* Restaurant name */}
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-              className="mt-6 text-[#606338] text-lg md:text-xl font-heading tracking-[0.2em] uppercase"
-            >
-              Epictète
-            </motion.p>
-
-            {/* Subtitle */}
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.6 }}
-              className="mt-2 text-[#606338]/60 text-sm tracking-wider"
-            >
-              Restaurant
-            </motion.p>
 
             {/* Loading indicator */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3, delay: 0.8 }}
-              className="mt-8"
+              className="mt-6 sm:mt-8"
             >
-              <div className="w-8 h-0.5 bg-[#606338]/20 rounded-full overflow-hidden">
+              <div className="w-16 sm:w-20 h-1 bg-[#606338]/20 rounded-full overflow-hidden">
                 <motion.div
                   initial={{ x: "-100%" }}
                   animate={{ x: "100%" }}

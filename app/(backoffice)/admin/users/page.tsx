@@ -7,6 +7,7 @@ import {
   UserCheck, UserX, Shield, MoreVertical, Mail, Calendar
 } from 'lucide-react';
 import type { Role, ProfileWithRole } from '@/lib/types/auth';
+import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared/SortHeader';
 
 interface UserFormData {
   email: string;
@@ -32,6 +33,8 @@ export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [sortField, setSortField] = useState('');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<ProfileWithRole | null>(null);
@@ -210,6 +213,19 @@ export default function UsersPage() {
     return matchesSearch && matchesRole && matchesStatus;
   });
 
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const sortedUsers = [...filteredUsers].sort((a, b) =>
+    sortField ? sortCompare(a, b, sortField, sortDir) : 0
+  );
+
   const totalUsers = users.length;
   const activeUsers = users.filter(u => u.is_active).length;
   const inactiveUsers = users.filter(u => !u.is_active).length;
@@ -361,15 +377,15 @@ export default function UsersPage() {
         <div className="bg-secondary border border-border rounded-xl overflow-hidden">
           {/* Header */}
           <div className="hidden md:grid grid-cols-[1fr_140px_120px_100px_50px] gap-4 px-4 py-3 border-b border-border bg-card">
-            <span className="text-xs font-semibold text-muted uppercase">User</span>
-            <span className="text-xs font-semibold text-muted uppercase">Role</span>
-            <span className="text-xs font-semibold text-muted uppercase">Status</span>
-            <span className="text-xs font-semibold text-muted uppercase">Joined</span>
+            <SortHeader label="User" field="full_name" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
+            <SortHeader label="Role" field="role.name" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
+            <SortHeader label="Status" field="is_active" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
+            <SortHeader label="Joined" field="created_at" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
             <span></span>
           </div>
 
           {/* Rows */}
-          {filteredUsers.map((user, index) => {
+          {sortedUsers.map((user, index) => {
             const roleClasses = getRoleClasses(user.role?.name);
             return (
               <div
