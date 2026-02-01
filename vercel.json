@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/lacaisse-sync",
+      "schedule": "1 1 * * *"
+    }
+  ]
+}
