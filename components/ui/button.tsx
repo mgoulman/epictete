@@ -1,4 +1,4 @@
-import { forwardRef } from "react";
+import { forwardRef, cloneElement, isValidElement, type ReactElement } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger";
 type ButtonSize = "sm" | "md" | "lg";
@@ -28,8 +28,31 @@ const sizes: Record<ButtonSize, string> = {
   lg: "px-5 py-2.5 text-base",
 };
 
+function mergeClasses(...classes: (string | undefined)[]): string {
+  return classes.filter(Boolean).join(' ').trim().replace(/\s+/g, ' ');
+}
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className = "", variant = "primary", size = "md", children, ...props }, ref) => {
+  function Button({ className = "", variant = "primary", size = "md", asChild = false, children, ...props }, ref) {
+    const buttonClasses = mergeClasses(
+      "inline-flex items-center justify-center gap-2",
+      "font-medium rounded-lg",
+      "transition-all duration-300 ease-smooth",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+      "disabled:pointer-events-none disabled:opacity-50",
+      variants[variant],
+      sizes[size],
+      className
+    );
+
+    if (asChild && isValidElement(children)) {
+      const child = children as ReactElement<{ className?: string }>;
+      const childClassName = child.props.className;
+      return cloneElement(child, {
+        className: mergeClasses(buttonClasses, childClassName),
+      });
+    }
+
     return (
       <button
         ref={ref}
@@ -50,5 +73,3 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     );
   }
 );
-
-Button.displayName = "Button";

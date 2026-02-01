@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/hooks';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import Image from 'next/image';
 
 interface BackofficeShellProps {
   children: React.ReactNode;
@@ -13,6 +14,8 @@ interface BackofficeShellProps {
 export function BackofficeShell({ children }: BackofficeShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [showSplash, setShowSplash] = useState(false);
+  const [splashDone, setSplashDone] = useState(false);
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -23,6 +26,23 @@ export function BackofficeShell({ children }: BackofficeShellProps) {
       setSidebarCollapsed(JSON.parse(saved));
     }
   }, []);
+
+  // Show splash once per session for 3 seconds
+  useEffect(() => {
+    if (pathname === '/login') return;
+    const seen = sessionStorage.getItem('backoffice-splash-seen');
+    if (seen) {
+      setSplashDone(true);
+      return;
+    }
+    setShowSplash(true);
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+      setSplashDone(true);
+      sessionStorage.setItem('backoffice-splash-seen', 'true');
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [pathname]);
 
   // Close mobile sidebar on route change
   useEffect(() => {
@@ -58,6 +78,10 @@ export function BackofficeShell({ children }: BackofficeShellProps) {
     if (!isLoading && !user && pathname !== '/login') {
       router.push('/login');
     }
+    // Redirect waiters to service view when they hit the dashboard
+    if (!isLoading && user && user.role === 'waiter' && pathname === '/admin') {
+      router.push('/admin/salle/service');
+    }
   }, [user, isLoading, router, pathname]);
 
   // Login page should render immediately without auth check
@@ -65,10 +89,20 @@ export function BackofficeShell({ children }: BackofficeShellProps) {
     return <>{children}</>;
   }
 
-  if (isLoading) {
+  if (isLoading || showSplash) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-[#606338] border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#F0E7CE] flex flex-col items-center justify-center">
+        <div className="relative w-40 h-40 mb-6 animate-pulse">
+          <Image
+            src="/logos/logo-icon.png"
+            alt="Epictete"
+            fill
+            className="object-contain"
+            priority
+          />
+        </div>
+        <div className="w-8 h-8 border-3 border-[#606338] border-t-transparent rounded-full animate-spin" />
+        <p className="mt-4 text-[#606338] text-sm font-medium">Chargement...</p>
       </div>
     );
   }

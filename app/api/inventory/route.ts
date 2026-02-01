@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('inventory_items')
-      .select('*')
+      .select('*, vendor:vendors(id, name)')
       .order('category', { ascending: true })
       .order('name', { ascending: true });
 
@@ -55,6 +55,21 @@ export async function POST(request: NextRequest) {
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
 
+    const vendorId = body.vendor_id || null;
+
+    // Auto-sync supplier text from vendor name for backward compatibility
+    let supplierName = body.supplier || null;
+    if (vendorId) {
+      const { data: vendor } = await supabase
+        .from('vendors')
+        .select('name')
+        .eq('id', vendorId)
+        .single();
+      if (vendor) {
+        supplierName = vendor.name;
+      }
+    }
+
     const item = {
       name: body.name,
       category: body.category || null,
@@ -62,7 +77,8 @@ export async function POST(request: NextRequest) {
       unit: body.unit || 'pieces',
       minimum_stock: body.minimum_stock || 0,
       cost_per_unit: body.cost_per_unit || 0,
-      supplier: body.supplier || null,
+      vendor_id: vendorId,
+      supplier: supplierName,
       notes: body.notes || null
     };
 
@@ -73,7 +89,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from('inventory_items')
       .insert(item)
-      .select()
+      .select('*, vendor:vendors(id, name)')
       .single();
 
     if (error) {
@@ -98,11 +114,27 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
+    // Auto-sync supplier text when vendor_id is updated
+    if ('vendor_id' in updates) {
+      if (updates.vendor_id) {
+        const { data: vendor } = await supabase
+          .from('vendors')
+          .select('name')
+          .eq('id', updates.vendor_id)
+          .single();
+        if (vendor) {
+          updates.supplier = vendor.name;
+        }
+      } else {
+        updates.supplier = null;
+      }
+    }
+
     const { data, error } = await supabase
       .from('inventory_items')
       .update(updates)
       .eq('id', id)
-      .select()
+      .select('*, vendor:vendors(id, name)')
       .single();
 
     if (error) {

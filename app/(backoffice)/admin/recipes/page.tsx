@@ -7,6 +7,7 @@ import {
   Package, DollarSign, Link2, Unlink, Eye, ChefHat,
   Clock, Timer, Gauge
 } from 'lucide-react';
+import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared/SortHeader';
 
 interface Recipe {
   id: string;
@@ -60,6 +61,8 @@ export default function RecipesPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortField, setSortField] = useState('');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   // Modal states
   const [showRecipeModal, setShowRecipeModal] = useState(false);
@@ -295,6 +298,17 @@ export default function RecipesPage() {
     r.category?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const sortedRecipes = [...filteredRecipes].sort((a, b) => sortField ? sortCompare(a, b, sortField, sortDir) : 0);
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('fr-MA', { minimumFractionDigits: 2 }).format(value) + ' DH';
   };
@@ -409,16 +423,16 @@ export default function RecipesPage() {
           <table className="w-full">
             <thead className="bg-card">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Recette</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Catégorie</th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-muted uppercase">Portions</th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-muted uppercase">Ingrédients</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">Coût</th>
+                <th className="px-4 py-3 text-left"><SortHeader label="Recette" field="name" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                <th className="px-4 py-3 text-left"><SortHeader label="Catégorie" field="category" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                <th className="px-4 py-3 text-center"><SortHeader label="Portions" field="portions" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
+                <th className="px-4 py-3 text-center"><SortHeader label="Ingrédients" field="ingredient_count" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
+                <th className="px-4 py-3 text-right"><SortHeader label="Coût" field="cost_price" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
                 {canWrite && <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">Actions</th>}
               </tr>
             </thead>
             <tbody>
-              {filteredRecipes.map(recipe => (
+              {sortedRecipes.map(recipe => (
                 <tr key={recipe.id} className="border-t border-border hover:bg-card/50">
                   <td className="px-4 py-3">
                     <button

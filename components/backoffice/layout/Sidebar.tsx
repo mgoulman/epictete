@@ -22,10 +22,15 @@ import {
   BookOpen,
   BarChart3,
   Package,
-  Upload
+  Upload,
+  Download,
+  Armchair,
+  Map,
+  ClipboardList
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth, usePermissions } from '@/lib/auth/hooks';
+import { usePWA } from '@/components/backoffice/PWAProvider';
 import { BACKOFFICE_NAV } from '@/lib/types/auth';
 import type { PermissionName, NavItem } from '@/lib/types/auth';
 
@@ -43,7 +48,10 @@ const iconMap: Record<string, React.ElementType> = {
   BookOpen,
   BarChart3,
   Package,
-  Upload
+  Upload,
+  Armchair,
+  Map,
+  ClipboardList
 };
 
 interface SidebarProps {
@@ -59,6 +67,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { hasPermission, isAdmin } = usePermissions();
+  const { isInstalled, canInstall, triggerInstall } = usePWA();
 
   // Track expanded state for items with children
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
@@ -328,6 +337,24 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                 </div>
               )}
             </div>
+
+            {/* Install App button */}
+            {canInstall && !isInstalled && (
+              <button
+                onClick={triggerInstall}
+                title={isCollapsed ? 'Install App' : undefined}
+                className={`
+                  w-full flex items-center gap-3 rounded-lg transition-all mt-2
+                  ${isCollapsed ? 'py-2.5 justify-center' : 'py-2.5 px-3'}
+                  text-[#606338] hover:bg-[#606338]/10
+                `}
+              >
+                <Download className="w-[18px] h-[18px] shrink-0" />
+                {!isCollapsed && (
+                  <span className="text-[13px] font-medium">Install App</span>
+                )}
+              </button>
+            )}
 
             {/* Logout button */}
             <button

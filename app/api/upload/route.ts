@@ -21,16 +21,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    // Validate file type — PDF allowed for vendor-invoices bucket
+    const imageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif'];
+    const allowedTypes = bucket === 'vendor-invoices'
+      ? [...imageTypes, 'application/pdf']
+      : imageTypes;
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ error: 'Invalid file type. Allowed: JPEG, PNG, WebP, GIF' }, { status: 400 });
+      const typeLabel = bucket === 'vendor-invoices' ? 'JPEG, PNG, WebP, GIF, PDF' : 'JPEG, PNG, WebP, GIF';
+      return NextResponse.json({ error: `Invalid file type. Allowed: ${typeLabel}` }, { status: 400 });
     }
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024;
+    // Validate file size — 20MB for menu-images, 10MB for vendor-invoices, 5MB otherwise
+    const maxSize = bucket === 'menu-images' ? 20 * 1024 * 1024 : bucket === 'vendor-invoices' ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
     if (file.size > maxSize) {
-      return NextResponse.json({ error: 'File too large. Maximum size is 5MB' }, { status: 400 });
+      const sizeLabel = bucket === 'menu-images' ? '20MB' : bucket === 'vendor-invoices' ? '10MB' : '5MB';
+      return NextResponse.json({ error: `File too large. Maximum size is ${sizeLabel}` }, { status: 400 });
     }
 
     // Generate unique filename

@@ -91,7 +91,7 @@ function GalleryImage({
       transition={{ duration: 0.8, delay: index * 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
       className={`
         relative overflow-hidden rounded-2xl cursor-pointer group
-        ${image.featured ? "md:col-span-2 md:row-span-2" : ""}
+        ${image.featured ? "sm:col-span-2 lg:col-span-2 lg:row-span-2" : ""}
         ${image.aspectRatio === "landscape" ? "aspect-16/10" : "aspect-square"}
       `}
       onMouseEnter={() => setIsHovered(true)}
@@ -149,7 +149,7 @@ function GalleryImage({
       />
 
       {/* Content overlay */}
-      <div className="absolute inset-0 p-6 flex flex-col justify-end">
+      <div className="absolute inset-0 p-4 sm:p-6 flex flex-col justify-end">
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: isHovered ? 0 : 20, opacity: isHovered ? 1 : 0 }}
@@ -238,14 +238,14 @@ function Lightbox({
         />
         
         {/* Info overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-8 bg-linear-to-t from-primary/90 to-transparent">
-          <p className="text-accent text-sm font-medium uppercase tracking-[0.2em] mb-2">
+        <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 md:p-8 bg-linear-to-t from-primary/90 to-transparent">
+          <p className="text-accent text-xs sm:text-sm font-medium uppercase tracking-[0.2em] mb-2">
             Epictete Restaurant
           </p>
-          <h3 className="text-foreground font-heading text-3xl font-semibold">
+          <h3 className="text-foreground font-heading text-xl sm:text-2xl md:text-3xl font-semibold">
             {image.title}
           </h3>
-          <p className="text-muted-foreground text-lg mt-2 max-w-2xl">
+          <p className="text-muted-foreground text-sm sm:text-base md:text-lg mt-2 max-w-2xl">
             {image.description}
           </p>
         </div>
@@ -270,7 +270,7 @@ export function GallerySection() {
 
         <div 
           ref={ref}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 md:gap-6"
         >
           {galleryImages.map((image, index) => (
             <GalleryImage

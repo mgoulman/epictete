@@ -9,8 +9,10 @@ import {
   Download, RefreshCw, ChevronLeft, ChevronRight, X, Calendar,
   Search, FileSpreadsheet, Trash2, Eye, BarChart3, PieChart,
   Package, AlertTriangle, Edit2, Minus, Users, Phone, Mail, MapPin,
-  CreditCard, ArrowUpRight, ArrowDownRight
+  CreditCard, ArrowUpRight, ArrowDownRight, Camera, FileText,
+  Check, Image as ImageIcon, Loader2
 } from 'lucide-react';
+import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared/SortHeader';
 
 interface SalesItem {
   id: string;
@@ -61,6 +63,8 @@ interface InventoryItem {
   minimum_stock: number;
   cost_per_unit: number;
   supplier: string | null;
+  vendor_id: string | null;
+  vendor: { id: string; name: string } | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -77,8 +81,46 @@ interface Vendor {
   notes: string | null;
   is_active: boolean;
   balance: number;
+  invoice_template_url: string | null;
+  invoice_template_path: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface VendorInvoice {
+  id: string;
+  vendor_id: string;
+  invoice_url: string;
+  invoice_path: string;
+  invoice_date: string;
+  total_amount: number;
+  status: 'pending' | 'confirmed';
+  vendor_transaction_id: string | null;
+  raw_extraction: unknown;
+  created_at: string;
+  items?: VendorInvoiceItem[];
+}
+
+interface VendorInvoiceItem {
+  id: string;
+  invoice_id: string;
+  product_name: string;
+  quantity: number;
+  unit: string | null;
+  unit_price: number;
+  total_price: number;
+  matched_inventory_id: string | null;
+}
+
+interface ScannedItem {
+  product_name: string;
+  quantity: number;
+  unit: string | null;
+  unit_price: number;
+  total_price: number;
+  matched_inventory_id: string | null;
+  matched_inventory_name: string | null;
+  match_score: number;
 }
 
 interface VendorTransaction {
@@ -114,6 +156,41 @@ export default function FinancePage() {
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
 
+  // Sort state
+  const [salesSort, setSalesSort] = useState('sale_date');
+  const [salesSortDir, setSalesSortDir] = useState<SortDir>('asc');
+  const [importSort, setImportSort] = useState('created_at');
+  const [importSortDir, setImportSortDir] = useState<SortDir>('asc');
+  const [invSort, setInvSort] = useState('name');
+  const [invSortDir, setInvSortDir] = useState<SortDir>('asc');
+
+  const handleSalesSort = (field: string) => {
+    if (salesSort === field) {
+      setSalesSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSalesSort(field);
+      setSalesSortDir('asc');
+    }
+  };
+
+  const handleImportSort = (field: string) => {
+    if (importSort === field) {
+      setImportSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setImportSort(field);
+      setImportSortDir('asc');
+    }
+  };
+
+  const handleInvSort = (field: string) => {
+    if (invSort === field) {
+      setInvSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setInvSort(field);
+      setInvSortDir('asc');
+    }
+  };
+
   // Inventory state
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [inventoryCategories, setInventoryCategories] = useState<string[]>([]);
@@ -129,7 +206,7 @@ export default function FinancePage() {
     unit: 'kg',
     minimum_stock: 0,
     cost_per_unit: 0,
-    supplier: '',
+    vendor_id: '',
     notes: ''
   });
 
@@ -150,7 +227,9 @@ export default function FinancePage() {
     phone: '',
     address: '',
     category: 'general',
-    notes: ''
+    notes: '',
+    invoice_template_url: '' as string,
+    invoice_template_path: '' as string
   });
   const [newTransaction, setNewTransaction] = useState({
     type: 'debt' as 'debt' | 'payment',
@@ -159,6 +238,39 @@ export default function FinancePage() {
     date: new Date().toISOString().split('T')[0],
     reference: ''
   });
+
+  // Invoice scanner state
+  const [showScannerModal, setShowScannerModal] = useState(false);
+  const [scannerStage, setScannerStage] = useState<'upload' | 'review' | 'success'>('upload');
+  const [scannerVendorId, setScannerVendorId] = useState('');
+  const [scannerFile, setScannerFile] = useState<File | null>(null);
+  const [scannerPreview, setScannerPreview] = useState('');
+  const [scanning, setScanning] = useState(false);
+  const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
+  const [scannedInvoiceDate, setScannedInvoiceDate] = useState('');
+  const [scannedTotalAmount, setScannedTotalAmount] = useState(0);
+  const [scannedInvoiceUrl, setScannedInvoiceUrl] = useState('');
+  const [scannedInvoicePath, setScannedInvoicePath] = useState('');
+  const [scannedRawExtraction, setScannedRawExtraction] = useState<unknown>(null);
+  const [scannerInventoryItems, setScannerInventoryItems] = useState<Array<{ id: string; name: string }>>([]);
+  const [confirming, setConfirming] = useState(false);
+  const [updateInventoryOnConfirm, setUpdateInventoryOnConfirm] = useState(true);
+  const [confirmResult, setConfirmResult] = useState<{ transaction: { id: string; amount: number }; inventory_updates: Array<{ name: string; added: number }> } | null>(null);
+
+  // Invoice history
+  const [vendorInvoices, setVendorInvoices] = useState<VendorInvoice[]>([]);
+
+  // Vendor match modal
+  const [showVendorMatch, setShowVendorMatch] = useState(false);
+  const [vendorMatchSaving, setVendorMatchSaving] = useState(false);
+  const [vendorMatchSuccess, setVendorMatchSuccess] = useState<string | null>(null);
+  const [vendorMatchSkipped, setVendorMatchSkipped] = useState<Set<string>>(new Set());
+  const [vendorMatchCount, setVendorMatchCount] = useState(0);
+  const [vendorMatchSearch, setVendorMatchSearch] = useState('');
+  const [stableMatchInventory, setStableMatchInventory] = useState<InventoryItem | null>(null);
+
+  // Template upload
+  const [uploadingTemplate, setUploadingTemplate] = useState(false);
 
   // Filters
   const [startDate, setStartDate] = useState('');
@@ -221,8 +333,8 @@ export default function FinancePage() {
     setLoading(false);
   }, [offset, startDate, endDate, category, searchQuery]);
 
-  const fetchInventory = useCallback(async () => {
-    setInventoryLoading(true);
+  const fetchInventory = useCallback(async (showLoader = true) => {
+    if (showLoader) setInventoryLoading(true);
     try {
       const params = new URLSearchParams();
       if (inventoryCategory) params.set('category', inventoryCategory);
@@ -237,11 +349,11 @@ export default function FinancePage() {
     } catch (err) {
       console.error('Inventory fetch error:', err);
     }
-    setInventoryLoading(false);
+    if (showLoader) setInventoryLoading(false);
   }, [inventoryCategory, inventorySearch]);
 
-  const fetchVendors = useCallback(async () => {
-    setVendorsLoading(true);
+  const fetchVendors = useCallback(async (showLoader = true) => {
+    if (showLoader) setVendorsLoading(true);
     try {
       const res = await fetch('/api/vendors?type=vendors');
       if (res.ok) {
@@ -251,7 +363,7 @@ export default function FinancePage() {
     } catch (err) {
       console.error('Vendors fetch error:', err);
     }
-    setVendorsLoading(false);
+    if (showLoader) setVendorsLoading(false);
   }, []);
 
   const fetchVendorTransactions = useCallback(async (vendorId: string) => {
@@ -274,6 +386,7 @@ export default function FinancePage() {
   useEffect(() => {
     if (activeTab === 'inventory') {
       fetchInventory();
+      fetchVendors();
     }
     if (activeTab === 'vendors') {
       fetchVendors();
@@ -380,10 +493,10 @@ export default function FinancePage() {
           unit: 'kg',
           minimum_stock: 0,
           cost_per_unit: 0,
-          supplier: '',
+          vendor_id: '',
           notes: ''
         });
-        fetchInventory();
+        fetchInventory(false);
       } else {
         const err = await res.json();
         alert(err.error || 'Failed to add item');
@@ -398,15 +511,16 @@ export default function FinancePage() {
     if (!editingInventory) return;
 
     try {
+      const { vendor, supplier, ...inventoryPayload } = editingInventory;
       const res = await fetch('/api/inventory', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingInventory)
+        body: JSON.stringify(inventoryPayload)
       });
 
       if (res.ok) {
         setEditingInventory(null);
-        fetchInventory();
+        fetchInventory(false);
       } else {
         const err = await res.json();
         alert(err.error || 'Failed to update item');
@@ -423,7 +537,7 @@ export default function FinancePage() {
     try {
       const res = await fetch(`/api/inventory?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
-        fetchInventory();
+        fetchInventory(false);
       }
     } catch (err) {
       console.error('Delete inventory error:', err);
@@ -432,17 +546,18 @@ export default function FinancePage() {
 
   const handleQuickQuantityUpdate = async (item: InventoryItem, delta: number) => {
     const newQuantity = Math.max(0, item.quantity + delta);
+    // Optimistic update — no full refetch
+    setInventoryItems(prev => prev.map(i => i.id === item.id ? { ...i, quantity: newQuantity } : i));
     try {
-      const res = await fetch('/api/inventory', {
+      await fetch('/api/inventory', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: item.id, quantity: newQuantity })
       });
-      if (res.ok) {
-        fetchInventory();
-      }
     } catch (err) {
       console.error('Quick update error:', err);
+      // Revert on failure
+      setInventoryItems(prev => prev.map(i => i.id === item.id ? { ...i, quantity: item.quantity } : i));
     }
   };
 
@@ -453,10 +568,22 @@ export default function FinancePage() {
     }
 
     try {
+      const vendorPayload = {
+        type: 'vendor',
+        name: newVendor.name,
+        contact_name: newVendor.contact_name,
+        email: newVendor.email,
+        phone: newVendor.phone,
+        address: newVendor.address,
+        category: newVendor.category,
+        notes: newVendor.notes,
+        invoice_template_url: newVendor.invoice_template_url || null,
+        invoice_template_path: newVendor.invoice_template_path || null
+      };
       const res = await fetch('/api/vendors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'vendor', ...newVendor })
+        body: JSON.stringify(vendorPayload)
       });
 
       if (res.ok) {
@@ -468,9 +595,11 @@ export default function FinancePage() {
           phone: '',
           address: '',
           category: 'general',
-          notes: ''
+          notes: '',
+          invoice_template_url: '',
+          invoice_template_path: ''
         });
-        fetchVendors();
+        fetchVendors(false);
       } else {
         const err = await res.json();
         alert(err.error || 'Failed to add vendor');
@@ -498,13 +627,15 @@ export default function FinancePage() {
           address: editingVendor.address,
           category: editingVendor.category,
           notes: editingVendor.notes,
-          is_active: editingVendor.is_active
+          is_active: editingVendor.is_active,
+          invoice_template_url: editingVendor.invoice_template_url,
+          invoice_template_path: editingVendor.invoice_template_path
         })
       });
 
       if (res.ok) {
         setEditingVendor(null);
-        fetchVendors();
+        fetchVendors(false);
       } else {
         const err = await res.json();
         alert(err.error || 'Failed to update vendor');
@@ -521,7 +652,7 @@ export default function FinancePage() {
     try {
       const res = await fetch(`/api/vendors?type=vendor&id=${id}`, { method: 'DELETE' });
       if (res.ok) {
-        fetchVendors();
+        fetchVendors(false);
       }
     } catch (err) {
       console.error('Delete vendor error:', err);
@@ -559,7 +690,7 @@ export default function FinancePage() {
           date: new Date().toISOString().split('T')[0],
           reference: ''
         });
-        fetchVendors();
+        fetchVendors(false);
         if (viewingVendorTransactions) {
           fetchVendorTransactions(viewingVendorTransactions.id);
         }
@@ -579,13 +710,168 @@ export default function FinancePage() {
     try {
       const res = await fetch(`/api/vendors?type=transaction&id=${id}`, { method: 'DELETE' });
       if (res.ok) {
-        fetchVendors();
+        fetchVendors(false);
         if (viewingVendorTransactions) {
           fetchVendorTransactions(viewingVendorTransactions.id);
         }
       }
     } catch (err) {
       console.error('Delete transaction error:', err);
+    }
+  };
+
+  // Template upload handler
+  const handleTemplateUpload = async (
+    file: File,
+    target: 'new' | 'edit'
+  ) => {
+    setUploadingTemplate(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bucket', 'vendor-invoices');
+
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (res.ok) {
+        if (target === 'new') {
+          setNewVendor({ ...newVendor, invoice_template_url: data.url, invoice_template_path: data.path });
+        } else if (editingVendor) {
+          setEditingVendor({ ...editingVendor, invoice_template_url: data.url, invoice_template_path: data.path });
+        }
+      } else {
+        alert(data.error || 'Failed to upload template');
+      }
+    } catch {
+      alert('Failed to upload template');
+    }
+    setUploadingTemplate(false);
+  };
+
+  const handleRemoveTemplate = async (target: 'new' | 'edit') => {
+    const path = target === 'new' ? newVendor.invoice_template_path : editingVendor?.invoice_template_path;
+    if (path) {
+      try {
+        await fetch(`/api/upload?path=${encodeURIComponent(path)}&bucket=vendor-invoices`, { method: 'DELETE' });
+      } catch { /* ignore cleanup errors */ }
+    }
+    if (target === 'new') {
+      setNewVendor({ ...newVendor, invoice_template_url: '', invoice_template_path: '' });
+    } else if (editingVendor) {
+      setEditingVendor({ ...editingVendor, invoice_template_url: null, invoice_template_path: null });
+    }
+  };
+
+  // Invoice scanner handlers
+  const handleScanInvoice = async () => {
+    if (!scannerFile || !scannerVendorId) {
+      alert('Please select a vendor and upload an invoice');
+      return;
+    }
+
+    setScanning(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', scannerFile);
+      formData.append('vendorId', scannerVendorId);
+
+      const res = await fetch('/api/invoices/scan', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (res.ok) {
+        setScannedItems(data.extraction.items || []);
+        setScannedInvoiceDate(data.extraction.invoice_date || new Date().toISOString().split('T')[0]);
+        setScannedTotalAmount(data.extraction.total_amount || 0);
+        setScannedInvoiceUrl(data.invoice_url);
+        setScannedInvoicePath(data.invoice_path);
+        setScannedRawExtraction(data.raw_extraction);
+        setScannerInventoryItems(data.inventory_items || []);
+        setScannerStage('review');
+      } else {
+        alert(data.error || 'Scan failed');
+      }
+    } catch {
+      alert('Scan failed');
+    }
+    setScanning(false);
+  };
+
+  const handleConfirmInvoice = async () => {
+    setConfirming(true);
+    try {
+      const res = await fetch('/api/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vendor_id: scannerVendorId,
+          invoice_url: scannedInvoiceUrl,
+          invoice_path: scannedInvoicePath,
+          invoice_date: scannedInvoiceDate,
+          total_amount: scannedTotalAmount,
+          items: scannedItems,
+          raw_extraction: scannedRawExtraction,
+          update_inventory: updateInventoryOnConfirm
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setConfirmResult({
+          transaction: data.transaction,
+          inventory_updates: data.inventory_updates || []
+        });
+        setScannerStage('success');
+        fetchVendors(false);
+      } else {
+        alert(data.error || 'Confirm failed');
+      }
+    } catch {
+      alert('Confirm failed');
+    }
+    setConfirming(false);
+  };
+
+  const resetScanner = () => {
+    setShowScannerModal(false);
+    setScannerStage('upload');
+    setScannerVendorId('');
+    setScannerFile(null);
+    setScannerPreview('');
+    setScannedItems([]);
+    setScannedInvoiceDate('');
+    setScannedTotalAmount(0);
+    setScannedInvoiceUrl('');
+    setScannedInvoicePath('');
+    setScannedRawExtraction(null);
+    setScannerInventoryItems([]);
+    setConfirmResult(null);
+    setUpdateInventoryOnConfirm(true);
+  };
+
+  const handleScannerFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setScannerFile(file);
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setScannerPreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      setScannerPreview('');
+    }
+  };
+
+  // Fetch invoices for a vendor
+  const fetchVendorInvoices = async (vendorId: string) => {
+    try {
+      const res = await fetch(`/api/invoices?vendorId=${vendorId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setVendorInvoices(data.invoices || []);
+      }
+    } catch {
+      console.error('Failed to fetch vendor invoices');
     }
   };
 
@@ -620,6 +906,54 @@ export default function FinancePage() {
     a.href = url;
     a.download = `sales_export_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
+  };
+
+  // Vendor matching — random inventory item one at a time
+  const unlinkedInventory = inventoryItems.filter(i => !i.vendor_id && !vendorMatchSkipped.has(i.id));
+  const totalUnlinkedInventory = inventoryItems.filter(i => !i.vendor_id).length;
+
+  useEffect(() => {
+    if (showVendorMatch && !vendorMatchSuccess) {
+      if (unlinkedInventory.length > 0) {
+        setStableMatchInventory(unlinkedInventory[Math.floor(Math.random() * unlinkedInventory.length)]);
+      } else {
+        setStableMatchInventory(null);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showVendorMatch, vendorMatchSuccess, totalUnlinkedInventory, vendorMatchSkipped.size]);
+
+  const skipInventoryItem = () => {
+    if (stableMatchInventory) {
+      setVendorMatchSkipped(prev => new Set(prev).add(stableMatchInventory.id));
+    }
+  };
+
+  const assignVendor = async (vendorId: string) => {
+    if (!stableMatchInventory || vendorMatchSaving) return;
+    setVendorMatchSaving(true);
+    try {
+      const res = await fetch('/api/inventory', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: stableMatchInventory.id, vendor_id: vendorId }),
+      });
+      if (!res.ok) throw new Error('Failed to save');
+
+      const vendorName = vendors.find(v => v.id === vendorId)?.name || '';
+      setInventoryItems(prev => prev.map(i => i.id === stableMatchInventory.id ? { ...i, vendor_id: vendorId, vendor: { id: vendorId, name: vendorName } } : i));
+      setVendorMatchSaving(false);
+      setVendorMatchCount(c => c + 1);
+      setVendorMatchSuccess(`${stableMatchInventory.name} → ${vendorName}`);
+      setVendorMatchSearch('');
+
+      setTimeout(() => {
+        setVendorMatchSuccess(null);
+      }, 1500);
+    } catch (err) {
+      console.error('Vendor assign error:', err);
+      setVendorMatchSaving(false);
+    }
   };
 
   const formatCurrency = (value: number) => {
@@ -905,17 +1239,25 @@ export default function FinancePage() {
                     <table className="w-full">
                       <thead>
                         <tr className="bg-card">
-                          <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Date</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Product</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Category</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-muted uppercase">Qty</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">Price</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">Total</th>
+                          <th className="px-4 py-3"><SortHeader label="Date" field="sale_date" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                          <th className="px-4 py-3"><SortHeader label="Product" field="product_name" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                          <th className="px-4 py-3"><SortHeader label="Category" field="category" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                          <th className="px-4 py-3"><SortHeader label="Qty" field="quantity" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
+                          <th className="px-4 py-3"><SortHeader label="Price" field="selling_price" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
+                          <th className="px-4 py-3"><SortHeader label="Total" field="total" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
                           {canWrite && <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">Actions</th>}
                         </tr>
                       </thead>
                       <tbody>
-                        {salesItems.map(item => (
+                        {[...salesItems].sort((a, b) => {
+                          if (salesSort === 'total') {
+                            const aTotal = a.selling_price * a.quantity;
+                            const bTotal = b.selling_price * b.quantity;
+                            const cmp = aTotal - bTotal;
+                            return salesSortDir === 'asc' ? cmp : -cmp;
+                          }
+                          return sortCompare(a, b, salesSort, salesSortDir);
+                        }).map(item => (
                           <tr key={item.id} className="border-t border-border hover:bg-card/50">
                             <td className="px-4 py-3 text-sm text-muted-foreground">
                               {item.sale_date}
@@ -1004,15 +1346,15 @@ export default function FinancePage() {
                 <table className="w-full">
                   <thead>
                     <tr className="bg-card">
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">File</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Date Range</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-muted uppercase">Records</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">Total</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">Imported</th>
+                      <th className="px-4 py-3"><SortHeader label="File" field="filename" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                      <th className="px-4 py-3"><SortHeader label="Date Range" field="date_range_start" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                      <th className="px-4 py-3"><SortHeader label="Records" field="records_count" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
+                      <th className="px-4 py-3"><SortHeader label="Total" field="total_amount" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
+                      <th className="px-4 py-3"><SortHeader label="Imported" field="created_at" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {stats.recentImports.map(imp => (
+                    {[...stats.recentImports].sort((a, b) => sortCompare(a, b, importSort, importSortDir)).map(imp => (
                       <tr key={imp.id} className="border-t border-border">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
@@ -1069,12 +1411,20 @@ export default function FinancePage() {
                 ))}
               </select>
               {canWrite && (
-                <button
-                  onClick={() => setShowInventoryModal(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium"
-                >
-                  <Plus className="w-4 h-4" /> Add Item
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowVendorMatch(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-secondary border border-border rounded-lg text-foreground text-sm font-medium hover:bg-card transition-colors"
+                  >
+                    <Users className="w-4 h-4" /> Match Vendors
+                  </button>
+                  <button
+                    onClick={() => setShowInventoryModal(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium"
+                  >
+                    <Plus className="w-4 h-4" /> Add Item
+                  </button>
+                </div>
               )}
             </div>
 
@@ -1113,17 +1463,25 @@ export default function FinancePage() {
                   <table className="w-full">
                     <thead>
                       <tr className="bg-card">
-                        <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Item</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Category</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-muted uppercase">Quantity</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-muted uppercase">Unit</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">Cost/Unit</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">Total Value</th>
+                        <th className="px-4 py-3"><SortHeader label="Item" field="name" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                        <th className="px-4 py-3"><SortHeader label="Category" field="category" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                        <th className="px-4 py-3"><SortHeader label="Quantity" field="quantity" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
+                        <th className="px-4 py-3"><SortHeader label="Unit" field="unit" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
+                        <th className="px-4 py-3"><SortHeader label="Cost/Unit" field="cost_per_unit" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
+                        <th className="px-4 py-3"><SortHeader label="Total Value" field="totalValue" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
                         {canWrite && <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">Actions</th>}
                       </tr>
                     </thead>
                     <tbody>
-                      {inventoryItems.map(item => {
+                      {[...inventoryItems].sort((a, b) => {
+                        if (invSort === 'totalValue') {
+                          const aTotal = a.quantity * a.cost_per_unit;
+                          const bTotal = b.quantity * b.cost_per_unit;
+                          const cmp = aTotal - bTotal;
+                          return invSortDir === 'asc' ? cmp : -cmp;
+                        }
+                        return sortCompare(a, b, invSort, invSortDir);
+                      }).map(item => {
                         const isLowStock = item.quantity <= item.minimum_stock && item.minimum_stock > 0;
                         return (
                           <tr key={item.id} className={`border-t border-border hover:bg-card/50 ${isLowStock ? 'bg-red-500/5' : ''}`}>
@@ -1134,7 +1492,7 @@ export default function FinancePage() {
                                 </div>
                                 <div>
                                   <p className="text-sm font-medium text-foreground">{item.name}</p>
-                                  {item.supplier && <p className="text-xs text-muted-foreground">{item.supplier}</p>}
+                                  {(item.vendor?.name || item.supplier) && <p className="text-xs text-muted-foreground">{item.vendor?.name || item.supplier}</p>}
                                 </div>
                               </div>
                             </td>
@@ -1155,9 +1513,28 @@ export default function FinancePage() {
                                     <Minus className="w-4 h-4" />
                                   </button>
                                 )}
-                                <span className={`text-sm font-medium min-w-[40px] text-center ${isLowStock ? 'text-red-500' : 'text-foreground'}`}>
-                                  {item.quantity}
-                                </span>
+                                <input
+                                  type="number"
+                                  value={item.quantity}
+                                  onChange={e => {
+                                    const val = parseFloat(e.target.value) || 0;
+                                    setInventoryItems(prev => prev.map(i => i.id === item.id ? { ...i, quantity: val } : i));
+                                  }}
+                                  onBlur={e => {
+                                    const val = parseFloat(e.target.value) || 0;
+                                    if (val !== item.quantity) {
+                                      fetch('/api/inventory', {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ id: item.id, quantity: val })
+                                      });
+                                    }
+                                  }}
+                                  className={`w-16 text-sm font-medium text-center bg-transparent border border-transparent hover:border-border focus:border-[#606338] focus:outline-none rounded py-0.5 ${isLowStock ? 'text-red-500' : 'text-foreground'}`}
+                                  min="0"
+                                  step="0.1"
+                                  readOnly={!canWrite}
+                                />
                                 {canWrite && (
                                   <button
                                     onClick={() => handleQuickQuantityUpdate(item, 1)}
@@ -1346,10 +1723,16 @@ export default function FinancePage() {
                             >
                               <ArrowDownRight className="w-3.5 h-3.5" /> Add Payment
                             </button>
+                            <button
+                              onClick={() => { resetScanner(); setScannerVendorId(vendor.id); setShowScannerModal(true); }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 text-blue-500 rounded-lg text-xs font-medium hover:bg-blue-500/20 transition-colors"
+                            >
+                              <Camera className="w-3.5 h-3.5" /> Scan Invoice
+                            </button>
                           </>
                         )}
                         <button
-                          onClick={() => { setViewingVendorTransactions(vendor); fetchVendorTransactions(vendor.id); }}
+                          onClick={() => { setViewingVendorTransactions(vendor); fetchVendorTransactions(vendor.id); fetchVendorInvoices(vendor.id); }}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-card text-muted-foreground rounded-lg text-xs font-medium hover:text-foreground transition-colors"
                         >
                           <Eye className="w-3.5 h-3.5" /> History
@@ -1388,7 +1771,7 @@ export default function FinancePage() {
                   <h2 className="text-lg font-semibold text-foreground">{viewingVendorTransactions.name}</h2>
                   <p className="text-sm text-muted-foreground">Transaction History</p>
                 </div>
-                <button onClick={() => { setViewingVendorTransactions(null); setVendorTransactions([]); }} className="p-2 text-muted-foreground hover:text-foreground">
+                <button onClick={() => { setViewingVendorTransactions(null); setVendorTransactions([]); setVendorInvoices([]); }} className="p-2 text-muted-foreground hover:text-foreground">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -1435,6 +1818,44 @@ export default function FinancePage() {
                   </div>
                 )}
               </div>
+              {/* Scanned Invoices Section */}
+              {vendorInvoices.length > 0 && (
+                <div className="px-5 pb-4">
+                  <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <FileText className="w-4 h-4" /> Scanned Invoices
+                  </h3>
+                  <div className="space-y-2">
+                    {vendorInvoices.map(inv => (
+                      <div key={inv.id} className="flex items-center justify-between p-3 bg-card rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                            <FileText className="w-4 h-4 text-blue-500" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-foreground">
+                              {inv.invoice_date} &mdash; {formatCurrency(inv.total_amount)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {inv.items?.length || 0} items &bull;{' '}
+                              <span className={inv.status === 'confirmed' ? 'text-green-500' : 'text-yellow-500'}>
+                                {inv.status}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                        <a
+                          href={inv.invoice_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="px-5 py-4 border-t border-border bg-card/50">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Current Balance</span>
@@ -1535,6 +1956,47 @@ export default function FinancePage() {
                     rows={2}
                     placeholder="Additional notes..."
                   />
+                </div>
+                {/* Invoice Template */}
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1.5">Invoice Template</label>
+                  <p className="text-xs text-muted-foreground mb-2">Upload a sample invoice to help AI extract line items accurately</p>
+                  {newVendor.invoice_template_url ? (
+                    <div className="space-y-2">
+                      <div className="relative w-full h-32 bg-card border border-border rounded-lg overflow-hidden">
+                        <img src={newVendor.invoice_template_url} alt="Template" className="w-full h-full object-contain" />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTemplate('new')}
+                        className="text-xs text-red-500 hover:text-red-400"
+                      >
+                        Remove template
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex items-center justify-center gap-2 p-4 bg-card border border-dashed border-border rounded-lg cursor-pointer hover:border-[#606338] transition-colors">
+                      {uploadingTemplate ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        <>
+                          <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">Upload template image</span>
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={uploadingTemplate}
+                        onChange={e => {
+                          const f = e.target.files?.[0];
+                          if (f) handleTemplateUpload(f, 'new');
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                  )}
                 </div>
               </div>
               <div className="flex justify-end gap-3 px-5 py-4 border-t border-border">
@@ -1637,6 +2099,46 @@ export default function FinancePage() {
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm resize-none"
                     rows={2}
                   />
+                </div>
+                {/* Invoice Template */}
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1.5">Invoice Template</label>
+                  {editingVendor.invoice_template_url ? (
+                    <div className="space-y-2">
+                      <div className="relative w-full h-32 bg-card border border-border rounded-lg overflow-hidden">
+                        <img src={editingVendor.invoice_template_url} alt="Template" className="w-full h-full object-contain" />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTemplate('edit')}
+                        className="text-xs text-red-500 hover:text-red-400"
+                      >
+                        Remove template
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex items-center justify-center gap-2 p-4 bg-card border border-dashed border-border rounded-lg cursor-pointer hover:border-[#606338] transition-colors">
+                      {uploadingTemplate ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        <>
+                          <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">Upload template image</span>
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={uploadingTemplate}
+                        onChange={e => {
+                          const f = e.target.files?.[0];
+                          if (f) handleTemplateUpload(f, 'edit');
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <input
@@ -1860,13 +2362,16 @@ export default function FinancePage() {
               </div>
               <div>
                 <label className="block text-xs text-muted-foreground mb-1.5">Supplier</label>
-                <input
-                  type="text"
-                  value={newInventory.supplier}
-                  onChange={e => setNewInventory({ ...newInventory, supplier: e.target.value })}
+                <select
+                  value={newInventory.vendor_id}
+                  onChange={e => setNewInventory({ ...newInventory, vendor_id: e.target.value })}
                   className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
-                  placeholder="Supplier name"
-                />
+                >
+                  <option value="">No supplier</option>
+                  {vendors.filter(v => v.is_active).map(v => (
+                    <option key={v.id} value={v.id}>{v.name}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-xs text-muted-foreground mb-1.5">Notes</label>
@@ -1988,12 +2493,16 @@ export default function FinancePage() {
               </div>
               <div>
                 <label className="block text-xs text-muted-foreground mb-1.5">Supplier</label>
-                <input
-                  type="text"
-                  value={editingInventory.supplier || ''}
-                  onChange={e => setEditingInventory({ ...editingInventory, supplier: e.target.value })}
+                <select
+                  value={editingInventory.vendor_id || ''}
+                  onChange={e => setEditingInventory({ ...editingInventory, vendor_id: e.target.value || null })}
                   className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
-                />
+                >
+                  <option value="">No supplier</option>
+                  {vendors.filter(v => v.is_active).map(v => (
+                    <option key={v.id} value={v.id}>{v.name}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-xs text-muted-foreground mb-1.5">Notes</label>
@@ -2100,6 +2609,482 @@ export default function FinancePage() {
               >
                 Add Sale
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invoice Scanner Modal */}
+      {showScannerModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-secondary border border-border rounded-2xl w-full max-w-2xl shadow-2xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Scan Invoice</h2>
+                <p className="text-sm text-muted-foreground">
+                  {scannerStage === 'upload' && `Upload an invoice for ${vendors.find(v => v.id === scannerVendorId)?.name || 'vendor'}`}
+                  {scannerStage === 'review' && 'Review extracted items before confirming'}
+                  {scannerStage === 'success' && 'Invoice confirmed successfully'}
+                </p>
+              </div>
+              <button onClick={resetScanner} className="p-2 text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5">
+              {/* Stage 1: Upload */}
+              {scannerStage === 'upload' && (
+                <div className="space-y-4">
+                  {/* Vendor is pre-selected from the card */}
+                  {scannerVendorId && (
+                    <div className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg">
+                      <Users className="w-5 h-5 text-[#606338]" />
+                      <span className="text-sm font-medium text-foreground">
+                        {vendors.find(v => v.id === scannerVendorId)?.name}
+                      </span>
+                      {vendors.find(v => v.id === scannerVendorId)?.invoice_template_url && (
+                        <span className="text-xs px-2 py-0.5 bg-green-500/10 text-green-500 rounded-full">Has template</span>
+                      )}
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1.5">Invoice Image or PDF *</label>
+                    <label className="flex flex-col items-center justify-center gap-3 p-8 bg-card border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-[#606338] transition-colors">
+                      {scannerPreview ? (
+                        <img src={scannerPreview} alt="Preview" className="max-h-48 rounded-lg object-contain" />
+                      ) : scannerFile ? (
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-8 h-8 text-[#606338]" />
+                          <span className="text-sm text-foreground">{scannerFile.name}</span>
+                        </div>
+                      ) : (
+                        <>
+                          <Camera className="w-10 h-10 text-muted-foreground" />
+                          <div className="text-center">
+                            <p className="text-sm text-foreground font-medium">Upload or take photo</p>
+                            <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WebP, GIF, or PDF up to 10MB</p>
+                          </div>
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        capture="environment"
+                        className="hidden"
+                        onChange={handleScannerFileChange}
+                      />
+                    </label>
+                    {scannerFile && (
+                      <button
+                        onClick={() => { setScannerFile(null); setScannerPreview(''); }}
+                        className="mt-2 text-xs text-red-500 hover:text-red-400"
+                      >
+                        Remove file
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Stage 2: Review */}
+              {scannerStage === 'review' && (
+                <div className="space-y-4">
+                  {/* Invoice date and total */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-muted-foreground mb-1.5">Invoice Date</label>
+                      <input
+                        type="date"
+                        value={scannedInvoiceDate}
+                        onChange={e => setScannedInvoiceDate(e.target.value)}
+                        className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-muted-foreground mb-1.5">Total Amount (DH)</label>
+                      <input
+                        type="number"
+                        value={scannedTotalAmount || ''}
+                        onChange={e => setScannedTotalAmount(parseFloat(e.target.value) || 0)}
+                        className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Items table */}
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1.5">
+                      Extracted Items ({scannedItems.length})
+                    </label>
+                    <div className="bg-card border border-border rounded-xl overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="bg-secondary">
+                              <th className="px-3 py-2 text-left text-xs font-medium text-muted uppercase">Product</th>
+                              <th className="px-3 py-2 text-center text-xs font-medium text-muted uppercase">Qty</th>
+                              <th className="px-3 py-2 text-center text-xs font-medium text-muted uppercase">Unit</th>
+                              <th className="px-3 py-2 text-right text-xs font-medium text-muted uppercase">Price</th>
+                              <th className="px-3 py-2 text-right text-xs font-medium text-muted uppercase">Total</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-muted uppercase">Inventory Match</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {scannedItems.map((item, idx) => (
+                              <tr key={idx} className="border-t border-border">
+                                <td className="px-3 py-2">
+                                  <input
+                                    type="text"
+                                    value={item.product_name}
+                                    onChange={e => {
+                                      const updated = [...scannedItems];
+                                      updated[idx] = { ...updated[idx], product_name: e.target.value };
+                                      setScannedItems(updated);
+                                    }}
+                                    className="w-full py-1 px-2 bg-transparent border border-border rounded text-foreground text-xs"
+                                  />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <input
+                                    type="number"
+                                    value={item.quantity}
+                                    onChange={e => {
+                                      const updated = [...scannedItems];
+                                      updated[idx] = { ...updated[idx], quantity: parseFloat(e.target.value) || 0 };
+                                      setScannedItems(updated);
+                                    }}
+                                    className="w-16 py-1 px-2 bg-transparent border border-border rounded text-foreground text-xs text-center"
+                                    min="0"
+                                    step="0.1"
+                                  />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <input
+                                    type="text"
+                                    value={item.unit || ''}
+                                    onChange={e => {
+                                      const updated = [...scannedItems];
+                                      updated[idx] = { ...updated[idx], unit: e.target.value || null };
+                                      setScannedItems(updated);
+                                    }}
+                                    className="w-14 py-1 px-2 bg-transparent border border-border rounded text-foreground text-xs text-center"
+                                    placeholder="-"
+                                  />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <input
+                                    type="number"
+                                    value={item.unit_price}
+                                    onChange={e => {
+                                      const updated = [...scannedItems];
+                                      updated[idx] = { ...updated[idx], unit_price: parseFloat(e.target.value) || 0 };
+                                      setScannedItems(updated);
+                                    }}
+                                    className="w-20 py-1 px-2 bg-transparent border border-border rounded text-foreground text-xs text-right"
+                                    min="0"
+                                    step="0.01"
+                                  />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <input
+                                    type="number"
+                                    value={item.total_price}
+                                    onChange={e => {
+                                      const updated = [...scannedItems];
+                                      updated[idx] = { ...updated[idx], total_price: parseFloat(e.target.value) || 0 };
+                                      setScannedItems(updated);
+                                    }}
+                                    className="w-20 py-1 px-2 bg-transparent border border-border rounded text-foreground text-xs text-right"
+                                    min="0"
+                                    step="0.01"
+                                  />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <select
+                                    value={item.matched_inventory_id || ''}
+                                    onChange={e => {
+                                      const updated = [...scannedItems];
+                                      const invId = e.target.value || null;
+                                      const invName = scannerInventoryItems.find(i => i.id === invId)?.name || null;
+                                      updated[idx] = { ...updated[idx], matched_inventory_id: invId, matched_inventory_name: invName };
+                                      setScannedItems(updated);
+                                    }}
+                                    className="w-full py-1 px-2 bg-transparent border border-border rounded text-foreground text-xs"
+                                  >
+                                    <option value="">No match</option>
+                                    {scannerInventoryItems.map(inv => (
+                                      <option key={inv.id} value={inv.id}>{inv.name}</option>
+                                    ))}
+                                  </select>
+                                  {item.match_score > 0 && (
+                                    <p className="text-[10px] text-green-500 mt-0.5">
+                                      Auto-matched ({Math.round(item.match_score * 100)}%)
+                                    </p>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Update inventory checkbox */}
+                  <div className="flex items-center gap-2 p-3 bg-card border border-border rounded-lg">
+                    <input
+                      type="checkbox"
+                      id="update_inventory"
+                      checked={updateInventoryOnConfirm}
+                      onChange={e => setUpdateInventoryOnConfirm(e.target.checked)}
+                      className="w-4 h-4 rounded border-border text-[#606338] focus:ring-[#606338]"
+                    />
+                    <label htmlFor="update_inventory" className="text-sm text-foreground">
+                      Update inventory quantities for matched items
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Stage 3: Success */}
+              {scannerStage === 'success' && confirmResult && (
+                <div className="space-y-4 text-center py-4">
+                  <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto">
+                    <Check className="w-8 h-8 text-green-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">Invoice Confirmed</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Debt transaction of {formatCurrency(confirmResult.transaction.amount)} created
+                    </p>
+                  </div>
+                  {confirmResult.inventory_updates.length > 0 && (
+                    <div className="bg-card border border-border rounded-lg p-4 text-left">
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Inventory Updated:</p>
+                      <div className="space-y-1">
+                        {confirmResult.inventory_updates.map((upd, i) => (
+                          <p key={i} className="text-sm text-foreground">
+                            {upd.name}: <span className="text-green-500">+{upd.added}</span>
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 px-5 py-4 border-t border-border">
+              {scannerStage === 'upload' && (
+                <>
+                  <button
+                    onClick={resetScanner}
+                    className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleScanInvoice}
+                    disabled={!scannerFile || !scannerVendorId || scanning}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm font-medium disabled:opacity-50"
+                  >
+                    {scanning ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" /> Scanning...
+                      </>
+                    ) : (
+                      <>
+                        <Camera className="w-4 h-4" /> Scan
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
+              {scannerStage === 'review' && (
+                <>
+                  <button
+                    onClick={() => setScannerStage('upload')}
+                    className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleConfirmInvoice}
+                    disabled={confirming || scannedItems.length === 0}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm font-medium disabled:opacity-50"
+                  >
+                    {confirming ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" /> Confirming...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" /> Confirm &amp; Create Debt
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
+              {scannerStage === 'success' && (
+                <button
+                  onClick={resetScanner}
+                  className="px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm font-medium"
+                >
+                  Done
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Vendor Match Modal */}
+      {showVendorMatch && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => { setShowVendorMatch(false); setVendorMatchSuccess(null); setVendorMatchSkipped(new Set()); setVendorMatchCount(0); setVendorMatchSearch(''); }}>
+          <div className="bg-secondary border border-border rounded-2xl w-full max-w-lg max-h-[85vh] overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Match Vendors</h2>
+                <p className="text-xs text-muted-foreground">
+                  {totalUnlinkedInventory} items without vendor{vendorMatchCount > 0 && <> &middot; {vendorMatchCount} matched</>}{vendorMatchSkipped.size > 0 && <> &middot; {vendorMatchSkipped.size} skipped</>}
+                </p>
+              </div>
+              <button onClick={() => { setShowVendorMatch(false); setVendorMatchSuccess(null); setVendorMatchSkipped(new Set()); setVendorMatchCount(0); setVendorMatchSearch(''); }} className="p-2 bg-transparent border-none rounded-md cursor-pointer text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+            </div>
+
+            {/* Progress */}
+            {inventoryItems.length > 0 && (
+              <div className="h-1.5 bg-card">
+                <div className="h-full bg-[#606338] transition-all duration-500" style={{ width: `${((inventoryItems.length - totalUnlinkedInventory) / inventoryItems.length) * 100}%` }} />
+              </div>
+            )}
+
+            <div className="p-5 overflow-y-auto max-h-[calc(85vh-100px)]">
+              {/* Success toast */}
+              {vendorMatchSuccess && (
+                <div className="flex items-center gap-3 p-3 mb-4 bg-green-500/10 border border-green-500/20 rounded-xl animate-in fade-in duration-300">
+                  <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
+                    <Check className="w-4 h-4 text-green-500" />
+                  </div>
+                  <p className="text-sm text-green-600 font-medium">{vendorMatchSuccess}</p>
+                </div>
+              )}
+
+              {!stableMatchInventory || totalUnlinkedInventory === 0 ? (
+                /* All done */
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <div className="w-14 h-14 rounded-full bg-green-500/10 flex items-center justify-center">
+                    <Check className="w-7 h-7 text-green-500" />
+                  </div>
+                  <p className="text-foreground font-medium">
+                    {totalUnlinkedInventory === 0 ? 'All items have vendors!' : 'All remaining items skipped'}
+                  </p>
+                  {vendorMatchCount > 0 && <p className="text-sm text-muted-foreground">{vendorMatchCount} matched this session</p>}
+                  {vendorMatchSkipped.size > 0 && totalUnlinkedInventory > 0 && (
+                    <button onClick={() => setVendorMatchSkipped(new Set())} className="mt-2 px-4 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-card transition-colors">
+                      Show skipped items again
+                    </button>
+                  )}
+                </div>
+              ) : (
+                /* Current item + vendor list */
+                <>
+                  {/* Item card */}
+                  <div className="mb-4 bg-card border border-border rounded-xl overflow-hidden">
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+                            <Package className="w-6 h-6 text-muted-foreground" />
+                          </div>
+                          <div>
+                            <p className="text-base font-semibold text-foreground">{stableMatchInventory.name}</p>
+                            {stableMatchInventory.category && (
+                              <p className="text-sm text-muted-foreground">{stableMatchInventory.category}</p>
+                            )}
+                            <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                              <span>{stableMatchInventory.quantity} {stableMatchInventory.unit}</span>
+                              <span>{stableMatchInventory.cost_per_unit.toFixed(2)} DH/{stableMatchInventory.unit}</span>
+                              {stableMatchInventory.supplier && <span>ex: {stableMatchInventory.supplier}</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={skipInventoryItem}
+                          className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors shrink-0"
+                        >
+                          Skip
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Saving */}
+                  {vendorMatchSaving && (
+                    <div className="flex items-center justify-center gap-2 py-3">
+                      <Loader2 className="w-4 h-4 text-[#606338] animate-spin" />
+                      <p className="text-sm text-muted-foreground">Saving...</p>
+                    </div>
+                  )}
+
+                  {/* Vendor search */}
+                  <p className="text-xs text-muted-foreground mb-2">Select a vendor:</p>
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={vendorMatchSearch}
+                      onChange={e => setVendorMatchSearch(e.target.value)}
+                      placeholder="Search vendors..."
+                      className="w-full pl-9 pr-4 py-2.5 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[#606338]"
+                    />
+                  </div>
+
+                  {/* Vendor list */}
+                  <div className="grid gap-2">
+                    {vendors
+                      .filter(v => v.is_active)
+                      .filter(v => {
+                        if (!vendorMatchSearch) return true;
+                        const q = vendorMatchSearch.toLowerCase();
+                        return v.name.toLowerCase().includes(q) || v.category.toLowerCase().includes(q) || (v.contact_name && v.contact_name.toLowerCase().includes(q));
+                      })
+                      .map(vendor => (
+                        <button
+                          key={vendor.id}
+                          disabled={vendorMatchSaving}
+                          onClick={() => assignVendor(vendor.id)}
+                          className="flex items-center justify-between gap-3 px-3 py-3 bg-card border border-border rounded-lg text-left hover:bg-[#606338]/10 hover:border-[#606338]/30 transition-all disabled:opacity-50"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{vendor.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {vendor.category}{vendor.contact_name && <> &middot; {vendor.contact_name}</>}{vendor.phone && <> &middot; {vendor.phone}</>}
+                            </p>
+                          </div>
+                          {vendor.balance > 0 && (
+                            <span className="text-xs text-red-500 shrink-0">{vendor.balance.toFixed(2)} DH</span>
+                          )}
+                        </button>
+                      ))}
+                    {vendors.filter(v => v.is_active).length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-8">No active vendors. Create vendors first in the Vendors tab.</p>
+                    )}
+                    {vendors.filter(v => v.is_active).length > 0 && vendors.filter(v => v.is_active).filter(v => {
+                      if (!vendorMatchSearch) return true;
+                      const q = vendorMatchSearch.toLowerCase();
+                      return v.name.toLowerCase().includes(q) || v.category.toLowerCase().includes(q) || (v.contact_name && v.contact_name.toLowerCase().includes(q));
+                    }).length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">No vendors match your search</p>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, Filter, ChevronLeft, ChevronRight, Eye, X } from 'lucide-react';
 import { PermissionGate } from '@/components/backoffice/auth/PermissionGate';
+import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared/SortHeader';
 import type { AuditLog } from '@/lib/types/auth';
 
 export default function AuditPage() {
@@ -11,6 +12,8 @@ export default function AuditPage() {
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  const [sortField, setSortField] = useState('');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   // Filters
   const [resourceType, setResourceType] = useState('');
@@ -66,6 +69,17 @@ export default function AuditPage() {
         return 'bg-[#1a1a1a] text-gray-500';
     }
   };
+
+  const handleSort = (field: string) => {
+    if (field === sortField) {
+      setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const sortedLogs = [...logs].sort((a, b) => sortField ? sortCompare(a, b, sortField, sortDir) : 0);
 
   return (
     <PermissionGate
@@ -164,15 +178,15 @@ export default function AuditPage() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-card">
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted">Timestamp</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted">User</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted">Action</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted">Resource</th>
+                    <th className="px-4 py-3 text-left"><SortHeader label="Timestamp" field="created_at" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-medium text-muted" /></th>
+                    <th className="px-4 py-3 text-left"><SortHeader label="User" field="user_email" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-medium text-muted" /></th>
+                    <th className="px-4 py-3 text-left"><SortHeader label="Action" field="action" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-medium text-muted" /></th>
+                    <th className="px-4 py-3 text-left"><SortHeader label="Resource" field="resource_type" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-medium text-muted" /></th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted">Details</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {logs.map(log => (
+                  {sortedLogs.map(log => (
                     <tr key={log.id} className="border-t border-border">
                       <td className="px-4 py-3 text-[13px] text-muted-foreground">
                         {formatDate(log.created_at)}

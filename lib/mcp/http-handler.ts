@@ -40,10 +40,18 @@ export class MCPHTTPHandler {
 
   async handleRequest(
     request: MCPRequest,
-    authHeader?: string
+    authHeader?: string,
+    skipAuth?: boolean
   ): Promise<MCPResponse> {
-    // Validate API key if configured
-    if (this.config.apiKey) {
+    // Discovery methods don't require auth (for ChatGPT MCP compatibility)
+    const discoveryMethods = ['initialize', 'initialized', 'tools/list', 'ping', 'notifications/initialized'];
+    const isDiscoveryMethod = discoveryMethods.includes(request.method);
+    
+    // Check if unauthenticated access is allowed (for ChatGPT in serverless)
+    const allowUnauthenticated = process.env.MCP_ALLOW_UNAUTHENTICATED === 'true';
+    
+    // Validate API key if configured (skip for discovery methods, when explicitly skipped, or when unauthenticated allowed)
+    if (this.config.apiKey && !isDiscoveryMethod && !skipAuth && !allowUnauthenticated) {
       if (!authHeader) {
         return {
           jsonrpc: '2.0',
@@ -77,13 +85,33 @@ export class MCPHTTPHandler {
             jsonrpc: '2.0',
             id,
             result: {
-              protocolVersion: '2024-11-05',
-              capabilities: { tools: {} },
+              protocolVersion: '2025-03-26',
+              capabilities: {
+                tools: {
+                  listChanged: true,
+                },
+              },
               serverInfo: {
-                name: 'epictete-meta-ads',
+                name: 'epictete-mcp',
                 version: '1.0.0',
               },
             },
+          };
+
+        case 'initialized':
+        case 'notifications/initialized':
+          // Client notification - no response needed but return success
+          return {
+            jsonrpc: '2.0',
+            id,
+            result: {},
+          };
+
+        case 'ping':
+          return {
+            jsonrpc: '2.0',
+            id,
+            result: {},
           };
 
         case 'tools/list':

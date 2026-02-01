@@ -1,6 +1,6 @@
 // Auth Types for RBAC System
 
-export type RoleName = 'admin' | 'finance' | 'marketing' | 'regular';
+export type RoleName = 'admin' | 'finance' | 'marketing' | 'regular' | 'waiter';
 
 export type PermissionName =
   | 'menu.read'
@@ -16,10 +16,13 @@ export type PermissionName =
   | 'finance.write'
   | 'audit.read'
   | 'settings.read'
-  | 'settings.write';
+  | 'settings.write'
+  | 'salle.read'
+  | 'salle.write'
+  | 'salle.serve';
 
-export type ResourceType = 'menu' | 'users' | 'marketing' | 'finance' | 'audit' | 'settings';
-export type ActionType = 'read' | 'write' | 'delete' | 'manage';
+export type ResourceType = 'menu' | 'users' | 'marketing' | 'finance' | 'audit' | 'settings' | 'salle';
+export type ActionType = 'read' | 'write' | 'delete' | 'manage' | 'serve';
 
 export interface Role {
   id: string;
@@ -110,7 +113,8 @@ export const ROLE_PERMISSIONS: Record<RoleName, PermissionName[]> = {
     'marketing.read', 'marketing.write',
     'finance.read', 'finance.write',
     'audit.read',
-    'settings.read', 'settings.write'
+    'settings.read', 'settings.write',
+    'salle.read', 'salle.write', 'salle.serve'
   ],
   finance: [
     'finance.read', 'finance.write'
@@ -120,6 +124,9 @@ export const ROLE_PERMISSIONS: Record<RoleName, PermissionName[]> = {
   ],
   regular: [
     'menu.read'
+  ],
+  waiter: [
+    'salle.read', 'salle.serve'
   ]
 };
 
@@ -144,6 +151,16 @@ export const BACKOFFICE_NAV: NavItem[] = [
       { label: 'Menu Items', href: '/admin/menu', icon: 'UtensilsCrossed' },
       { label: 'Menus', href: '/admin/menus', icon: 'FileText' },
       { label: 'Fiches Techniques', href: '/admin/recipes', icon: 'BookOpen' }
+    ]
+  },
+  {
+    label: 'Salle',
+    href: '/admin/salle',
+    icon: 'Armchair',
+    permission: 'salle.read',
+    children: [
+      { label: 'Plan de Salle', href: '/admin/salle', icon: 'Map', permission: 'salle.write' },
+      { label: 'Service', href: '/admin/salle/service', icon: 'ClipboardList' }
     ]
   },
   { label: 'Users', href: '/admin/users', icon: 'Users', permission: 'users.manage' },

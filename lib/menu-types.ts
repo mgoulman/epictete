@@ -1,6 +1,8 @@
 // Menu Types for Epictete Digital Menu
 
 export type MenuCategory = 
+  | 'breakfast'
+  | 'brunch'
   | 'antipasti'
   | 'salades'
   | 'paste'
@@ -102,8 +104,10 @@ export interface MenuFilters {
   category: MenuCategory | null;
 }
 
-// Category metadata
+// Category metadata (NOTE: This is a fallback - categories are now fetched from Supabase)
 export const MENU_CATEGORIES: MenuCategoryInfo[] = [
+  { id: 'brunch', name: 'Brunch', nameFr: 'Brunch du Weekend', icon: '🥐', description: 'Weekend brunch - Sam-Dim 10h-14h' },
+  { id: 'breakfast', name: 'Breakfast', nameFr: 'Petit Déjeuner', icon: '🍳', description: 'Morning breakfast - Jusqu\'à 10h' },
   { id: 'antipasti', name: 'Antipasti', nameFr: 'Antipasti', icon: '🍽️', description: 'Starters & appetizers' },
   { id: 'salades', name: 'Salads', nameFr: 'Salades', icon: '🥗', description: 'Fresh salads' },
   { id: 'paste', name: 'Pasta', nameFr: 'Pâtes', icon: '🍝', description: 'Fresh homemade pasta' },
