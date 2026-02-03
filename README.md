@@ -1,5 +1,5 @@
 ## Overview
-
+Epictete
 Next.js 16 app for Epictete Restaurant containing:
 
 - `/` – main-domain placeholder (“Website coming soon”).
