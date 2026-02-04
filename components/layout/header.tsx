@@ -106,8 +106,8 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
                 {resolvedTheme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
               </button>
             )}
-            <Button size="sm">
-              Réserver
+            <Button size="sm" asChild>
+              <Link href="/reservation">Réserver</Link>
             </Button>
           </div>
 
@@ -165,8 +165,8 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
                 {resolvedTheme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
               </button>
             )}
-            <Button className="flex-1">
-              Réserver
+            <Button className="flex-1" asChild>
+              <Link href="/reservation" onClick={() => setIsMobileMenuOpen(false)}>Réserver</Link>
             </Button>
           </div>
         </div>

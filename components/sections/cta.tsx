@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useInView } from "framer-motion";
 import { useRef } from "react";
 import Link from "next/link";
-import { Phone, MessageCircle } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
 
@@ -59,10 +59,9 @@ export function CTASection() {
           className="mt-8 sm:mt-10 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4 sm:px-0"
         >
           <Button size="lg" className="w-full sm:w-auto text-base py-4 sm:py-3.5" asChild>
-            <a href={`tel:${siteConfig.contact.phone.replace(/\s/g, "")}`}>
-              <Phone size={18} className="mr-2" />
+            <Link href="/reservation">
               Réserver maintenant
-            </a>
+            </Link>
           </Button>
           <Button variant="outline" size="lg" className="w-full sm:w-auto text-base py-4 sm:py-3.5" asChild>
             <Link href="/contact">

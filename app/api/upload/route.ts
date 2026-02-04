@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import sharp from 'sharp';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -10,6 +11,11 @@ const supabaseAdmin = createClient(
   supabaseUrl,
   supabaseServiceKey || supabaseAnonKey
 );
+
+// Image optimization settings
+const IMAGE_MAX_WIDTH = 1920;
+const IMAGE_MAX_HEIGHT = 1920;
+const IMAGE_QUALITY = 85;
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,20 +44,79 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `File too large. Maximum size is ${sizeLabel}` }, { status: 400 });
     }
 
-    // Generate unique filename
-    const ext = file.name.split('.').pop() || 'jpg';
-    const filename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
-    const filePath = `${filename}`;
-
     // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    let buffer: Buffer = Buffer.from(arrayBuffer);
+    let contentType = file.type;
+    let ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+
+    // Optimize images (not PDFs)
+    if (imageTypes.includes(file.type) && bucket === 'menu-images') {
+      try {
+        // Get image metadata
+        const metadata = await sharp(buffer).metadata();
+
+        // Check if resizing is needed
+        const needsResize = (metadata.width && metadata.width > IMAGE_MAX_WIDTH) ||
+                           (metadata.height && metadata.height > IMAGE_MAX_HEIGHT);
+
+        // Process image with sharp
+        let sharpInstance = sharp(buffer);
+
+        // Resize if too large (maintain aspect ratio)
+        if (needsResize) {
+          sharpInstance = sharpInstance.resize(IMAGE_MAX_WIDTH, IMAGE_MAX_HEIGHT, {
+            fit: 'inside',
+            withoutEnlargement: true
+          });
+        }
+
+        // Convert HEIC/HEIF to JPEG
+        if (file.type === 'image/heic' || file.type === 'image/heif') {
+          const optimized = await sharpInstance.jpeg({ quality: IMAGE_QUALITY }).toBuffer();
+          buffer = Buffer.from(optimized);
+          contentType = 'image/jpeg';
+          ext = 'jpg';
+        }
+        // Optimize JPEG
+        else if (file.type === 'image/jpeg') {
+          const optimized = await sharpInstance.jpeg({ quality: IMAGE_QUALITY }).toBuffer();
+          buffer = Buffer.from(optimized);
+        }
+        // Optimize PNG
+        else if (file.type === 'image/png') {
+          const optimized = await sharpInstance.png({ compressionLevel: 8 }).toBuffer();
+          buffer = Buffer.from(optimized);
+        }
+        // Optimize WebP
+        else if (file.type === 'image/webp') {
+          const optimized = await sharpInstance.webp({ quality: IMAGE_QUALITY }).toBuffer();
+          buffer = Buffer.from(optimized);
+        }
+        // GIFs - just pass through (sharp doesn't handle animated GIFs well)
+        else if (file.type === 'image/gif') {
+          if (needsResize) {
+            const optimized = await sharpInstance.gif().toBuffer();
+            buffer = Buffer.from(optimized);
+          }
+        }
+
+        console.log(`Image optimized: ${file.name} - Original: ${file.size} bytes, Optimized: ${buffer.length} bytes`);
+      } catch (sharpError) {
+        console.error('Sharp processing error:', sharpError);
+        // Continue with original buffer if optimization fails
+      }
+    }
+
+    // Generate unique filename
+    const filename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+    const filePath = `${filename}`;
 
     // Upload to Supabase Storage
     const { data, error } = await supabaseAdmin.storage
       .from(bucket)
       .upload(filePath, buffer, {
-        contentType: file.type,
+        contentType: contentType,
         cacheControl: '3600',
         upsert: false
       });

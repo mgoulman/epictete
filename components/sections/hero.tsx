@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ChevronDown, Phone, Clock, MapPin } from "lucide-react";
+import { ChevronDown, Clock, MapPin, Phone } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -91,10 +91,9 @@ export function HeroSection() {
           className="mt-8 sm:mt-10 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4 sm:px-0"
         >
           <Button variant="outline" size="lg" className="w-full sm:w-auto text-base px-8 py-4 sm:py-3.5 border-accent-foreground/40 text-accent-foreground hover:bg-accent-foreground/10" asChild>
-            <a href={`tel:${siteConfig.contact.phone.replace(/\s/g, "")}`}>
-              <Phone size={18} className="mr-2" />
+            <Link href="/reservation">
               Réserver une table
-            </a>
+            </Link>
           </Button>
           <Button variant="outline" size="lg" className="w-full sm:w-auto text-base px-8 py-4 sm:py-3.5 border-accent-foreground/40 text-accent-foreground hover:bg-accent-foreground/10" asChild>
             <Link href="/menu">

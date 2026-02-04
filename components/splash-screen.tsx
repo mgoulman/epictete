@@ -31,7 +31,7 @@ export function SplashScreen() {
           transition={{ duration: 0.8, ease: "easeInOut" }}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-[#F0E7CE]"
         >
-          <div className="flex flex-col items-center px-8 w-full max-w-md">
+          <div className="flex flex-col items-center justify-center px-8 w-full max-w-md mx-auto text-center">
             {/* Full logo with name */}
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}

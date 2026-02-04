@@ -696,7 +696,7 @@ export default function MenuPage() {
                       <input
                         id="image-change-input"
                         type="file"
-                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif"
                         onChange={handleFileSelect}
                         className="hidden"
                       />
@@ -740,11 +740,11 @@ export default function MenuPage() {
                             Drag & drop an image or{' '}
                             <span className="text-[#606338]">browse</span>
                           </p>
-                          <p className="text-xs text-muted mt-1">JPEG, PNG, WebP, GIF (max 5MB)</p>
+                          <p className="text-xs text-muted mt-1">JPEG, PNG, WebP, GIF, HEIC (max 20MB)</p>
                         </div>
                         <input
                           type="file"
-                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif"
                           onChange={handleFileSelect}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         />
