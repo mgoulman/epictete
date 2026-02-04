@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();
-    let buffer: Buffer = Buffer.from(arrayBuffer);
+    let buffer = Buffer.from(arrayBuffer) as Buffer;
     let contentType = file.type;
     let ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
 
@@ -73,31 +73,26 @@ export async function POST(request: NextRequest) {
 
         // Convert HEIC/HEIF to JPEG
         if (file.type === 'image/heic' || file.type === 'image/heif') {
-          const optimized = await sharpInstance.jpeg({ quality: IMAGE_QUALITY }).toBuffer();
-          buffer = Buffer.from(optimized);
+          buffer = Buffer.from(await sharpInstance.jpeg({ quality: IMAGE_QUALITY }).toBuffer()) as Buffer;
           contentType = 'image/jpeg';
           ext = 'jpg';
         }
         // Optimize JPEG
         else if (file.type === 'image/jpeg') {
-          const optimized = await sharpInstance.jpeg({ quality: IMAGE_QUALITY }).toBuffer();
-          buffer = Buffer.from(optimized);
+          buffer = Buffer.from(await sharpInstance.jpeg({ quality: IMAGE_QUALITY }).toBuffer()) as Buffer;
         }
         // Optimize PNG
         else if (file.type === 'image/png') {
-          const optimized = await sharpInstance.png({ compressionLevel: 8 }).toBuffer();
-          buffer = Buffer.from(optimized);
+          buffer = Buffer.from(await sharpInstance.png({ compressionLevel: 8 }).toBuffer()) as Buffer;
         }
         // Optimize WebP
         else if (file.type === 'image/webp') {
-          const optimized = await sharpInstance.webp({ quality: IMAGE_QUALITY }).toBuffer();
-          buffer = Buffer.from(optimized);
+          buffer = Buffer.from(await sharpInstance.webp({ quality: IMAGE_QUALITY }).toBuffer()) as Buffer;
         }
         // GIFs - just pass through (sharp doesn't handle animated GIFs well)
         else if (file.type === 'image/gif') {
           if (needsResize) {
-            const optimized = await sharpInstance.gif().toBuffer();
-            buffer = Buffer.from(optimized);
+            buffer = Buffer.from(await sharpInstance.gif().toBuffer()) as Buffer;
           }
         }
 

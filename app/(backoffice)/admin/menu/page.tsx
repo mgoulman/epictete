@@ -74,6 +74,7 @@ export default function MenuPage() {
   const [dragActive, setDragActive] = useState(false);
   const [viewingItem, setViewingItem] = useState<MenuItem | null>(null);
   const [viewingRecipe, setViewingRecipe] = useState<RecipeWithIngredients | null>(null);
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [showRecipeSection, setShowRecipeSection] = useState(false);
   const [showRecipeMatch, setShowRecipeMatch] = useState(false);
   const [recipeMatchSaving, setRecipeMatchSaving] = useState(false);
@@ -1039,9 +1040,25 @@ export default function MenuPage() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4 md:p-6" onClick={() => { setViewingItem(null); setViewingRecipe(null); }}>
           <div className="bg-background border border-border rounded-3xl w-full max-w-[520px] max-h-[90vh] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
             {/* Image Header */}
-            <div className="relative h-56 md:h-72 bg-card overflow-hidden">
+            <div className="relative h-56 md:h-72 bg-card overflow-hidden group/image">
               {viewingItem.image_url ? (
-                <img src={viewingItem.image_url} alt={viewingItem.name} className="w-full h-full object-cover" />
+                <div
+                  className="w-full h-full cursor-zoom-in"
+                  onClick={(e) => { e.stopPropagation(); setFullscreenImage(viewingItem.image_url); }}
+                >
+                  <img
+                    src={viewingItem.image_url}
+                    alt={viewingItem.name}
+                    className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover/image:scale-110"
+                  />
+                  {/* Zoom hint */}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/image:opacity-100 transition-opacity duration-300 pointer-events-none">
+                    <div className="px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-full text-white text-xs font-medium flex items-center gap-1.5">
+                      <Search className="w-3.5 h-3.5" />
+                      Click to expand
+                    </div>
+                  </div>
+                </div>
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-card to-secondary">
                   <div className="w-20 h-20 rounded-full bg-secondary/80 flex items-center justify-center">
@@ -1050,7 +1067,7 @@ export default function MenuPage() {
                 </div>
               )}
               {/* Gradient overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
 
               {/* Close button */}
               <button
@@ -1375,6 +1392,30 @@ export default function MenuPage() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Fullscreen Image Lightbox */}
+      {fullscreenImage && (
+        <div
+          className="fixed inset-0 bg-black/95 backdrop-blur-md flex items-center justify-center z-[60] p-4 cursor-zoom-out"
+          onClick={() => setFullscreenImage(null)}
+        >
+          {/* Close button */}
+          <button
+            onClick={() => setFullscreenImage(null)}
+            className="absolute top-4 right-4 p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full cursor-pointer text-white hover:bg-white/20 transition-colors z-10"
+          >
+            <X className="w-6 h-6" />
+          </button>
+
+          {/* Image */}
+          <img
+            src={fullscreenImage}
+            alt="Full size"
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </PermissionGate>
