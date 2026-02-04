@@ -1,34 +1,33 @@
 import type { Metadata } from "next";
-import { MapPin, Phone, Clock, Instagram, Navigation, Car } from "lucide-react";
+import { Phone, Clock, MapPin, Navigation } from "lucide-react";
 import { Section } from "@/components/layout/section";
-import { Button } from "@/components/ui/button";
+import { ReservationForm } from "@/components/contact/reservation-form";
 import { siteConfig } from "@/config/site";
-import { ContactForm } from "@/components/contact/contact-form";
 
 export const metadata: Metadata = {
-  title: "Contact",
+  title: "Réservation",
   description:
-    "Contactez Epictete Restaurant à Bouskoura pour réserver votre table. Téléphone: 06 70 69 93 93. Ouvert 7j/7, 10h-22h.",
+    "Réservez votre table chez Epictete Restaurant à Bouskoura. Réservation en ligne rapide avec confirmation. Ouvert 7j/7, 10h-22h.",
   openGraph: {
-    title: "Contact | Epictete Restaurant",
-    description: "Réservez votre table chez Epictete Restaurant à Bouskoura. Téléphone: 06 70 69 93 93",
+    title: "Réservation | Epictete Restaurant",
+    description: "Réservez votre table chez Epictete Restaurant à Bouskoura. Confirmation rapide garantie.",
   },
 };
 
-export default function ContactPage() {
+export default function ReservationPage() {
   return (
     <>
       {/* Hero */}
       <section className="relative pt-24 sm:pt-28 md:pt-32 pb-12 sm:pb-16 md:pb-20 bg-secondary">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
           <p className="text-accent text-xs sm:text-sm font-medium uppercase tracking-[0.2em] sm:tracking-[0.3em] mb-3 sm:mb-4">
-            Contact
+            Réservation
           </p>
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-heading font-semibold text-foreground leading-tight">
-            Contactez-nous
+            Réservez votre table
           </h1>
           <p className="mt-4 sm:mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-            Pour réserver ou pour toute question, nous sommes à votre écoute.
+            Réservez en ligne et recevez une confirmation rapide par téléphone ou WhatsApp.
           </p>
         </div>
       </section>
@@ -36,37 +35,40 @@ export default function ContactPage() {
       {/* Quick Call CTA - Mobile Priority */}
       <section className="bg-card py-6 sm:py-8 lg:hidden border-b border-border">
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button size="lg" className="flex-1 py-4" asChild>
-              <a href={`tel:${siteConfig.contact.phone.replace(/\s/g, "")}`}>
-                <Phone size={18} className="mr-2" />
-                Appeler: {siteConfig.contact.phone}
-              </a>
-            </Button>
-            <Button variant="outline" size="lg" className="flex-1 py-4" asChild>
-              <a
-                href={siteConfig.location.googleMapsDirections}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Navigation size={18} className="mr-2" />
-                Itinéraire
-              </a>
-            </Button>
-          </div>
+          <a
+            href={`tel:${siteConfig.contact.phone.replace(/\s/g, "")}`}
+            className="flex items-center justify-center gap-2 w-full py-4 bg-accent text-white rounded-xl font-medium"
+          >
+            <Phone size={18} />
+            Appeler: {siteConfig.contact.phone}
+          </a>
         </div>
       </section>
 
-      {/* Contact Form & Info */}
+      {/* Reservation Form & Info */}
       <Section className="bg-primary">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-          {/* Contact Info - Shows first on mobile */}
+          {/* Info Cards - Shows first on mobile */}
           <div className="order-1 lg:order-2 space-y-6">
             <div>
               <h2 className="text-xl sm:text-2xl font-heading font-semibold text-foreground mb-4 sm:mb-6">
-                Informations
+                Informations pratiques
               </h2>
               <div className="space-y-4">
+                {/* Hours Card */}
+                <div className="flex gap-3 sm:gap-4 p-4 sm:p-5 bg-secondary rounded-xl">
+                  <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-accent/10 flex items-center justify-center">
+                    <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-medium text-foreground text-sm sm:text-base mb-1">Horaires</h3>
+                    <p className="text-sm sm:text-base text-muted-foreground">
+                      Tous les jours: {siteConfig.hours.daily}
+                    </p>
+                    <p className="text-sm text-accent mt-1">{siteConfig.hours.note}</p>
+                  </div>
+                </div>
+
                 {/* Phone Card */}
                 <div className="flex gap-3 sm:gap-4 p-4 sm:p-5 bg-secondary rounded-xl">
                   <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-accent/10 flex items-center justify-center">
@@ -113,51 +115,18 @@ export default function ContactPage() {
                     </a>
                   </div>
                 </div>
-
-                {/* Hours Card */}
-                <div className="flex gap-3 sm:gap-4 p-4 sm:p-5 bg-secondary rounded-xl">
-                  <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-accent/10 flex items-center justify-center">
-                    <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-medium text-foreground text-sm sm:text-base mb-1">Horaires</h3>
-                    <p className="text-sm sm:text-base text-muted-foreground">
-                      Tous les jours: {siteConfig.hours.daily}
-                    </p>
-                    <p className="text-sm text-accent mt-1">{siteConfig.hours.note}</p>
-                  </div>
-                </div>
-
-                {/* Social & Email */}
-                <div className="flex gap-3 sm:gap-4 p-4 sm:p-5 bg-secondary rounded-xl">
-                  <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-accent/10 flex items-center justify-center">
-                    <Instagram className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-medium text-foreground text-sm sm:text-base mb-1">Réseaux sociaux</h3>
-                    <a
-                      href={siteConfig.social.instagram}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block text-sm sm:text-base text-muted-foreground hover:text-accent transition-colors"
-                    >
-                      @epictete.restaurant
-                    </a>
-                    <a
-                      href={`mailto:${siteConfig.contact.email}`}
-                      className="block text-sm text-muted-foreground hover:text-accent transition-colors mt-1"
-                    >
-                      {siteConfig.contact.email}
-                    </a>
-                  </div>
-                </div>
-
-                {/* Parking Note */}
-                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground px-1">
-                  <Car size={14} className="text-accent shrink-0" />
-                  <span>Parking disponible sur place</span>
-                </div>
               </div>
+            </div>
+
+            {/* Info Note */}
+            <div className="p-4 bg-accent/10 border border-accent/20 rounded-xl">
+              <h3 className="font-medium text-foreground mb-2">Comment ça marche ?</h3>
+              <ol className="text-sm text-muted-foreground space-y-2">
+                <li>1. Remplissez le formulaire avec vos informations</li>
+                <li>2. Cliquez sur &quot;Envoyer ma réservation&quot;</li>
+                <li>3. Nous recevons votre demande instantanément</li>
+                <li>4. Nous vous confirmons par téléphone ou WhatsApp</li>
+              </ol>
             </div>
 
             {/* Map */}
@@ -178,7 +147,7 @@ export default function ContactPage() {
 
           {/* Form */}
           <div className="order-2 lg:order-1">
-            <ContactForm />
+            <ReservationForm />
           </div>
         </div>
       </Section>
