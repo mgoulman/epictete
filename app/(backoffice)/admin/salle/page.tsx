@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import type { FloorZone, Table, TableShape, TableStatus } from '@/lib/types/salle';
 import { TABLE_STATUS_CONFIG, SHAPE_DEFAULTS } from '@/lib/types/salle';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface StaffOption {
   id: string;
@@ -99,6 +100,9 @@ function SeatDots({ seats, shape, width, height }: { seats: number; shape: Table
 
 // ─── Main page ──────────────────────────────────────────────────────────────
 export default function SallePlanPage() {
+  const { t } = useTranslation();
+  const sl = t.backoffice.sallePage;
+
   const [zones, setZones] = useState<FloorZone[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
   const [staff, setStaff] = useState<StaffOption[]>([]);
@@ -186,7 +190,7 @@ export default function SallePlanPage() {
   };
 
   const handleDeleteZone = async (zoneId: string) => {
-    if (!confirm('Delete this zone and all its tables?')) return;
+    if (!confirm(sl.deleteZone)) return;
     await fetch(`/api/salle?type=zone&id=${zoneId}`, { method: 'DELETE' });
     setZones(prev => prev.filter(z => z.id !== zoneId));
     if (activeZoneId === zoneId) {
@@ -227,7 +231,7 @@ export default function SallePlanPage() {
   };
 
   const handleDeleteTable = async (tableId: string) => {
-    if (!confirm('Delete this table?')) return;
+    if (!confirm(sl.deleteTable)) return;
     await fetch(`/api/salle?type=table&id=${tableId}`, { method: 'DELETE' });
     setTables(prev => prev.filter(t => t.id !== tableId));
     if (selectedTableId === tableId) setSelectedTableId(null);
@@ -358,7 +362,7 @@ export default function SallePlanPage() {
   if (loading) {
     return (
       <div className="p-6 max-w-7xl mx-auto">
-        <div className="text-center py-20 text-muted-foreground">Loading floor plan...</div>
+        <div className="text-center py-20 text-muted-foreground">{sl.loadingFloor}</div>
       </div>
     );
   }
@@ -370,9 +374,9 @@ export default function SallePlanPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Map className="w-6 h-6" />
-            Plan de Salle
+            {sl.title}
           </h1>
-          <p className="text-muted-foreground mt-1">Manage floor layout and table assignments</p>
+          <p className="text-muted-foreground mt-1">{sl.subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -381,7 +385,7 @@ export default function SallePlanPage() {
             className="flex items-center gap-2 px-4 py-2 bg-[#606338] text-white rounded-lg hover:bg-[#4d4f2e] transition-colors disabled:opacity-50"
           >
             <Plus className="w-4 h-4" />
-            Add Table
+            {sl.addTable}
           </button>
           <button
             onClick={handleSaveLayout}
@@ -389,7 +393,7 @@ export default function SallePlanPage() {
             className="flex items-center gap-2 px-4 py-2 bg-[#606338] text-white rounded-lg hover:bg-[#4d4f2e] transition-colors disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
-            {saving ? 'Saving...' : 'Save Layout'}
+            {saving ? sl.saving : sl.saveLayout}
           </button>
         </div>
       </div>
@@ -412,7 +416,7 @@ export default function SallePlanPage() {
               <button
                 onClick={() => handleDeleteZone(zone.id)}
                 className="p-1 text-muted-foreground hover:text-red-500 ml-1"
-                title="Delete zone"
+                title={sl.deleteZoneBtn}
               >
                 <X className="w-3 h-3" />
               </button>
@@ -424,13 +428,13 @@ export default function SallePlanPage() {
           className="flex items-center gap-1 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-card rounded-lg"
         >
           <Plus className="w-3 h-3" />
-          Zone
+          {sl.zone}
         </button>
       </div>
 
       {hasUnsavedChanges && (
         <div className="mb-3 px-3 py-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-sm text-yellow-600">
-          Unsaved changes — drag tables to reposition, then click Save Layout
+          {sl.unsavedChanges}
         </div>
       )}
 
@@ -457,7 +461,7 @@ export default function SallePlanPage() {
               <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
                 <div className="text-center">
                   <GripVertical className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">No tables yet. Click &ldquo;Add Table&rdquo; to begin.</p>
+                  <p className="text-sm">{sl.noTables}</p>
                 </div>
               </div>
             )}
@@ -512,7 +516,7 @@ export default function SallePlanPage() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-foreground flex items-center gap-2">
                 <Settings2 className="w-4 h-4" />
-                Table {selectedTable.table_number}
+                {selectedTable.table_number}
               </h3>
               <button
                 onClick={() => handleDeleteTable(selectedTable.id)}
@@ -525,7 +529,7 @@ export default function SallePlanPage() {
             <div className="space-y-4">
               {/* Table number */}
               <div>
-                <label className="block text-xs font-medium mb-1 text-muted-foreground">Table Number</label>
+                <label className="block text-xs font-medium mb-1 text-muted-foreground">{sl.tableNumber}</label>
                 <input
                   type="text"
                   value={selectedTable.table_number}
@@ -539,7 +543,7 @@ export default function SallePlanPage() {
 
               {/* Seats */}
               <div>
-                <label className="block text-xs font-medium mb-1 text-muted-foreground">Seats</label>
+                <label className="block text-xs font-medium mb-1 text-muted-foreground">{sl.seats}</label>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
@@ -576,12 +580,12 @@ export default function SallePlanPage() {
 
               {/* Shape */}
               <div>
-                <label className="block text-xs font-medium mb-1 text-muted-foreground">Shape</label>
+                <label className="block text-xs font-medium mb-1 text-muted-foreground">{sl.shape}</label>
                 <div className="flex gap-2">
                   {([
-                    { shape: 'round' as TableShape, icon: CircleDot, label: 'Round' },
-                    { shape: 'square' as TableShape, icon: Square, label: 'Square' },
-                    { shape: 'rectangle' as TableShape, icon: RectangleHorizontal, label: 'Rect' },
+                    { shape: 'round' as TableShape, icon: CircleDot, label: sl.round },
+                    { shape: 'square' as TableShape, icon: Square, label: sl.square },
+                    { shape: 'rectangle' as TableShape, icon: RectangleHorizontal, label: sl.rectangle },
                   ]).map(opt => (
                     <button
                       key={opt.shape}
@@ -611,15 +615,15 @@ export default function SallePlanPage() {
                 </div>
               </div>
 
-              {/* Size (width × height) */}
+              {/* Size (width x height) */}
               <div>
                 <label className="block text-xs font-medium mb-1 text-muted-foreground flex items-center gap-1">
                   <Maximize2 className="w-3 h-3" />
-                  Size (% of canvas)
+                  {sl.size}
                 </label>
                 <div className="flex items-center gap-2">
                   <div className="flex-1">
-                    <label className="block text-[10px] text-muted-foreground mb-0.5">Width</label>
+                    <label className="block text-[10px] text-muted-foreground mb-0.5">{sl.width}</label>
                     <input
                       type="number"
                       min="3"
@@ -635,7 +639,7 @@ export default function SallePlanPage() {
                   </div>
                   <span className="text-muted-foreground mt-4">×</span>
                   <div className="flex-1">
-                    <label className="block text-[10px] text-muted-foreground mb-0.5">Height</label>
+                    <label className="block text-[10px] text-muted-foreground mb-0.5">{sl.height}</label>
                     <input
                       type="number"
                       min="3"
@@ -656,7 +660,7 @@ export default function SallePlanPage() {
               <div>
                 <label className="block text-xs font-medium mb-1 text-muted-foreground flex items-center gap-1">
                   <RotateCw className="w-3 h-3" />
-                  Rotation
+                  {sl.rotation}
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -695,7 +699,7 @@ export default function SallePlanPage() {
               <div>
                 <label className="block text-xs font-medium mb-1 text-muted-foreground flex items-center gap-1">
                   <Users className="w-3 h-3" />
-                  Assigned Waiter
+                  {sl.assignedWaiter}
                 </label>
                 <select
                   value={selectedTable.assigned_waiter_id || ''}
@@ -706,7 +710,7 @@ export default function SallePlanPage() {
                   }}
                   className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
                 >
-                  <option value="">Unassigned</option>
+                  <option value="">{sl.unassigned}</option>
                   {staff.map(s => (
                     <option key={s.id} value={s.id}>{s.first_name} {s.last_name}</option>
                   ))}
@@ -715,7 +719,7 @@ export default function SallePlanPage() {
 
               {/* Status */}
               <div>
-                <label className="block text-xs font-medium mb-1 text-muted-foreground">Status</label>
+                <label className="block text-xs font-medium mb-1 text-muted-foreground">{sl.status}</label>
                 <div className="flex items-center gap-2">
                   <div
                     className="w-3 h-3 rounded-full"
@@ -736,19 +740,19 @@ export default function SallePlanPage() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-card border border-border rounded-xl w-full max-w-sm">
             <div className="p-4 border-b border-border flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Add Zone</h2>
+              <h2 className="text-lg font-semibold">{sl.addZone}</h2>
               <button onClick={() => setShowZoneModal(false)} className="p-2 hover:bg-secondary rounded-lg">
                 <X className="w-4 h-4" />
               </button>
             </div>
             <div className="p-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Zone Name</label>
+                <label className="block text-sm font-medium mb-1">{sl.zoneName}</label>
                 <input
                   type="text"
                   value={newZoneName}
                   onChange={(e) => setNewZoneName(e.target.value)}
-                  placeholder="e.g. Terrasse"
+                  placeholder={sl.zoneNamePlaceholder}
                   className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
                   onKeyDown={(e) => e.key === 'Enter' && handleAddZone()}
                   autoFocus
@@ -759,14 +763,14 @@ export default function SallePlanPage() {
                   onClick={() => setShowZoneModal(false)}
                   className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
                 >
-                  Cancel
+                  {sl.cancel}
                 </button>
                 <button
                   onClick={handleAddZone}
                   disabled={!newZoneName.trim()}
                   className="px-4 py-2 bg-[#606338] text-white rounded-lg hover:bg-[#4d4f2e] disabled:opacity-50"
                 >
-                  Add Zone
+                  {sl.addZone}
                 </button>
               </div>
             </div>

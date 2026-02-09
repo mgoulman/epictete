@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { Download, X, Wifi, WifiOff, Share } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -39,6 +40,8 @@ function isInStandaloneMode() {
 }
 
 export function PWAProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
+  const pw = t.backoffice.pwa;
   const [isOnline, setIsOnline] = useState(true);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [showIOSPrompt, setShowIOSPrompt] = useState(false);
@@ -190,7 +193,7 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
       {showOfflineBanner && (
         <div className="fixed bottom-0 left-0 right-0 bg-yellow-500 text-yellow-900 px-4 py-2 flex items-center justify-center gap-2 z-50 animate-in slide-in-from-bottom">
           <WifiOff className="w-4 h-4" />
-          <span className="text-sm font-medium">Mode hors ligne - Certaines fonctionnalités peuvent être limitées</span>
+          <span className="text-sm font-medium">{pw.offlineBanner}</span>
           <button
             onClick={() => setShowOfflineBanner(false)}
             className="ml-2 p-1 hover:bg-yellow-600/20 rounded"
@@ -213,22 +216,22 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
               <Download className="w-6 h-6 text-[#606338]" />
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-foreground">Installer l&apos;application</h3>
+              <h3 className="font-semibold text-foreground">{pw.installTitle}</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Installez Epictete Backoffice pour un accès rapide et une utilisation hors ligne.
+                {pw.installDesc}
               </p>
               <div className="flex gap-2 mt-3">
                 <button
                   onClick={handleInstall}
                   className="px-3 py-1.5 bg-[#606338] text-white text-sm rounded-lg hover:bg-[#4d4f2e] transition-colors"
                 >
-                  Installer
+                  {pw.install}
                 </button>
                 <button
                   onClick={dismissInstallPrompt}
                   className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Plus tard
+                  {pw.later}
                 </button>
               </div>
             </div>
@@ -250,18 +253,18 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
               <Download className="w-6 h-6 text-[#606338]" />
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-foreground">Installer l&apos;application</h3>
+              <h3 className="font-semibold text-foreground">{pw.installTitle}</h3>
               <p className="text-sm text-muted-foreground mt-2">
-                Pour installer, appuyez sur{' '}
+                {pw.iosInstallTap}{' '}
                 <Share className="w-4 h-4 inline-block align-text-bottom text-[#606338]" />{' '}
-                <span className="font-medium text-foreground">Partager</span> puis{' '}
-                <span className="font-medium text-foreground">&quot;Sur l&apos;écran d&apos;accueil&quot;</span>
+                <span className="font-medium text-foreground">{pw.share}</span> puis{' '}
+                <span className="font-medium text-foreground">&quot;{pw.addToHomeScreen}&quot;</span>
               </p>
               <button
                 onClick={dismissInstallPrompt}
                 className="mt-3 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                Compris
+                {pw.gotIt}
               </button>
             </div>
             <button

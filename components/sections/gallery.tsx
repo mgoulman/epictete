@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { Section, SectionHeader } from "@/components/layout/section";
 import { X } from "lucide-react";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 
 /**
  * Restaurant Gallery Images
@@ -17,69 +18,66 @@ import { X } from "lucide-react";
  * - Blue-Grey Tile: (#5a6b7a) - zellige tiles accent
  */
 
-const galleryImages = [
+type ImageKey = "hero" | "bar" | "arches" | "lounge" | "perspective" | "intimate";
+
+interface GalleryImageData {
+  id: ImageKey;
+  src: string;
+  aspectRatio: string;
+  featured?: boolean;
+}
+
+const galleryImageData: GalleryImageData[] = [
   {
     id: "hero",
     src: "/images/restaurant/main-hall.png",
-    alt: "Salle principale avec oliviers et éclairage globe",
-    title: "La Grande Salle",
-    description: "Un espace majestueux où tradition et modernité se rencontrent",
     aspectRatio: "landscape",
     featured: true,
   },
   {
     id: "bar",
     src: "/images/restaurant/bar-area.png",
-    alt: "Bar avec finitions dorées et équipe Epictete",
-    title: "Le Bar",
-    description: "L'art du cocktail dans un cadre Art Déco revisité",
     aspectRatio: "landscape",
     featured: true,
   },
   {
     id: "arches",
     src: "/images/restaurant/dining-arches.png",
-    alt: "Tables le long des arches illuminées",
-    title: "Les Arches",
-    description: "Dîner sous les voûtes lumineuses, une expérience intimiste",
     aspectRatio: "square",
   },
   {
     id: "lounge",
     src: "/images/restaurant/lounge-greenery.png",
-    alt: "Banquette olive avec plantes tropicales",
-    title: "Le Salon Végétal",
-    description: "Nature et confort se mêlent dans cet espace verdoyant",
     aspectRatio: "square",
   },
   {
     id: "perspective",
     src: "/images/restaurant/arches-perspective.png",
-    alt: "Perspective des arches avec éclairage indirect",
-    title: "Perspective",
-    description: "Lignes architecturales épurées et jeux de lumière",
     aspectRatio: "square",
   },
   {
     id: "intimate",
     src: "/images/restaurant/intimate-table.png",
-    alt: "Table dressée avec mise au point artistique",
-    title: "L'Intimité",
-    description: "Chaque table raconte une histoire de convivialité",
     aspectRatio: "square",
   },
 ];
 
-function GalleryImage({ 
-  image, 
-  index, 
+interface ResolvedImage extends GalleryImageData {
+  alt: string;
+  title: string;
+  description: string;
+}
+
+function GalleryImage({
+  image,
+  index,
   isInView,
-  onImageClick 
-}: { 
-  image: typeof galleryImages[0]; 
+  onImageClick
+}: {
+  image: ResolvedImage;
   index: number;
   isInView: boolean;
-  onImageClick: (image: typeof galleryImages[0]) => void;
+  onImageClick: (image: ResolvedImage) => void;
 }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -125,7 +123,7 @@ function GalleryImage({
 
       {/* Gradient overlays */}
       <div className="absolute inset-0 bg-linear-to-t from-primary/90 via-primary/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
-      
+
       {/* Gold accent glow on hover */}
       <motion.div
         className="absolute inset-0 pointer-events-none"
@@ -159,7 +157,7 @@ function GalleryImage({
             {image.title}
           </p>
         </motion.div>
-        
+
         <motion.h3
           className="text-foreground font-heading text-xl md:text-2xl font-semibold"
           animate={{ y: isHovered ? -8 : 0 }}
@@ -167,7 +165,7 @@ function GalleryImage({
         >
           {image.title}
         </motion.h3>
-        
+
         <motion.p
           className="text-muted-foreground text-sm mt-2 line-clamp-2"
           initial={{ y: 10, opacity: 0 }}
@@ -191,11 +189,11 @@ function GalleryImage({
   );
 }
 
-function Lightbox({ 
-  image, 
-  onClose 
-}: { 
-  image: typeof galleryImages[0] | null; 
+function Lightbox({
+  image,
+  onClose
+}: {
+  image: ResolvedImage | null;
   onClose: () => void;
 }) {
   if (!image) return null;
@@ -236,7 +234,7 @@ function Lightbox({
           sizes="100vw"
           priority
         />
-        
+
         {/* Info overlay */}
         <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 md:p-8 bg-linear-to-t from-primary/90 to-transparent">
           <p className="text-accent text-xs sm:text-sm font-medium uppercase tracking-[0.2em] mb-2">
@@ -257,18 +255,26 @@ function Lightbox({
 export function GallerySection() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-100px" });
-  const [selectedImage, setSelectedImage] = useState<typeof galleryImages[0] | null>(null);
+  const [selectedImage, setSelectedImage] = useState<ResolvedImage | null>(null);
+  const { t } = useTranslation();
+
+  const galleryImages: ResolvedImage[] = galleryImageData.map((img) => ({
+    ...img,
+    alt: t.gallery.images[img.id].alt,
+    title: t.gallery.images[img.id].title,
+    description: t.gallery.images[img.id].description,
+  }));
 
   return (
     <>
       <Section id="gallery" className="bg-secondary overflow-hidden">
         <SectionHeader
-          eyebrow="Notre Espace"
-          title="Un Cadre d'Exception"
-          description="Découvrez l'atmosphère unique d'Epictete, où chaque détail architectural raconte une histoire d'élégance et de raffinement."
+          eyebrow={t.gallery.eyebrow}
+          title={t.gallery.title}
+          description={t.gallery.description}
         />
 
-        <div 
+        <div
           ref={ref}
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 md:gap-6"
         >

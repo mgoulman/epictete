@@ -7,17 +7,19 @@ import { MapPin, Clock, Phone, Navigation, Car } from "lucide-react";
 import { Section, SectionHeader } from "@/components/layout/section";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 
 export function LocationSection() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
+  const { t } = useTranslation();
 
   return (
     <Section id="location" className="bg-primary">
       <SectionHeader
-        eyebrow="Nous Trouver"
-        title="Venez nous rendre visite"
-        description="Situé à Bouskoura Sud, aux portes de Casablanca, à proximité du Golf et de la Forêt de Bouskoura."
+        eyebrow={t.location.eyebrow}
+        title={t.location.title}
+        description={t.location.description}
       />
 
       <div ref={ref} className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 lg:gap-12 items-stretch">
@@ -36,7 +38,7 @@ export function LocationSection() {
             allowFullScreen
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
-            title="Location de Epictete Restaurant - Bouskoura Sud, Casablanca"
+            title={t.location.mapTitle}
             className="grayscale hover:grayscale-0 transition-all duration-500"
           />
           {/* Mobile Directions Button Overlay */}
@@ -48,7 +50,7 @@ export function LocationSection() {
                 rel="noopener noreferrer"
               >
                 <Navigation size={16} className="mr-2" />
-                Obtenir l&apos;itinéraire
+                {t.location.directions}
               </a>
             </Button>
           </div>
@@ -68,13 +70,13 @@ export function LocationSection() {
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="font-heading font-semibold text-foreground text-base sm:text-lg mb-1">
-                Adresse
+                {t.location.address}
               </h3>
               <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
                 {siteConfig.contact.addressShort}
               </p>
               <p className="text-xs text-muted mt-1">
-                Près de Carrefour Ouled Saleh
+                {t.location.addressNote}
               </p>
               <a
                 href={siteConfig.location.googleMapsDirections}
@@ -83,7 +85,7 @@ export function LocationSection() {
                 className="hidden md:inline-flex items-center gap-1 mt-2 text-sm text-accent hover:text-accent-hover transition-colors"
               >
                 <Navigation size={14} />
-                Obtenir l&apos;itinéraire
+                {t.location.directions}
               </a>
             </div>
           </div>
@@ -95,13 +97,13 @@ export function LocationSection() {
             </div>
             <div className="flex-1">
               <h3 className="font-heading font-semibold text-foreground text-base sm:text-lg mb-1">
-                Horaires
+                {t.location.hoursLabel}
               </h3>
               <div className="text-sm sm:text-base text-muted-foreground space-y-1">
                 <p>
-                  <span className="text-foreground">Tous les jours:</span> {siteConfig.hours.daily}
+                  <span className="text-foreground">{t.location.daily}</span> {siteConfig.hours.daily}
                 </p>
-                <p className="text-accent text-sm">{siteConfig.hours.note}</p>
+                <p className="text-accent text-sm">{t.footer.serviceNote}</p>
               </div>
             </div>
           </div>
@@ -113,7 +115,7 @@ export function LocationSection() {
             </div>
             <div className="flex-1">
               <h3 className="font-heading font-semibold text-foreground text-base sm:text-lg mb-1">
-                Réservations
+                {t.location.reservations}
               </h3>
               <div className="space-y-1">
                 <a
@@ -135,7 +137,7 @@ export function LocationSection() {
           {/* Parking Note */}
           <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground px-1">
             <Car size={14} className="text-accent shrink-0" />
-            <span>Parking disponible sur place</span>
+            <span>{t.location.parking}</span>
           </div>
         </motion.div>
       </div>

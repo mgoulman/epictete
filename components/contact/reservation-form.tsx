@@ -4,9 +4,11 @@ import { useState } from "react";
 import { Phone, Clock, MessageSquare, Users, Minus, Plus, CheckCircle, AlertCircle, Baby, CalendarDays } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { fr as frLocale } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 
 // Generate time slots from 10:00 to 22:00 in 30-min intervals
 const generateTimeSlots = () => {
@@ -69,6 +71,7 @@ export function ReservationForm() {
   const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const { locale, t } = useTranslation();
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -79,6 +82,8 @@ export function ReservationForm() {
     babyChairs: 0,
     specialRequests: "",
   });
+
+  const dateLocale = locale === "fr" ? frLocale : enUS;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,10 +131,10 @@ export function ReservationForm() {
       {/* Header */}
       <div className="bg-gradient-to-r from-accent/10 to-accent/5 px-6 py-5 border-b border-border">
         <h2 className="text-xl sm:text-2xl font-heading font-semibold text-foreground">
-          Réserver une table
+          {t.forms.reserveTable}
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Remplissez le formulaire et nous confirmons votre réservation rapidement.
+          {t.forms.reserveSubtitle}
         </p>
       </div>
 
@@ -141,9 +146,9 @@ export function ReservationForm() {
               <CheckCircle className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="font-semibold text-green-700">Réservation envoyée !</p>
+              <p className="font-semibold text-green-700">{t.forms.success}</p>
               <p className="text-sm text-green-600 mt-1">
-                Nous avons bien reçu votre demande. Vous recevrez une confirmation par téléphone ou WhatsApp très prochainement.
+                {t.forms.successMsg}
               </p>
             </div>
           </div>
@@ -156,9 +161,9 @@ export function ReservationForm() {
               <AlertCircle className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <p className="font-semibold text-red-700">Une erreur est survenue</p>
+              <p className="font-semibold text-red-700">{t.forms.error}</p>
               <p className="text-sm text-red-600 mt-1">
-                Veuillez réessayer ou nous appeler directement au {siteConfig.contact.phone}.
+                {t.forms.errorMsg} {siteConfig.contact.phone}.
               </p>
             </div>
           </div>
@@ -168,12 +173,12 @@ export function ReservationForm() {
           {/* Personal Info Section */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Vos coordonnées
+              {t.forms.yourInfo}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="reservation-name" className="block text-sm font-medium text-foreground mb-2">
-                  Nom complet <span className="text-accent">*</span>
+                  {t.forms.name} <span className="text-accent">*</span>
                 </label>
                 <input
                   type="text"
@@ -182,12 +187,12 @@ export function ReservationForm() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-4 py-3.5 bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all text-base"
-                  placeholder="Votre nom"
+                  placeholder={t.forms.namePlaceholder}
                 />
               </div>
               <div>
                 <label htmlFor="reservation-phone" className="block text-sm font-medium text-foreground mb-2">
-                  Téléphone <span className="text-accent">*</span>
+                  {t.forms.phone} <span className="text-accent">*</span>
                 </label>
                 <input
                   type="tel"
@@ -196,13 +201,13 @@ export function ReservationForm() {
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="w-full px-4 py-3.5 bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all text-base"
-                  placeholder="+212 6XX XX XX XX"
+                  placeholder={t.forms.phonePlaceholder}
                 />
               </div>
             </div>
             <div>
               <label htmlFor="reservation-email" className="block text-sm font-medium text-foreground mb-2">
-                Email <span className="text-muted-foreground font-normal text-xs">(optionnel)</span>
+                {t.forms.email} <span className="text-muted-foreground font-normal text-xs">({t.forms.optional})</span>
               </label>
               <input
                 type="email"
@@ -218,14 +223,14 @@ export function ReservationForm() {
           {/* Date & Time Section */}
           <div className="space-y-4 pt-2">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Date et heure
+              {t.forms.dateTime}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Date Picker */}
               <div className="relative">
                 <label className="block text-sm font-medium text-foreground mb-2">
                   <CalendarDays size={14} className="inline mr-1.5 text-accent" />
-                  Date <span className="text-accent">*</span>
+                  {t.forms.date} <span className="text-accent">*</span>
                 </label>
                 <button
                   type="button"
@@ -235,8 +240,8 @@ export function ReservationForm() {
                   } ${selectedDate ? "text-foreground" : "text-muted"}`}
                 >
                   {selectedDate
-                    ? format(selectedDate, "EEEE d MMMM yyyy", { locale: fr })
-                    : "Sélectionner une date"}
+                    ? format(selectedDate, "EEEE d MMMM yyyy", { locale: dateLocale })
+                    : t.forms.selectDate}
                 </button>
 
                 {/* Calendar Dropdown */}
@@ -250,7 +255,7 @@ export function ReservationForm() {
                         setShowCalendar(false);
                       }}
                       disabled={{ before: today }}
-                      locale={fr}
+                      locale={dateLocale}
                       showOutsideDays={false}
                       classNames={{
                         months: "flex flex-col",
@@ -281,7 +286,7 @@ export function ReservationForm() {
               <div>
                 <label htmlFor="reservation-time" className="block text-sm font-medium text-foreground mb-2">
                   <Clock size={14} className="inline mr-1.5 text-accent" />
-                  Heure <span className="text-accent">*</span>
+                  {t.forms.time} <span className="text-accent">*</span>
                 </label>
                 <select
                   id="reservation-time"
@@ -298,7 +303,7 @@ export function ReservationForm() {
                     backgroundSize: "1.25rem",
                   }}
                 >
-                  <option value="">Sélectionner une heure</option>
+                  <option value="">{t.forms.selectTime}</option>
                   {TIME_SLOTS.map((time) => (
                     <option key={time} value={time}>
                       {time}
@@ -313,15 +318,15 @@ export function ReservationForm() {
           <div className="space-y-4 pt-2">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                Nombre de personnes
+                {t.forms.guests}
               </h3>
               <span className="text-sm font-medium text-accent">
-                Total: {totalGuests} personne{totalGuests > 1 ? "s" : ""}
+                {t.forms.totalGuests} {totalGuests} {totalGuests > 1 ? t.forms.persons : t.forms.person}
               </span>
             </div>
             <div className="space-y-3">
               <Counter
-                label="Adultes"
+                label={t.forms.adults}
                 value={formData.adults}
                 onChange={(value) => setFormData({ ...formData, adults: value })}
                 min={1}
@@ -329,8 +334,8 @@ export function ReservationForm() {
                 icon={<Users size={20} />}
               />
               <Counter
-                label="Enfants"
-                sublabel="Moins de 12 ans"
+                label={t.forms.children}
+                sublabel={t.forms.childrenNote}
                 value={formData.children}
                 onChange={(value) => setFormData({ ...formData, children: value })}
                 min={0}
@@ -338,8 +343,8 @@ export function ReservationForm() {
                 icon={<Users size={18} />}
               />
               <Counter
-                label="Chaises bébé"
-                sublabel="Pour les tout-petits"
+                label={t.forms.babyChairs}
+                sublabel={t.forms.babyChairsNote}
                 value={formData.babyChairs}
                 onChange={(value) => setFormData({ ...formData, babyChairs: value })}
                 min={0}
@@ -352,12 +357,12 @@ export function ReservationForm() {
           {/* Special Requests */}
           <div className="space-y-4 pt-2">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Informations supplémentaires
+              {t.forms.additionalInfo}
             </h3>
             <div>
               <label htmlFor="reservation-requests" className="block text-sm font-medium text-foreground mb-2">
                 <MessageSquare size={14} className="inline mr-1.5 text-accent" />
-                Demandes spéciales <span className="text-muted-foreground font-normal text-xs">(optionnel)</span>
+                {t.forms.specialRequests} <span className="text-muted-foreground font-normal text-xs">({t.forms.optional})</span>
               </label>
               <textarea
                 id="reservation-requests"
@@ -365,7 +370,7 @@ export function ReservationForm() {
                 value={formData.specialRequests}
                 onChange={(e) => setFormData({ ...formData, specialRequests: e.target.value })}
                 className="w-full px-4 py-3.5 bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all resize-none text-base"
-                placeholder="Allergies, occasion spéciale, préférences de table, anniversaire..."
+                placeholder={t.forms.requestsPlaceholder}
               />
             </div>
           </div>
@@ -384,15 +389,15 @@ export function ReservationForm() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Envoi en cours...
+                  {t.forms.sending}
                 </>
               ) : submitStatus === "success" ? (
                 <>
                   <CheckCircle className="w-5 h-5 mr-2" />
-                  Réservation envoyée
+                  {t.forms.sent}
                 </>
               ) : (
-                "Confirmer ma réservation"
+                t.forms.confirm
               )}
             </Button>
           </div>
@@ -401,7 +406,7 @@ export function ReservationForm() {
         {/* Call Alternative */}
         <div className="mt-8 pt-6 border-t border-border text-center">
           <p className="text-sm text-muted-foreground mb-3">
-            Besoin d&apos;une réservation immédiate ?
+            {t.forms.immediateReservation}
           </p>
           <a
             href={`tel:${siteConfig.contact.phone.replace(/\s/g, "")}`}

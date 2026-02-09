@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '@/lib/auth/hooks';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
@@ -13,6 +14,7 @@ export function LoginForm() {
 
   const { signIn } = useAuth();
   const router = useRouter();
+  const { t } = useTranslation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,10 +57,10 @@ export function LoginForm() {
           />
         </div>
         <h1 style={{ fontSize: '22px', fontWeight: 600, color: 'white', margin: 0 }}>
-          Sign in to Epictète
+          {t.backoffice.login.title}
         </h1>
         <p style={{ fontSize: '14px', color: '#888', marginTop: '8px' }}>
-          Enter your credentials to continue
+          {t.backoffice.login.subtitle}
         </p>
       </div>
 
@@ -94,14 +96,14 @@ export function LoginForm() {
                 marginBottom: '6px'
               }}
             >
-              Email
+              {t.backoffice.login.email}
             </label>
             <input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              placeholder={t.backoffice.login.emailPlaceholder}
               required
               style={{
                 width: '100%',
@@ -130,14 +132,14 @@ export function LoginForm() {
                 marginBottom: '6px'
               }}
             >
-              Password
+              {t.backoffice.login.password}
             </label>
             <input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
+              placeholder={t.backoffice.login.passwordPlaceholder}
               required
               style={{
                 width: '100%',
@@ -190,10 +192,10 @@ export function LoginForm() {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                   />
                 </svg>
-                Signing in...
+                {t.backoffice.login.signingIn}
               </span>
             ) : (
-              'Sign in'
+              t.backoffice.login.signIn
             )}
           </button>
         </form>

@@ -13,6 +13,7 @@ import {
   Check, Image as ImageIcon, Loader2
 } from 'lucide-react';
 import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared/SortHeader';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface SalesItem {
   id: string;
@@ -142,6 +143,8 @@ export default function FinancePage() {
   const canWrite = hasPermission('finance.write');
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { t } = useTranslation();
+  const fn = t.backoffice.financePage;
 
   // Get tab from URL or default to 'overview'
   const tabParam = searchParams.get('tab') as TabType | null;
@@ -432,15 +435,15 @@ export default function FinancePage() {
 
       const result = await res.json();
       if (res.ok) {
-        alert(`Import successful! ${result.recordsImported} records imported.`);
+        alert(fn.importSuccessMsg.replace('{count}', String(result.recordsImported)));
         fetchStats();
         fetchSales();
       } else {
-        alert(result.error || 'Import failed');
+        alert(result.error || fn.importFailedMsg);
       }
     } catch (err) {
       console.error('Import error:', err);
-      alert('Import failed');
+      alert(fn.importFailedMsg);
     }
     setImporting(false);
     e.target.value = '';
@@ -496,7 +499,7 @@ export default function FinancePage() {
 
   const handleAddSale = async () => {
     if (!newSale.product_name || !newSale.selling_price) {
-      alert('Please fill required fields');
+      alert(fn.fillRequired);
       return;
     }
 
@@ -520,16 +523,16 @@ export default function FinancePage() {
         fetchSales();
       } else {
         const err = await res.json();
-        alert(err.error || 'Failed to add sale');
+        alert(err.error || fn.failedAddSale);
       }
     } catch (err) {
       console.error('Add sale error:', err);
-      alert('Failed to add sale');
+      alert(fn.failedAddSale);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this record?')) return;
+    if (!confirm(fn.deleteRecord)) return;
 
     try {
       const res = await fetch(`/api/finance/sales?id=${id}`, { method: 'DELETE' });
@@ -544,7 +547,7 @@ export default function FinancePage() {
 
   const handleAddInventory = async () => {
     if (!newInventory.name) {
-      alert('Please enter item name');
+      alert(fn.enterItemName);
       return;
     }
 
@@ -570,11 +573,11 @@ export default function FinancePage() {
         fetchInventory(false);
       } else {
         const err = await res.json();
-        alert(err.error || 'Failed to add item');
+        alert(err.error || fn.failedAddItem);
       }
     } catch (err) {
       console.error('Add inventory error:', err);
-      alert('Failed to add item');
+      alert(fn.failedAddItem);
     }
   };
 
@@ -594,16 +597,16 @@ export default function FinancePage() {
         fetchInventory(false);
       } else {
         const err = await res.json();
-        alert(err.error || 'Failed to update item');
+        alert(err.error || fn.failedUpdateItem);
       }
     } catch (err) {
       console.error('Update inventory error:', err);
-      alert('Failed to update item');
+      alert(fn.failedUpdateItem);
     }
   };
 
   const handleDeleteInventory = async (id: string) => {
-    if (!confirm('Delete this inventory item?')) return;
+    if (!confirm(fn.deleteInventoryItem)) return;
 
     try {
       const res = await fetch(`/api/inventory?id=${id}`, { method: 'DELETE' });
@@ -634,7 +637,7 @@ export default function FinancePage() {
 
   const handleAddVendor = async () => {
     if (!newVendor.name) {
-      alert('Please enter vendor name');
+      alert(fn.enterVendorName);
       return;
     }
 
@@ -673,11 +676,11 @@ export default function FinancePage() {
         fetchVendors(false);
       } else {
         const err = await res.json();
-        alert(err.error || 'Failed to add vendor');
+        alert(err.error || fn.failedAddVendor);
       }
     } catch (err) {
       console.error('Add vendor error:', err);
-      alert('Failed to add vendor');
+      alert(fn.failedAddVendor);
     }
   };
 
@@ -709,16 +712,16 @@ export default function FinancePage() {
         fetchVendors(false);
       } else {
         const err = await res.json();
-        alert(err.error || 'Failed to update vendor');
+        alert(err.error || fn.failedUpdateVendor);
       }
     } catch (err) {
       console.error('Update vendor error:', err);
-      alert('Failed to update vendor');
+      alert(fn.failedUpdateVendor);
     }
   };
 
   const handleDeleteVendor = async (id: string) => {
-    if (!confirm('Delete this vendor? This will also delete all transaction history.')) return;
+    if (!confirm(fn.deleteVendorConfirm)) return;
 
     try {
       const res = await fetch(`/api/vendors?type=vendor&id=${id}`, { method: 'DELETE' });
@@ -732,7 +735,7 @@ export default function FinancePage() {
 
   const handleAddTransaction = async () => {
     if (!selectedVendorForTransaction || !newTransaction.amount) {
-      alert('Please enter amount');
+      alert(fn.enterAmount);
       return;
     }
 
@@ -767,16 +770,16 @@ export default function FinancePage() {
         }
       } else {
         const err = await res.json();
-        alert(err.error || 'Failed to add transaction');
+        alert(err.error || fn.failedAddTransaction);
       }
     } catch (err) {
       console.error('Add transaction error:', err);
-      alert('Failed to add transaction');
+      alert(fn.failedAddTransaction);
     }
   };
 
   const handleDeleteTransaction = async (id: string) => {
-    if (!confirm('Delete this transaction?')) return;
+    if (!confirm(fn.deleteTransaction)) return;
 
     try {
       const res = await fetch(`/api/vendors?type=transaction&id=${id}`, { method: 'DELETE' });
@@ -812,10 +815,10 @@ export default function FinancePage() {
           setEditingVendor({ ...editingVendor, invoice_template_url: data.url, invoice_template_path: data.path });
         }
       } else {
-        alert(data.error || 'Failed to upload template');
+        alert(data.error || fn.failedUploadTemplate);
       }
     } catch {
-      alert('Failed to upload template');
+      alert(fn.failedUploadTemplate);
     }
     setUploadingTemplate(false);
   };
@@ -837,7 +840,7 @@ export default function FinancePage() {
   // Invoice scanner handlers
   const handleScanInvoice = async () => {
     if (!scannerFile || !scannerVendorId) {
-      alert('Please select a vendor and upload an invoice');
+      alert(fn.selectVendorAndInvoice);
       return;
     }
 
@@ -860,10 +863,10 @@ export default function FinancePage() {
         setScannerInventoryItems(data.inventory_items || []);
         setScannerStage('review');
       } else {
-        alert(data.error || 'Scan failed');
+        alert(data.error || fn.scanFailed);
       }
     } catch {
-      alert('Scan failed');
+      alert(fn.scanFailed);
     }
     setScanning(false);
   };
@@ -895,10 +898,10 @@ export default function FinancePage() {
         setScannerStage('success');
         fetchVendors(false);
       } else {
-        alert(data.error || 'Confirm failed');
+        alert(data.error || fn.confirmFailed);
       }
     } catch {
-      alert('Confirm failed');
+      alert(fn.confirmFailed);
     }
     setConfirming(false);
   };
@@ -1039,7 +1042,7 @@ export default function FinancePage() {
       permission="finance.read"
       fallback={
         <div className="flex items-center justify-center h-[50vh]">
-          <p className="text-muted-foreground">You do not have permission to access this page.</p>
+          <p className="text-muted-foreground">{t.backoffice.shared.noPermission}</p>
         </div>
       }
     >
@@ -1047,8 +1050,8 @@ export default function FinancePage() {
         {/* Header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Finance</h1>
-            <p className="text-muted-foreground mt-1 text-sm">Sales reports, analytics and financial data</p>
+            <h1 className="text-2xl font-semibold text-foreground">{fn.title}</h1>
+            <p className="text-muted-foreground mt-1 text-sm">{fn.subtitle}</p>
           </div>
           <div className="flex items-center gap-2">
             {canWrite && (
@@ -1058,11 +1061,11 @@ export default function FinancePage() {
                   className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-sm font-medium transition-colors"
                 >
                   <RefreshCw className={`w-4 h-4 ${autoImporting ? 'animate-spin' : ''}`} />
-                  {autoImporting ? 'Syncing...' : 'Sync LaCaisse'}
+                  {autoImporting ? fn.syncing : fn.syncLaCaisse}
                 </button>
                 <label className="flex items-center gap-2 px-4 py-2.5 bg-secondary border border-border rounded-lg text-foreground text-sm cursor-pointer hover:bg-card transition-colors">
                   <Upload className="w-4 h-4" />
-                  {importing ? 'Importing...' : 'Import'}
+                  {importing ? fn.importing : fn.import}
                   <input
                     type="file"
                     accept=".xls,.xlsx,.csv"
@@ -1075,7 +1078,7 @@ export default function FinancePage() {
                   onClick={() => setShowAddModal(true)}
                   className="flex items-center gap-2 px-4 py-2.5 bg-linear-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium"
                 >
-                  <Plus className="w-4 h-4" /> Add Sale
+                  <Plus className="w-4 h-4" /> {fn.addSale}
                 </button>
               </>
             )}
@@ -1085,11 +1088,11 @@ export default function FinancePage() {
         {/* Tabs */}
         <div className="flex gap-1 p-1 bg-secondary rounded-xl w-fit flex-wrap">
           {[
-            { id: 'overview', label: 'Overview', icon: BarChart3 },
-            { id: 'sales', label: 'Sales List', icon: ShoppingCart },
-            { id: 'inventory', label: 'Inventory', icon: Package },
-            { id: 'vendors', label: 'Vendors', icon: Users },
-            { id: 'import', label: 'Import History', icon: FileSpreadsheet }
+            { id: 'overview', label: fn.tabs.overview, icon: BarChart3 },
+            { id: 'sales', label: fn.tabs.salesList, icon: ShoppingCart },
+            { id: 'inventory', label: fn.tabs.inventory, icon: Package },
+            { id: 'vendors', label: fn.tabs.vendors, icon: Users },
+            { id: 'import', label: fn.tabs.importHistory, icon: FileSpreadsheet }
           ].map(tab => (
             <button
               key={tab.id}
@@ -1116,7 +1119,7 @@ export default function FinancePage() {
               onChange={e => { setStartDate(e.target.value); setOffset(0); }}
               className="py-2 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm"
             />
-            <span className="text-muted-foreground">to</span>
+            <span className="text-muted-foreground">{fn.to}</span>
             <input
               type="date"
               value={endDate}
@@ -1129,7 +1132,7 @@ export default function FinancePage() {
               onClick={() => { setStartDate(''); setEndDate(''); setOffset(0); }}
               className="text-sm text-muted-foreground hover:text-foreground"
             >
-              Clear dates
+              {fn.clearDates}
             </button>
           )}
           <button
@@ -1152,7 +1155,7 @@ export default function FinancePage() {
                   </div>
                 </div>
                 <p className="text-3xl font-bold text-foreground">{formatCurrency(stats.summary.totalRevenue)}</p>
-                <p className="text-muted-foreground text-sm mt-1">Total Revenue</p>
+                <p className="text-muted-foreground text-sm mt-1">{fn.totalRevenue}</p>
               </div>
 
               <div className="bg-secondary border border-border rounded-2xl p-5">
@@ -1162,7 +1165,7 @@ export default function FinancePage() {
                   </div>
                 </div>
                 <p className="text-3xl font-bold text-foreground">{formatCurrency(stats.summary.totalProfit)}</p>
-                <p className="text-muted-foreground text-sm mt-1">Total Profit</p>
+                <p className="text-muted-foreground text-sm mt-1">{fn.totalProfit}</p>
               </div>
 
               <div className="bg-secondary border border-border rounded-2xl p-5">
@@ -1172,7 +1175,7 @@ export default function FinancePage() {
                   </div>
                 </div>
                 <p className="text-3xl font-bold text-foreground">{stats.summary.totalItems.toLocaleString()}</p>
-                <p className="text-muted-foreground text-sm mt-1">Items Sold</p>
+                <p className="text-muted-foreground text-sm mt-1">{fn.itemsSold}</p>
               </div>
 
               <div className="bg-secondary border border-border rounded-2xl p-5">
@@ -1182,7 +1185,7 @@ export default function FinancePage() {
                   </div>
                 </div>
                 <p className="text-3xl font-bold text-foreground">{formatCurrency(stats.summary.averageOrderValue)}</p>
-                <p className="text-muted-foreground text-sm mt-1">Avg. Item Value</p>
+                <p className="text-muted-foreground text-sm mt-1">{fn.avgItemValue}</p>
               </div>
             </div>
 
@@ -1190,7 +1193,7 @@ export default function FinancePage() {
             <div className="grid lg:grid-cols-2 gap-6">
               {/* Category Breakdown */}
               <div className="bg-secondary border border-border rounded-2xl p-5">
-                <h3 className="text-lg font-semibold text-foreground mb-4">Sales by Category</h3>
+                <h3 className="text-lg font-semibold text-foreground mb-4">{fn.salesByCategory}</h3>
                 <div className="space-y-4">
                   {stats.categoryStats.slice(0, 8).map((cat) => {
                     const maxRevenue = stats.categoryStats[0]?.revenue || 1;
@@ -1201,7 +1204,7 @@ export default function FinancePage() {
                           <span className="text-sm font-medium text-foreground">{cat.name}</span>
                           <div className="flex items-center gap-3">
                             <span className="text-sm font-semibold text-[#606338]">{formatCurrency(cat.revenue)}</span>
-                            <span className="text-xs text-muted-foreground w-16 text-right">{cat.count} items</span>
+                            <span className="text-xs text-muted-foreground w-16 text-right">{cat.count} {fn.items}</span>
                           </div>
                         </div>
                         <div className="h-2.5 bg-card rounded-full overflow-hidden">
@@ -1218,7 +1221,7 @@ export default function FinancePage() {
 
               {/* Top Products */}
               <div className="bg-secondary border border-border rounded-2xl p-5">
-                <h3 className="text-lg font-semibold text-foreground mb-4">Top Products</h3>
+                <h3 className="text-lg font-semibold text-foreground mb-4">{fn.topProducts}</h3>
                 <div className="space-y-2">
                   {stats.topProducts.map((product, i) => (
                     <div key={product.name} className="flex items-center gap-3 p-3 bg-card rounded-xl">
@@ -1227,7 +1230,7 @@ export default function FinancePage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-foreground font-medium truncate">{product.name}</p>
-                        <p className="text-xs text-muted-foreground">{product.count} sold</p>
+                        <p className="text-xs text-muted-foreground">{product.count} {fn.sold}</p>
                       </div>
                       <p className="text-[#606338] font-semibold">{formatCurrency(product.revenue)}</p>
                     </div>
@@ -1239,7 +1242,7 @@ export default function FinancePage() {
             {/* Daily Stats */}
             {stats.dailyStats.length > 0 && (
               <div className="bg-secondary border border-border rounded-2xl p-5">
-                <h3 className="text-lg font-semibold text-foreground mb-4">Daily Revenue</h3>
+                <h3 className="text-lg font-semibold text-foreground mb-4">{fn.dailyRevenue}</h3>
                 <div className="overflow-x-auto">
                   <div className="flex gap-2 min-w-max pb-2">
                     {stats.dailyStats.slice(-14).map(day => {
@@ -1276,7 +1279,7 @@ export default function FinancePage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Search products..."
+                  placeholder={fn.searchProducts}
                   value={searchQuery}
                   onChange={e => { setSearchQuery(e.target.value); setOffset(0); }}
                   className="w-full py-2.5 pl-10 pr-3 bg-secondary border border-border rounded-lg text-foreground text-sm"
@@ -1287,7 +1290,7 @@ export default function FinancePage() {
                 onChange={e => { setCategory(e.target.value); setOffset(0); }}
                 className="py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm"
               >
-                <option value="">All Categories</option>
+                <option value="">{fn.allCategories}</option>
                 {stats?.categories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
@@ -1296,7 +1299,7 @@ export default function FinancePage() {
                 onClick={exportCSV}
                 className="flex items-center gap-2 px-4 py-2.5 bg-secondary border border-border rounded-lg text-foreground text-sm hover:bg-card"
               >
-                <Download className="w-4 h-4" /> Export
+                <Download className="w-4 h-4" /> {fn.export}
               </button>
             </div>
 
@@ -1309,7 +1312,7 @@ export default function FinancePage() {
               ) : salesItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64">
                   <ShoppingCart className="w-12 h-12 text-muted mb-4" />
-                  <p className="text-muted-foreground">No sales data found</p>
+                  <p className="text-muted-foreground">{fn.noSalesData}</p>
                 </div>
               ) : (
                 <>
@@ -1317,13 +1320,13 @@ export default function FinancePage() {
                     <table className="w-full">
                       <thead>
                         <tr className="bg-card">
-                          <th className="px-4 py-3"><SortHeader label="Date" field="sale_date" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
-                          <th className="px-4 py-3"><SortHeader label="Product" field="product_name" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
-                          <th className="px-4 py-3"><SortHeader label="Category" field="category" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
-                          <th className="px-4 py-3"><SortHeader label="Qty" field="quantity" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
-                          <th className="px-4 py-3"><SortHeader label="Price" field="selling_price" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
-                          <th className="px-4 py-3"><SortHeader label="Total" field="total" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
-                          {canWrite && <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">Actions</th>}
+                          <th className="px-4 py-3"><SortHeader label={fn.date} field="sale_date" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                          <th className="px-4 py-3"><SortHeader label={fn.product} field="product_name" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                          <th className="px-4 py-3"><SortHeader label={fn.category} field="category" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                          <th className="px-4 py-3"><SortHeader label={fn.qty} field="quantity" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
+                          <th className="px-4 py-3"><SortHeader label={fn.price} field="selling_price" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
+                          <th className="px-4 py-3"><SortHeader label={fn.total} field="total" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
+                          {canWrite && <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">{fn.actions}</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -1344,7 +1347,7 @@ export default function FinancePage() {
                             <td className="px-4 py-3">
                               <p className="text-sm font-medium text-foreground">{item.product_name}</p>
                               {item.ticket_number && (
-                                <p className="text-xs text-muted">Ticket #{item.ticket_number}</p>
+                                <p className="text-xs text-muted">{fn.ticketNum}{item.ticket_number}</p>
                               )}
                             </td>
                             <td className="px-4 py-3 text-sm text-muted-foreground">{item.category || '-'}</td>
@@ -1373,7 +1376,7 @@ export default function FinancePage() {
                   {totalPages > 1 && (
                     <div className="flex items-center justify-between px-4 py-3 border-t border-border">
                       <p className="text-sm text-muted-foreground">
-                        Showing {offset + 1} to {Math.min(offset + limit, total)} of {total}
+                        {fn.showing} {offset + 1} {fn.to} {Math.min(offset + limit, total)} {fn.of} {total}
                       </p>
                       <div className="flex items-center gap-2">
                         <button
@@ -1383,7 +1386,7 @@ export default function FinancePage() {
                         >
                           <ChevronLeft className="w-4 h-4" />
                         </button>
-                        <span className="text-sm text-foreground">Page {currentPage} of {totalPages}</span>
+                        <span className="text-sm text-foreground">{fn.page} {currentPage} {fn.of} {totalPages}</span>
                         <button
                           onClick={() => setOffset(offset + limit)}
                           disabled={currentPage === totalPages}
@@ -1407,10 +1410,10 @@ export default function FinancePage() {
               {!stats?.recentImports?.length ? (
                 <div className="flex flex-col items-center justify-center h-64">
                   <FileSpreadsheet className="w-12 h-12 text-muted mb-4" />
-                  <p className="text-muted-foreground">No imports yet</p>
+                  <p className="text-muted-foreground">{fn.noImports}</p>
                   {canWrite && (
                     <label className="mt-4 flex items-center gap-2 px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm cursor-pointer">
-                      <Upload className="w-4 h-4" /> Import your first file
+                      <Upload className="w-4 h-4" /> {fn.importFirst}
                       <input
                         type="file"
                         accept=".xls,.xlsx,.csv"
@@ -1424,11 +1427,11 @@ export default function FinancePage() {
                 <table className="w-full">
                   <thead>
                     <tr className="bg-card">
-                      <th className="px-4 py-3"><SortHeader label="File" field="filename" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
-                      <th className="px-4 py-3"><SortHeader label="Date Range" field="date_range_start" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
-                      <th className="px-4 py-3"><SortHeader label="Records" field="records_count" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
-                      <th className="px-4 py-3"><SortHeader label="Total" field="total_amount" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
-                      <th className="px-4 py-3"><SortHeader label="Imported" field="created_at" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
+                      <th className="px-4 py-3"><SortHeader label={fn.file} field="filename" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                      <th className="px-4 py-3"><SortHeader label={fn.dateRange} field="date_range_start" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                      <th className="px-4 py-3"><SortHeader label={fn.records} field="records_count" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
+                      <th className="px-4 py-3"><SortHeader label={fn.total} field="total_amount" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
+                      <th className="px-4 py-3"><SortHeader label={fn.imported} field="created_at" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1472,7 +1475,7 @@ export default function FinancePage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Search inventory..."
+                  placeholder={fn.searchInventory}
                   value={inventorySearch}
                   onChange={e => setInventorySearch(e.target.value)}
                   className="w-full py-2.5 pl-10 pr-3 bg-secondary border border-border rounded-lg text-foreground text-sm"
@@ -1483,7 +1486,7 @@ export default function FinancePage() {
                 onChange={e => setInventoryCategory(e.target.value)}
                 className="py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm"
               >
-                <option value="">All Categories</option>
+                <option value="">{fn.allCategories}</option>
                 {inventoryCategories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
@@ -1494,13 +1497,13 @@ export default function FinancePage() {
                     onClick={() => setShowVendorMatch(true)}
                     className="flex items-center gap-2 px-4 py-2.5 bg-secondary border border-border rounded-lg text-foreground text-sm font-medium hover:bg-card transition-colors"
                   >
-                    <Users className="w-4 h-4" /> Match Vendors
+                    <Users className="w-4 h-4" /> {fn.matchVendors}
                   </button>
                   <button
                     onClick={() => setShowInventoryModal(true)}
                     className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium"
                   >
-                    <Plus className="w-4 h-4" /> Add Item
+                    <Plus className="w-4 h-4" /> {fn.addItem}
                   </button>
                 </div>
               )}
@@ -1511,8 +1514,8 @@ export default function FinancePage() {
               <div className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
                 <AlertTriangle className="w-5 h-5 text-red-500" />
                 <p className="text-sm text-red-500">
-                  <span className="font-medium">Low Stock Alert:</span>{' '}
-                  {inventoryItems.filter(item => item.quantity <= item.minimum_stock && item.minimum_stock > 0).length} items need restocking
+                  <span className="font-medium">{fn.lowStockAlert}</span>{' '}
+                  {inventoryItems.filter(item => item.quantity <= item.minimum_stock && item.minimum_stock > 0).length} {fn.needRestocking}
                 </p>
               </div>
             )}
@@ -1526,13 +1529,13 @@ export default function FinancePage() {
               ) : inventoryItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64">
                   <Package className="w-12 h-12 text-muted mb-4" />
-                  <p className="text-muted-foreground">No inventory items yet</p>
+                  <p className="text-muted-foreground">{fn.noSalesData}</p>
                   {canWrite && (
                     <button
                       onClick={() => setShowInventoryModal(true)}
                       className="mt-4 flex items-center gap-2 px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm"
                     >
-                      <Plus className="w-4 h-4" /> Add your first item
+                      <Plus className="w-4 h-4" /> {fn.addItem}
                     </button>
                   )}
                 </div>
@@ -1541,13 +1544,13 @@ export default function FinancePage() {
                   <table className="w-full">
                     <thead>
                       <tr className="bg-card">
-                        <th className="px-4 py-3"><SortHeader label="Item" field="name" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
-                        <th className="px-4 py-3"><SortHeader label="Category" field="category" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
-                        <th className="px-4 py-3"><SortHeader label="Quantity" field="quantity" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
-                        <th className="px-4 py-3"><SortHeader label="Unit" field="unit" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
-                        <th className="px-4 py-3"><SortHeader label="Cost/Unit" field="cost_per_unit" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
-                        <th className="px-4 py-3"><SortHeader label="Total Value" field="totalValue" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
-                        {canWrite && <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">Actions</th>}
+                        <th className="px-4 py-3"><SortHeader label={fn.item} field="name" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                        <th className="px-4 py-3"><SortHeader label={fn.category} field="category" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                        <th className="px-4 py-3"><SortHeader label={fn.quantity} field="quantity" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
+                        <th className="px-4 py-3"><SortHeader label={fn.unit} field="unit" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
+                        <th className="px-4 py-3"><SortHeader label={fn.costPerUnit} field="cost_per_unit" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
+                        <th className="px-4 py-3"><SortHeader label={fn.totalValue} field="totalValue" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
+                        {canWrite && <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">{fn.actions}</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -1623,7 +1626,7 @@ export default function FinancePage() {
                                 )}
                               </div>
                               {isLowStock && (
-                                <p className="text-xs text-red-500 text-center mt-1">Min: {item.minimum_stock}</p>
+                                <p className="text-xs text-red-500 text-center mt-1">{fn.minStock} {item.minimum_stock}</p>
                               )}
                             </td>
                             <td className="px-4 py-3 text-sm text-foreground text-center">{item.unit}</td>
@@ -1661,10 +1664,10 @@ export default function FinancePage() {
               {inventoryItems.length > 0 && (
                 <div className="px-4 py-3 border-t border-border bg-card/50 flex items-center justify-between">
                   <p className="text-sm text-muted-foreground">
-                    {inventoryItems.length} items in inventory
+                    {inventoryItems.length} {fn.itemsInInventory}
                   </p>
                   <p className="text-sm font-medium text-foreground">
-                    Total Value: <span className="text-[#606338]">{formatCurrency(inventoryItems.reduce((sum, item) => sum + item.quantity * item.cost_per_unit, 0))}</span>
+                    {fn.totalValue}: <span className="text-[#606338]">{formatCurrency(inventoryItems.reduce((sum, item) => sum + item.quantity * item.cost_per_unit, 0))}</span>
                   </p>
                 </div>
               )}
@@ -1679,19 +1682,19 @@ export default function FinancePage() {
             {/* Vendors Summary */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-secondary border border-border rounded-xl p-4">
-                <p className="text-muted-foreground text-sm">Total Vendors</p>
+                <p className="text-muted-foreground text-sm">{fn.totalVendors}</p>
                 <p className="text-2xl font-bold text-foreground">{vendors.length}</p>
               </div>
               <div className="bg-secondary border border-border rounded-xl p-4">
-                <p className="text-muted-foreground text-sm">Active Vendors</p>
+                <p className="text-muted-foreground text-sm">{fn.activeVendors}</p>
                 <p className="text-2xl font-bold text-foreground">{vendors.filter(v => v.is_active).length}</p>
               </div>
               <div className="bg-linear-to-br from-red-500/20 to-red-600/10 border border-red-500/20 rounded-xl p-4">
-                <p className="text-red-400 text-sm">Total Owed</p>
+                <p className="text-red-400 text-sm">{fn.totalOwed}</p>
                 <p className="text-2xl font-bold text-red-500">{formatCurrency(totalOwedToVendors)}</p>
               </div>
               <div className="bg-secondary border border-border rounded-xl p-4">
-                <p className="text-muted-foreground text-sm">With Balance Due</p>
+                <p className="text-muted-foreground text-sm">{fn.withBalanceDue}</p>
                 <p className="text-2xl font-bold text-foreground">{vendors.filter(v => v.balance > 0).length}</p>
               </div>
             </div>
@@ -1702,7 +1705,7 @@ export default function FinancePage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Search vendors..."
+                  placeholder={fn.searchVendors}
                   value={vendorSearch}
                   onChange={e => setVendorSearch(e.target.value)}
                   className="w-full py-2.5 pl-10 pr-3 bg-secondary border border-border rounded-lg text-foreground text-sm"
@@ -1713,7 +1716,7 @@ export default function FinancePage() {
                   onClick={() => setShowVendorModal(true)}
                   className="flex items-center gap-2 px-4 py-2.5 bg-linear-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium"
                 >
-                  <Plus className="w-4 h-4" /> Add Vendor
+                  <Plus className="w-4 h-4" /> {fn.addVendor}
                 </button>
               )}
             </div>
@@ -1727,13 +1730,13 @@ export default function FinancePage() {
               ) : filteredVendors.length === 0 ? (
                 <div className="bg-secondary border border-border rounded-xl flex flex-col items-center justify-center h-64">
                   <Users className="w-12 h-12 text-muted mb-4" />
-                  <p className="text-muted-foreground">No vendors yet</p>
+                  <p className="text-muted-foreground">{fn.noVendors}</p>
                   {canWrite && (
                     <button
                       onClick={() => setShowVendorModal(true)}
                       className="mt-4 flex items-center gap-2 px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm"
                     >
-                      <Plus className="w-4 h-4" /> Add your first vendor
+                      <Plus className="w-4 h-4" /> {fn.addFirstVendor}
                     </button>
                   )}
                 </div>
@@ -1749,7 +1752,7 @@ export default function FinancePage() {
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold text-foreground">{vendor.name}</h3>
                             {!vendor.is_active && (
-                              <span className="text-xs px-2 py-0.5 bg-muted rounded-full text-muted-foreground">Inactive</span>
+                              <span className="text-xs px-2 py-0.5 bg-muted rounded-full text-muted-foreground">{fn.inactive}</span>
                             )}
                             <span className="text-xs px-2 py-0.5 bg-card rounded-full text-muted-foreground capitalize">{vendor.category}</span>
                           </div>
@@ -1776,12 +1779,12 @@ export default function FinancePage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs text-muted-foreground mb-1">Balance</p>
+                        <p className="text-xs text-muted-foreground mb-1">{fn.balance}</p>
                         <p className={`text-xl font-bold ${vendor.balance > 0 ? 'text-red-500' : vendor.balance < 0 ? 'text-green-500' : 'text-foreground'}`}>
                           {vendor.balance > 0 ? '-' : vendor.balance < 0 ? '+' : ''}{formatCurrency(Math.abs(vendor.balance))}
                         </p>
                         {vendor.balance > 0 && (
-                          <p className="text-xs text-red-400 mt-0.5">You owe</p>
+                          <p className="text-xs text-red-400 mt-0.5">{fn.youOwe}</p>
                         )}
                       </div>
                     </div>
@@ -1793,19 +1796,19 @@ export default function FinancePage() {
                               onClick={() => { setSelectedVendorForTransaction(vendor); setNewTransaction({ ...newTransaction, type: 'debt' }); setShowTransactionModal(true); }}
                               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 text-red-500 rounded-lg text-xs font-medium hover:bg-red-500/20 transition-colors"
                             >
-                              <ArrowUpRight className="w-3.5 h-3.5" /> Add Debt
+                              <ArrowUpRight className="w-3.5 h-3.5" /> {fn.addDebt}
                             </button>
                             <button
                               onClick={() => { setSelectedVendorForTransaction(vendor); setNewTransaction({ ...newTransaction, type: 'payment' }); setShowTransactionModal(true); }}
                               className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/10 text-green-500 rounded-lg text-xs font-medium hover:bg-green-500/20 transition-colors"
                             >
-                              <ArrowDownRight className="w-3.5 h-3.5" /> Add Payment
+                              <ArrowDownRight className="w-3.5 h-3.5" /> {fn.addPayment}
                             </button>
                             <button
                               onClick={() => { resetScanner(); setScannerVendorId(vendor.id); setShowScannerModal(true); }}
                               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 text-blue-500 rounded-lg text-xs font-medium hover:bg-blue-500/20 transition-colors"
                             >
-                              <Camera className="w-3.5 h-3.5" /> Scan Invoice
+                              <Camera className="w-3.5 h-3.5" /> {fn.scanInvoice}
                             </button>
                           </>
                         )}
@@ -1813,7 +1816,7 @@ export default function FinancePage() {
                           onClick={() => { setViewingVendorTransactions(vendor); fetchVendorTransactions(vendor.id); fetchVendorInvoices(vendor.id); }}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-card text-muted-foreground rounded-lg text-xs font-medium hover:text-foreground transition-colors"
                         >
-                          <Eye className="w-3.5 h-3.5" /> History
+                          <Eye className="w-3.5 h-3.5" /> {fn.history}
                         </button>
                       </div>
                       {canWrite && (
@@ -1847,7 +1850,7 @@ export default function FinancePage() {
               <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">{viewingVendorTransactions.name}</h2>
-                  <p className="text-sm text-muted-foreground">Transaction History</p>
+                  <p className="text-sm text-muted-foreground">{fn.transactionHistory}</p>
                 </div>
                 <button onClick={() => { setViewingVendorTransactions(null); setVendorTransactions([]); setVendorInvoices([]); }} className="p-2 text-muted-foreground hover:text-foreground">
                   <X className="w-5 h-5" />
@@ -1856,7 +1859,7 @@ export default function FinancePage() {
               <div className="flex-1 overflow-y-auto p-5">
                 {vendorTransactions.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
-                    No transactions yet
+                    {fn.noTransactions}
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -1900,7 +1903,7 @@ export default function FinancePage() {
               {vendorInvoices.length > 0 && (
                 <div className="px-5 pb-4">
                   <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <FileText className="w-4 h-4" /> Scanned Invoices
+                    <FileText className="w-4 h-4" /> {fn.scannedInvoices}
                   </h3>
                   <div className="space-y-2">
                     {vendorInvoices.map(inv => (
@@ -1914,9 +1917,9 @@ export default function FinancePage() {
                               {inv.invoice_date} &mdash; {formatCurrency(inv.total_amount)}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {inv.items?.length || 0} items &bull;{' '}
+                              {inv.items?.length || 0} {fn.items} &bull;{' '}
                               <span className={inv.status === 'confirmed' ? 'text-green-500' : 'text-yellow-500'}>
-                                {inv.status}
+                                {inv.status === 'confirmed' ? fn.confirmed : fn.pending}
                               </span>
                             </p>
                           </div>
@@ -1936,9 +1939,9 @@ export default function FinancePage() {
               )}
               <div className="px-5 py-4 border-t border-border bg-card/50">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Current Balance</span>
+                  <span className="text-sm text-muted-foreground">{fn.currentBalance}</span>
                   <span className={`text-lg font-bold ${viewingVendorTransactions.balance > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                    {viewingVendorTransactions.balance > 0 ? 'You owe: ' : 'Credit: '}{formatCurrency(Math.abs(viewingVendorTransactions.balance))}
+                    {viewingVendorTransactions.balance > 0 ? fn.youOweLabel : fn.creditLabel}{formatCurrency(Math.abs(viewingVendorTransactions.balance))}
                   </span>
                 </div>
               </div>
@@ -1951,94 +1954,94 @@ export default function FinancePage() {
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl">
               <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-                <h2 className="text-lg font-semibold text-foreground">Add Vendor</h2>
+                <h2 className="text-lg font-semibold text-foreground">{fn.addVendor}</h2>
                 <button onClick={() => setShowVendorModal(false)} className="p-2 text-muted-foreground hover:text-foreground">
                   <X className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Vendor Name *</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.vendorName}</label>
                   <input
                     type="text"
                     value={newVendor.name}
                     onChange={e => setNewVendor({ ...newVendor, name: e.target.value })}
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
-                    placeholder="e.g., Fresh Produce Co."
+                    placeholder={fn.vendorNamePlaceholder}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Contact Person</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.contactPerson}</label>
                   <input
                     type="text"
                     value={newVendor.contact_name}
                     onChange={e => setNewVendor({ ...newVendor, contact_name: e.target.value })}
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
-                    placeholder="Contact name"
+                    placeholder={fn.contactNamePlaceholder}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1.5">Phone</label>
+                    <label className="block text-xs text-muted-foreground mb-1.5">{fn.phone}</label>
                     <input
                       type="tel"
                       value={newVendor.phone}
                       onChange={e => setNewVendor({ ...newVendor, phone: e.target.value })}
                       className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
-                      placeholder="+212 6XX XXX XXX"
+                      placeholder={fn.phonePlaceholder}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1.5">Email</label>
+                    <label className="block text-xs text-muted-foreground mb-1.5">{fn.email}</label>
                     <input
                       type="email"
                       value={newVendor.email}
                       onChange={e => setNewVendor({ ...newVendor, email: e.target.value })}
                       className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
-                      placeholder="vendor@email.com"
+                      placeholder={fn.emailPlaceholder}
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Address</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.address}</label>
                   <input
                     type="text"
                     value={newVendor.address}
                     onChange={e => setNewVendor({ ...newVendor, address: e.target.value })}
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
-                    placeholder="Full address"
+                    placeholder={fn.addressPlaceholder}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Category</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.vendorCategory}</label>
                   <select
                     value={newVendor.category}
                     onChange={e => setNewVendor({ ...newVendor, category: e.target.value })}
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
                   >
-                    <option value="general">General</option>
-                    <option value="food">Food & Produce</option>
-                    <option value="beverages">Beverages</option>
-                    <option value="equipment">Equipment</option>
-                    <option value="supplies">Supplies</option>
-                    <option value="services">Services</option>
-                    <option value="utilities">Utilities</option>
+                    <option value="general">{fn.catGeneral}</option>
+                    <option value="food">{fn.catFood}</option>
+                    <option value="beverages">{fn.catBeverages}</option>
+                    <option value="equipment">{fn.catEquipment}</option>
+                    <option value="supplies">{fn.catSupplies}</option>
+                    <option value="services">{fn.catServices}</option>
+                    <option value="utilities">{fn.catUtilities}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Notes</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.notes}</label>
                   <textarea
                     value={newVendor.notes}
                     onChange={e => setNewVendor({ ...newVendor, notes: e.target.value })}
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm resize-none"
                     rows={2}
-                    placeholder="Additional notes..."
+                    placeholder={fn.notesPlaceholder}
                   />
                 </div>
                 {/* Invoice Template */}
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Invoice Template</label>
-                  <p className="text-xs text-muted-foreground mb-2">Upload a sample invoice to help AI extract line items accurately</p>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.invoiceTemplate}</label>
+                  <p className="text-xs text-muted-foreground mb-2">{fn.uploadTemplateTip}</p>
                   {newVendor.invoice_template_url ? (
                     <div className="space-y-2">
                       <div className="relative w-full h-32 bg-card border border-border rounded-lg overflow-hidden">
@@ -2049,7 +2052,7 @@ export default function FinancePage() {
                         onClick={() => handleRemoveTemplate('new')}
                         className="text-xs text-red-500 hover:text-red-400"
                       >
-                        Remove template
+                        {fn.removeTemplate}
                       </button>
                     </div>
                   ) : (
@@ -2059,7 +2062,7 @@ export default function FinancePage() {
                       ) : (
                         <>
                           <ImageIcon className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm text-muted-foreground">Upload template image</span>
+                          <span className="text-sm text-muted-foreground">{fn.uploadTemplate}</span>
                         </>
                       )}
                       <input
@@ -2082,13 +2085,13 @@ export default function FinancePage() {
                   onClick={() => setShowVendorModal(false)}
                   className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm"
                 >
-                  Cancel
+                  {fn.cancel}
                 </button>
                 <button
                   onClick={handleAddVendor}
                   className="px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm font-medium"
                 >
-                  Add Vendor
+                  {fn.addVendor}
                 </button>
               </div>
             </div>
@@ -2100,14 +2103,14 @@ export default function FinancePage() {
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl">
               <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-                <h2 className="text-lg font-semibold text-foreground">Edit Vendor</h2>
+                <h2 className="text-lg font-semibold text-foreground">{fn.editVendor}</h2>
                 <button onClick={() => setEditingVendor(null)} className="p-2 text-muted-foreground hover:text-foreground">
                   <X className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Vendor Name *</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.vendorName}</label>
                   <input
                     type="text"
                     value={editingVendor.name}
@@ -2116,7 +2119,7 @@ export default function FinancePage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Contact Person</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.contactPerson}</label>
                   <input
                     type="text"
                     value={editingVendor.contact_name || ''}
@@ -2126,7 +2129,7 @@ export default function FinancePage() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1.5">Phone</label>
+                    <label className="block text-xs text-muted-foreground mb-1.5">{fn.phone}</label>
                     <input
                       type="tel"
                       value={editingVendor.phone || ''}
@@ -2135,7 +2138,7 @@ export default function FinancePage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1.5">Email</label>
+                    <label className="block text-xs text-muted-foreground mb-1.5">{fn.email}</label>
                     <input
                       type="email"
                       value={editingVendor.email || ''}
@@ -2145,7 +2148,7 @@ export default function FinancePage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Address</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.address}</label>
                   <input
                     type="text"
                     value={editingVendor.address || ''}
@@ -2154,23 +2157,23 @@ export default function FinancePage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Category</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.vendorCategory}</label>
                   <select
                     value={editingVendor.category}
                     onChange={e => setEditingVendor({ ...editingVendor, category: e.target.value })}
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
                   >
-                    <option value="general">General</option>
-                    <option value="food">Food & Produce</option>
-                    <option value="beverages">Beverages</option>
-                    <option value="equipment">Equipment</option>
-                    <option value="supplies">Supplies</option>
-                    <option value="services">Services</option>
-                    <option value="utilities">Utilities</option>
+                    <option value="general">{fn.catGeneral}</option>
+                    <option value="food">{fn.catFood}</option>
+                    <option value="beverages">{fn.catBeverages}</option>
+                    <option value="equipment">{fn.catEquipment}</option>
+                    <option value="supplies">{fn.catSupplies}</option>
+                    <option value="services">{fn.catServices}</option>
+                    <option value="utilities">{fn.catUtilities}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Notes</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.notes}</label>
                   <textarea
                     value={editingVendor.notes || ''}
                     onChange={e => setEditingVendor({ ...editingVendor, notes: e.target.value })}
@@ -2180,7 +2183,7 @@ export default function FinancePage() {
                 </div>
                 {/* Invoice Template */}
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Invoice Template</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.invoiceTemplate}</label>
                   {editingVendor.invoice_template_url ? (
                     <div className="space-y-2">
                       <div className="relative w-full h-32 bg-card border border-border rounded-lg overflow-hidden">
@@ -2191,7 +2194,7 @@ export default function FinancePage() {
                         onClick={() => handleRemoveTemplate('edit')}
                         className="text-xs text-red-500 hover:text-red-400"
                       >
-                        Remove template
+                        {fn.removeTemplate}
                       </button>
                     </div>
                   ) : (
@@ -2201,7 +2204,7 @@ export default function FinancePage() {
                       ) : (
                         <>
                           <ImageIcon className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm text-muted-foreground">Upload template image</span>
+                          <span className="text-sm text-muted-foreground">{fn.uploadTemplate}</span>
                         </>
                       )}
                       <input
@@ -2226,7 +2229,7 @@ export default function FinancePage() {
                     onChange={e => setEditingVendor({ ...editingVendor, is_active: e.target.checked })}
                     className="w-4 h-4 rounded border-border text-[#606338] focus:ring-[#606338]"
                   />
-                  <label htmlFor="vendor_active" className="text-sm text-foreground">Active vendor</label>
+                  <label htmlFor="vendor_active" className="text-sm text-foreground">{fn.activeVendor}</label>
                 </div>
               </div>
               <div className="flex justify-end gap-3 px-5 py-4 border-t border-border">
@@ -2234,13 +2237,13 @@ export default function FinancePage() {
                   onClick={() => setEditingVendor(null)}
                   className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm"
                 >
-                  Cancel
+                  {fn.cancel}
                 </button>
                 <button
                   onClick={handleUpdateVendor}
                   className="px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm font-medium"
                 >
-                  Save Changes
+                  {fn.saveChanges}
                 </button>
               </div>
             </div>
@@ -2254,7 +2257,7 @@ export default function FinancePage() {
               <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">
-                    {newTransaction.type === 'debt' ? 'Add Debt' : 'Add Payment'}
+                    {newTransaction.type === 'debt' ? fn.addDebt : fn.addPayment}
                   </h2>
                   <p className="text-sm text-muted-foreground">{selectedVendorForTransaction.name}</p>
                 </div>
@@ -2272,7 +2275,7 @@ export default function FinancePage() {
                         : 'bg-card text-muted-foreground border border-border'
                     }`}
                   >
-                    Debt (You Owe)
+                    {fn.debtYouOwe}
                   </button>
                   <button
                     onClick={() => setNewTransaction({ ...newTransaction, type: 'payment' })}
@@ -2282,11 +2285,11 @@ export default function FinancePage() {
                         : 'bg-card text-muted-foreground border border-border'
                     }`}
                   >
-                    Payment (You Pay)
+                    {fn.paymentYouPay}
                   </button>
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Amount (DH) *</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.amount}</label>
                   <input
                     type="number"
                     value={newTransaction.amount || ''}
@@ -2294,11 +2297,11 @@ export default function FinancePage() {
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
                     min="0"
                     step="0.01"
-                    placeholder="0.00"
+                    placeholder={fn.amountPlaceholder}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Date</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.dateLabel}</label>
                   <input
                     type="date"
                     value={newTransaction.date}
@@ -2307,23 +2310,23 @@ export default function FinancePage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Reference / Invoice #</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.reference}</label>
                   <input
                     type="text"
                     value={newTransaction.reference}
                     onChange={e => setNewTransaction({ ...newTransaction, reference: e.target.value })}
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
-                    placeholder="e.g., INV-001, Receipt #123"
+                    placeholder={fn.referencePlaceholder}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Description</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.description}</label>
                   <textarea
                     value={newTransaction.description}
                     onChange={e => setNewTransaction({ ...newTransaction, description: e.target.value })}
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm resize-none"
                     rows={2}
-                    placeholder="What is this transaction for?"
+                    placeholder={fn.descriptionPlaceholder}
                   />
                 </div>
               </div>
@@ -2332,7 +2335,7 @@ export default function FinancePage() {
                   onClick={() => { setShowTransactionModal(false); setSelectedVendorForTransaction(null); }}
                   className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm"
                 >
-                  Cancel
+                  {fn.cancel}
                 </button>
                 <button
                   onClick={handleAddTransaction}
@@ -2340,7 +2343,7 @@ export default function FinancePage() {
                     newTransaction.type === 'debt' ? 'bg-red-500' : 'bg-green-500'
                   }`}
                 >
-                  {newTransaction.type === 'debt' ? 'Add Debt' : 'Add Payment'}
+                  {newTransaction.type === 'debt' ? fn.addDebt : fn.addPayment}
                 </button>
               </div>
             </div>
@@ -2352,30 +2355,30 @@ export default function FinancePage() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <h2 className="text-lg font-semibold text-foreground">Add Inventory Item</h2>
+              <h2 className="text-lg font-semibold text-foreground">{fn.addInventoryItem}</h2>
               <button onClick={() => setShowInventoryModal(false)} className="p-2 text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Item Name *</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{fn.itemName}</label>
                 <input
                   type="text"
                   value={newInventory.name}
                   onChange={e => setNewInventory({ ...newInventory, name: e.target.value })}
                   className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
-                  placeholder="e.g., Tomatoes, Pasta, Olive Oil"
+                  placeholder={fn.itemNamePlaceholder}
                 />
               </div>
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Category</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{fn.category}</label>
                 <input
                   type="text"
                   value={newInventory.category}
                   onChange={e => setNewInventory({ ...newInventory, category: e.target.value })}
                   className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
-                  placeholder="e.g., Fruits, Légumes, Pâtes, Viandes"
+                  placeholder={fn.categoryPlaceholder}
                   list="inventory-categories"
                 />
                 <datalist id="inventory-categories">
@@ -2386,7 +2389,7 @@ export default function FinancePage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Quantity</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.quantity}</label>
                   <input
                     type="number"
                     value={newInventory.quantity}
@@ -2397,26 +2400,26 @@ export default function FinancePage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Unit</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.unit}</label>
                   <select
                     value={newInventory.unit}
                     onChange={e => setNewInventory({ ...newInventory, unit: e.target.value })}
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
                   >
-                    <option value="kg">kg</option>
-                    <option value="g">g</option>
-                    <option value="L">L</option>
-                    <option value="mL">mL</option>
-                    <option value="pieces">pieces</option>
-                    <option value="boxes">boxes</option>
-                    <option value="bottles">bottles</option>
-                    <option value="packs">packs</option>
+                    <option value="kg">{fn.unitKg}</option>
+                    <option value="g">{fn.unitG}</option>
+                    <option value="L">{fn.unitL}</option>
+                    <option value="mL">{fn.unitMl}</option>
+                    <option value="pieces">{fn.unitPieces}</option>
+                    <option value="boxes">{fn.unitBoxes}</option>
+                    <option value="bottles">{fn.unitBottles}</option>
+                    <option value="packs">{fn.unitPacks}</option>
                   </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Min Stock Alert</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.minStockAlert}</label>
                   <input
                     type="number"
                     value={newInventory.minimum_stock}
@@ -2427,7 +2430,7 @@ export default function FinancePage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Cost/Unit (DH)</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.costPerUnit}</label>
                   <input
                     type="number"
                     value={newInventory.cost_per_unit}
@@ -2439,26 +2442,26 @@ export default function FinancePage() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Supplier</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{fn.supplier}</label>
                 <select
                   value={newInventory.vendor_id}
                   onChange={e => setNewInventory({ ...newInventory, vendor_id: e.target.value })}
                   className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
                 >
-                  <option value="">No supplier</option>
+                  <option value="">{fn.noSupplier}</option>
                   {vendors.filter(v => v.is_active).map(v => (
                     <option key={v.id} value={v.id}>{v.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Notes</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{fn.notes}</label>
                 <textarea
                   value={newInventory.notes}
                   onChange={e => setNewInventory({ ...newInventory, notes: e.target.value })}
                   className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm resize-none"
                   rows={2}
-                  placeholder="Additional notes..."
+                  placeholder={fn.notesPlaceholder}
                 />
               </div>
             </div>
@@ -2467,13 +2470,13 @@ export default function FinancePage() {
                 onClick={() => setShowInventoryModal(false)}
                 className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm"
               >
-                Cancel
+                {fn.cancel}
               </button>
               <button
                 onClick={handleAddInventory}
                 className="px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm font-medium"
               >
-                Add Item
+                {fn.addItem}
               </button>
             </div>
           </div>
@@ -2485,14 +2488,14 @@ export default function FinancePage() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <h2 className="text-lg font-semibold text-foreground">Edit Inventory Item</h2>
+              <h2 className="text-lg font-semibold text-foreground">{fn.editInventoryItem}</h2>
               <button onClick={() => setEditingInventory(null)} className="p-2 text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Item Name *</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{fn.itemName}</label>
                 <input
                   type="text"
                   value={editingInventory.name}
@@ -2501,7 +2504,7 @@ export default function FinancePage() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Category</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{fn.category}</label>
                 <input
                   type="text"
                   value={editingInventory.category || ''}
@@ -2517,7 +2520,7 @@ export default function FinancePage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Quantity</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.quantity}</label>
                   <input
                     type="number"
                     value={editingInventory.quantity}
@@ -2528,26 +2531,26 @@ export default function FinancePage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Unit</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.unit}</label>
                   <select
                     value={editingInventory.unit}
                     onChange={e => setEditingInventory({ ...editingInventory, unit: e.target.value })}
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
                   >
-                    <option value="kg">kg</option>
-                    <option value="g">g</option>
-                    <option value="L">L</option>
-                    <option value="mL">mL</option>
-                    <option value="pieces">pieces</option>
-                    <option value="boxes">boxes</option>
-                    <option value="bottles">bottles</option>
-                    <option value="packs">packs</option>
+                    <option value="kg">{fn.unitKg}</option>
+                    <option value="g">{fn.unitG}</option>
+                    <option value="L">{fn.unitL}</option>
+                    <option value="mL">{fn.unitMl}</option>
+                    <option value="pieces">{fn.unitPieces}</option>
+                    <option value="boxes">{fn.unitBoxes}</option>
+                    <option value="bottles">{fn.unitBottles}</option>
+                    <option value="packs">{fn.unitPacks}</option>
                   </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Min Stock Alert</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.minStockAlert}</label>
                   <input
                     type="number"
                     value={editingInventory.minimum_stock}
@@ -2558,7 +2561,7 @@ export default function FinancePage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Cost/Unit (DH)</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.costPerUnit}</label>
                   <input
                     type="number"
                     value={editingInventory.cost_per_unit}
@@ -2570,20 +2573,20 @@ export default function FinancePage() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Supplier</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{fn.supplier}</label>
                 <select
                   value={editingInventory.vendor_id || ''}
                   onChange={e => setEditingInventory({ ...editingInventory, vendor_id: e.target.value || null })}
                   className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
                 >
-                  <option value="">No supplier</option>
+                  <option value="">{fn.noSupplier}</option>
                   {vendors.filter(v => v.is_active).map(v => (
                     <option key={v.id} value={v.id}>{v.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Notes</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{fn.notes}</label>
                 <textarea
                   value={editingInventory.notes || ''}
                   onChange={e => setEditingInventory({ ...editingInventory, notes: e.target.value })}
@@ -2597,13 +2600,13 @@ export default function FinancePage() {
                 onClick={() => setEditingInventory(null)}
                 className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm"
               >
-                Cancel
+                {fn.cancel}
               </button>
               <button
                 onClick={handleUpdateInventory}
                 className="px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm font-medium"
               >
-                Save Changes
+                {fn.saveChanges}
               </button>
             </div>
           </div>
@@ -2616,7 +2619,7 @@ export default function FinancePage() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <h2 className="text-lg font-semibold text-foreground">Sync from LaCaisse</h2>
+              <h2 className="text-lg font-semibold text-foreground">{fn.syncTitle}</h2>
               <button onClick={() => { setShowAutoImportModal(false); setAutoImportResult(null); }} className="p-2 text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
@@ -2626,16 +2629,16 @@ export default function FinancePage() {
                 <div className={`p-4 rounded-xl ${autoImportResult.success ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
                   {autoImportResult.success ? (
                     <>
-                      <p className="text-green-500 font-semibold mb-2">Import Successful!</p>
+                      <p className="text-green-500 font-semibold mb-2">{fn.importSuccess}</p>
                       <div className="text-sm text-foreground space-y-1">
-                        <p>Total rows processed: <span className="font-medium">{autoImportResult.totalRows}</span></p>
-                        <p>New records inserted: <span className="font-medium text-green-500">{autoImportResult.insertedRows}</span></p>
-                        <p>Duplicates skipped: <span className="font-medium text-muted-foreground">{autoImportResult.skippedDuplicates}</span></p>
+                        <p>{fn.totalProcessed} <span className="font-medium">{autoImportResult.totalRows}</span></p>
+                        <p>{fn.newRecords} <span className="font-medium text-green-500">{autoImportResult.insertedRows}</span></p>
+                        <p>{fn.duplicatesSkipped} <span className="font-medium text-muted-foreground">{autoImportResult.skippedDuplicates}</span></p>
                       </div>
                     </>
                   ) : (
                     <>
-                      <p className="text-red-500 font-semibold mb-2">Import Failed</p>
+                      <p className="text-red-500 font-semibold mb-2">{fn.importFailed}</p>
                       <p className="text-sm text-muted-foreground">{autoImportResult.message}</p>
                     </>
                   )}
@@ -2643,12 +2646,12 @@ export default function FinancePage() {
               ) : (
                 <>
                   <p className="text-sm text-muted-foreground">
-                    Automatically fetch and import sales data from LaCaisse.ma for the selected date range.
-                    Duplicate records will be automatically skipped.
+                    {fn.autoFetchDesc}
+                    {' '}{fn.duplicatesNote}
                   </p>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs text-muted-foreground mb-1.5">Start Date</label>
+                      <label className="block text-xs text-muted-foreground mb-1.5">{fn.startDate}</label>
                       <input
                         type="date"
                         value={autoImportDates.startDate}
@@ -2657,7 +2660,7 @@ export default function FinancePage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-muted-foreground mb-1.5">End Date</label>
+                      <label className="block text-xs text-muted-foreground mb-1.5">{fn.endDate}</label>
                       <input
                         type="date"
                         value={autoImportDates.endDate}
@@ -2674,7 +2677,7 @@ export default function FinancePage() {
                 onClick={() => { setShowAutoImportModal(false); setAutoImportResult(null); }}
                 className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm"
               >
-                {autoImportResult ? 'Close' : 'Cancel'}
+                {autoImportResult ? fn.close : fn.cancel}
               </button>
               {!autoImportResult && (
                 <button
@@ -2683,7 +2686,7 @@ export default function FinancePage() {
                   className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg text-white text-sm font-medium"
                 >
                   <RefreshCw className={`w-4 h-4 ${autoImporting ? 'animate-spin' : ''}`} />
-                  {autoImporting ? 'Importing...' : 'Start Import'}
+                  {autoImporting ? fn.importing : fn.startImport}
                 </button>
               )}
             </div>
@@ -2695,35 +2698,35 @@ export default function FinancePage() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <h2 className="text-lg font-semibold text-foreground">Add Sale</h2>
+              <h2 className="text-lg font-semibold text-foreground">{fn.addSaleTitle}</h2>
               <button onClick={() => setShowAddModal(false)} className="p-2 text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-5 space-y-4">
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Product Name *</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{fn.productName}</label>
                 <input
                   type="text"
                   value={newSale.product_name}
                   onChange={e => setNewSale({ ...newSale, product_name: e.target.value })}
                   className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
-                  placeholder="Enter product name"
+                  placeholder={fn.productPlaceholder}
                 />
               </div>
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Category</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{fn.categoryLabel}</label>
                 <input
                   type="text"
                   value={newSale.category}
                   onChange={e => setNewSale({ ...newSale, category: e.target.value })}
                   className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
-                  placeholder="Enter category"
+                  placeholder={fn.categoryInput}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Quantity</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.quantityLabel}</label>
                   <input
                     type="number"
                     value={newSale.quantity}
@@ -2733,7 +2736,7 @@ export default function FinancePage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Price (DH) *</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{fn.priceLabel}</label>
                   <input
                     type="number"
                     value={newSale.selling_price}
@@ -2745,7 +2748,7 @@ export default function FinancePage() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Date</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{fn.dateLabel}</label>
                 <input
                   type="date"
                   value={newSale.sale_date}
@@ -2759,13 +2762,13 @@ export default function FinancePage() {
                 onClick={() => setShowAddModal(false)}
                 className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm"
               >
-                Cancel
+                {fn.cancel}
               </button>
               <button
                 onClick={handleAddSale}
                 className="px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm font-medium"
               >
-                Add Sale
+                {fn.addSale}
               </button>
             </div>
           </div>
@@ -2778,11 +2781,11 @@ export default function FinancePage() {
           <div className="bg-secondary border border-border rounded-2xl w-full max-w-2xl shadow-2xl max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Scan Invoice</h2>
+                <h2 className="text-lg font-semibold text-foreground">{fn.scanInvoiceTitle}</h2>
                 <p className="text-sm text-muted-foreground">
-                  {scannerStage === 'upload' && `Upload an invoice for ${vendors.find(v => v.id === scannerVendorId)?.name || 'vendor'}`}
-                  {scannerStage === 'review' && 'Review extracted items before confirming'}
-                  {scannerStage === 'success' && 'Invoice confirmed successfully'}
+                  {scannerStage === 'upload' && `${fn.uploadForVendor} ${vendors.find(v => v.id === scannerVendorId)?.name || 'vendor'}`}
+                  {scannerStage === 'review' && fn.reviewItems}
+                  {scannerStage === 'success' && fn.invoiceConfirmed}
                 </p>
               </div>
               <button onClick={resetScanner} className="p-2 text-muted-foreground hover:text-foreground">
@@ -2802,13 +2805,13 @@ export default function FinancePage() {
                         {vendors.find(v => v.id === scannerVendorId)?.name}
                       </span>
                       {vendors.find(v => v.id === scannerVendorId)?.invoice_template_url && (
-                        <span className="text-xs px-2 py-0.5 bg-green-500/10 text-green-500 rounded-full">Has template</span>
+                        <span className="text-xs px-2 py-0.5 bg-green-500/10 text-green-500 rounded-full">{fn.hasTemplate}</span>
                       )}
                     </div>
                   )}
 
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1.5">Invoice Image or PDF *</label>
+                    <label className="block text-xs text-muted-foreground mb-1.5">{fn.invoiceImage}</label>
                     <label className="flex flex-col items-center justify-center gap-3 p-8 bg-card border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-[#606338] transition-colors">
                       {scannerPreview ? (
                         <img src={scannerPreview} alt="Preview" className="max-h-48 rounded-lg object-contain" />
@@ -2821,8 +2824,8 @@ export default function FinancePage() {
                         <>
                           <Camera className="w-10 h-10 text-muted-foreground" />
                           <div className="text-center">
-                            <p className="text-sm text-foreground font-medium">Upload or take photo</p>
-                            <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WebP, GIF, or PDF up to 10MB</p>
+                            <p className="text-sm text-foreground font-medium">{fn.uploadOrPhoto}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{fn.fileFormats}</p>
                           </div>
                         </>
                       )}
@@ -2839,7 +2842,7 @@ export default function FinancePage() {
                         onClick={() => { setScannerFile(null); setScannerPreview(''); }}
                         className="mt-2 text-xs text-red-500 hover:text-red-400"
                       >
-                        Remove file
+                        {fn.removeFile}
                       </button>
                     )}
                   </div>
@@ -2852,7 +2855,7 @@ export default function FinancePage() {
                   {/* Invoice date and total */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs text-muted-foreground mb-1.5">Invoice Date</label>
+                      <label className="block text-xs text-muted-foreground mb-1.5">{fn.invoiceDate}</label>
                       <input
                         type="date"
                         value={scannedInvoiceDate}
@@ -2861,7 +2864,7 @@ export default function FinancePage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-muted-foreground mb-1.5">Total Amount (DH)</label>
+                      <label className="block text-xs text-muted-foreground mb-1.5">{fn.totalAmount}</label>
                       <input
                         type="number"
                         value={scannedTotalAmount || ''}
@@ -2876,19 +2879,19 @@ export default function FinancePage() {
                   {/* Items table */}
                   <div>
                     <label className="block text-xs text-muted-foreground mb-1.5">
-                      Extracted Items ({scannedItems.length})
+                      {fn.extractedItems} ({scannedItems.length})
                     </label>
                     <div className="bg-card border border-border rounded-xl overflow-hidden">
                       <div className="overflow-x-auto">
                         <table className="w-full">
                           <thead>
                             <tr className="bg-secondary">
-                              <th className="px-3 py-2 text-left text-xs font-medium text-muted uppercase">Product</th>
-                              <th className="px-3 py-2 text-center text-xs font-medium text-muted uppercase">Qty</th>
-                              <th className="px-3 py-2 text-center text-xs font-medium text-muted uppercase">Unit</th>
-                              <th className="px-3 py-2 text-right text-xs font-medium text-muted uppercase">Price</th>
-                              <th className="px-3 py-2 text-right text-xs font-medium text-muted uppercase">Total</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-muted uppercase">Inventory Match</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-muted uppercase">{fn.product}</th>
+                              <th className="px-3 py-2 text-center text-xs font-medium text-muted uppercase">{fn.qty}</th>
+                              <th className="px-3 py-2 text-center text-xs font-medium text-muted uppercase">{fn.unit}</th>
+                              <th className="px-3 py-2 text-right text-xs font-medium text-muted uppercase">{fn.price}</th>
+                              <th className="px-3 py-2 text-right text-xs font-medium text-muted uppercase">{fn.total}</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-muted uppercase">{fn.inventoryMatch}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -2973,14 +2976,14 @@ export default function FinancePage() {
                                     }}
                                     className="w-full py-1 px-2 bg-transparent border border-border rounded text-foreground text-xs"
                                   >
-                                    <option value="">No match</option>
+                                    <option value="">{fn.noMatch}</option>
                                     {scannerInventoryItems.map(inv => (
                                       <option key={inv.id} value={inv.id}>{inv.name}</option>
                                     ))}
                                   </select>
                                   {item.match_score > 0 && (
                                     <p className="text-[10px] text-green-500 mt-0.5">
-                                      Auto-matched ({Math.round(item.match_score * 100)}%)
+                                      {fn.autoMatched} ({Math.round(item.match_score * 100)}%)
                                     </p>
                                   )}
                                 </td>
@@ -3002,7 +3005,7 @@ export default function FinancePage() {
                       className="w-4 h-4 rounded border-border text-[#606338] focus:ring-[#606338]"
                     />
                     <label htmlFor="update_inventory" className="text-sm text-foreground">
-                      Update inventory quantities for matched items
+                      {fn.updateInventoryLabel}
                     </label>
                   </div>
                 </div>
@@ -3015,14 +3018,14 @@ export default function FinancePage() {
                     <Check className="w-8 h-8 text-green-500" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-foreground">Invoice Confirmed</h3>
+                    <h3 className="text-lg font-semibold text-foreground">{fn.invoiceConfirmedTitle}</h3>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Debt transaction of {formatCurrency(confirmResult.transaction.amount)} created
+                      {fn.debtCreated.replace('{amount}', formatCurrency(confirmResult.transaction.amount))}
                     </p>
                   </div>
                   {confirmResult.inventory_updates.length > 0 && (
                     <div className="bg-card border border-border rounded-lg p-4 text-left">
-                      <p className="text-xs font-medium text-muted-foreground mb-2">Inventory Updated:</p>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">{fn.inventoryUpdated}</p>
                       <div className="space-y-1">
                         {confirmResult.inventory_updates.map((upd, i) => (
                           <p key={i} className="text-sm text-foreground">
@@ -3044,7 +3047,7 @@ export default function FinancePage() {
                     onClick={resetScanner}
                     className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm"
                   >
-                    Cancel
+                    {fn.cancel}
                   </button>
                   <button
                     onClick={handleScanInvoice}
@@ -3053,11 +3056,11 @@ export default function FinancePage() {
                   >
                     {scanning ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" /> Scanning...
+                        <Loader2 className="w-4 h-4 animate-spin" /> {fn.scanning}
                       </>
                     ) : (
                       <>
-                        <Camera className="w-4 h-4" /> Scan
+                        <Camera className="w-4 h-4" /> {fn.scan}
                       </>
                     )}
                   </button>
@@ -3069,7 +3072,7 @@ export default function FinancePage() {
                     onClick={() => setScannerStage('upload')}
                     className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm"
                   >
-                    Back
+                    {fn.back}
                   </button>
                   <button
                     onClick={handleConfirmInvoice}
@@ -3078,11 +3081,11 @@ export default function FinancePage() {
                   >
                     {confirming ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" /> Confirming...
+                        <Loader2 className="w-4 h-4 animate-spin" /> {fn.confirming}
                       </>
                     ) : (
                       <>
-                        <Check className="w-4 h-4" /> Confirm &amp; Create Debt
+                        <Check className="w-4 h-4" /> {fn.confirmCreateDebt}
                       </>
                     )}
                   </button>
@@ -3093,7 +3096,7 @@ export default function FinancePage() {
                   onClick={resetScanner}
                   className="px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm font-medium"
                 >
-                  Done
+                  {fn.done}
                 </button>
               )}
             </div>
@@ -3107,9 +3110,9 @@ export default function FinancePage() {
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Match Vendors</h2>
+                <h2 className="text-lg font-semibold text-foreground">{fn.matchVendorsTitle}</h2>
                 <p className="text-xs text-muted-foreground">
-                  {totalUnlinkedInventory} items without vendor{vendorMatchCount > 0 && <> &middot; {vendorMatchCount} matched</>}{vendorMatchSkipped.size > 0 && <> &middot; {vendorMatchSkipped.size} skipped</>}
+                  {totalUnlinkedInventory} {fn.itemsWithoutVendor}{vendorMatchCount > 0 && <> &middot; {vendorMatchCount} {fn.matched}</>}{vendorMatchSkipped.size > 0 && <> &middot; {vendorMatchSkipped.size} {fn.skipped}</>}
                 </p>
               </div>
               <button onClick={() => { setShowVendorMatch(false); setVendorMatchSuccess(null); setVendorMatchSkipped(new Set()); setVendorMatchCount(0); setVendorMatchSearch(''); }} className="p-2 bg-transparent border-none rounded-md cursor-pointer text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
@@ -3140,12 +3143,12 @@ export default function FinancePage() {
                     <Check className="w-7 h-7 text-green-500" />
                   </div>
                   <p className="text-foreground font-medium">
-                    {totalUnlinkedInventory === 0 ? 'All items have vendors!' : 'All remaining items skipped'}
+                    {totalUnlinkedInventory === 0 ? fn.allHaveVendors : fn.allSkipped}
                   </p>
-                  {vendorMatchCount > 0 && <p className="text-sm text-muted-foreground">{vendorMatchCount} matched this session</p>}
+                  {vendorMatchCount > 0 && <p className="text-sm text-muted-foreground">{vendorMatchCount} {fn.matchedThisSession}</p>}
                   {vendorMatchSkipped.size > 0 && totalUnlinkedInventory > 0 && (
                     <button onClick={() => setVendorMatchSkipped(new Set())} className="mt-2 px-4 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-card transition-colors">
-                      Show skipped items again
+                      {fn.showSkippedAgain}
                     </button>
                   )}
                 </div>
@@ -3176,7 +3179,7 @@ export default function FinancePage() {
                           onClick={skipInventoryItem}
                           className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors shrink-0"
                         >
-                          Skip
+                          {fn.skip}
                         </button>
                       </div>
                     </div>
@@ -3186,19 +3189,19 @@ export default function FinancePage() {
                   {vendorMatchSaving && (
                     <div className="flex items-center justify-center gap-2 py-3">
                       <Loader2 className="w-4 h-4 text-[#606338] animate-spin" />
-                      <p className="text-sm text-muted-foreground">Saving...</p>
+                      <p className="text-sm text-muted-foreground">{fn.saving}</p>
                     </div>
                   )}
 
                   {/* Vendor search */}
-                  <p className="text-xs text-muted-foreground mb-2">Select a vendor:</p>
+                  <p className="text-xs text-muted-foreground mb-2">{fn.selectVendor}</p>
                   <div className="relative mb-3">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="text"
                       value={vendorMatchSearch}
                       onChange={e => setVendorMatchSearch(e.target.value)}
-                      placeholder="Search vendors..."
+                      placeholder={fn.searchVendorsPlaceholder}
                       className="w-full pl-9 pr-4 py-2.5 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[#606338]"
                     />
                   </div>
@@ -3231,14 +3234,14 @@ export default function FinancePage() {
                         </button>
                       ))}
                     {vendors.filter(v => v.is_active).length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-8">No active vendors. Create vendors first in the Vendors tab.</p>
+                      <p className="text-sm text-muted-foreground text-center py-8">{fn.noActiveVendors}</p>
                     )}
                     {vendors.filter(v => v.is_active).length > 0 && vendors.filter(v => v.is_active).filter(v => {
                       if (!vendorMatchSearch) return true;
                       const q = vendorMatchSearch.toLowerCase();
                       return v.name.toLowerCase().includes(q) || v.category.toLowerCase().includes(q) || (v.contact_name && v.contact_name.toLowerCase().includes(q));
                     }).length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-4">No vendors match your search</p>
+                      <p className="text-sm text-muted-foreground text-center py-4">{fn.noVendorsMatch}</p>
                     )}
                   </div>
                 </>

@@ -6,8 +6,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 
 export function HeroSection() {
+  const { t } = useTranslation();
+
   const scrollToNext = () => {
     const nextSection = document.getElementById("philosophy");
     nextSection?.scrollIntoView({ behavior: "smooth" });
@@ -19,7 +22,7 @@ export function HeroSection() {
       <div className="absolute inset-0">
         <Image
           src="/images/restaurant/main-hall.png"
-          alt="Intérieur élégant du restaurant Epictete à Bouskoura - décor Art Déco méditerranéen avec banquettes velours olive et éclairage globe doré"
+          alt={t.hero.altImage}
           fill
           className="object-cover object-center"
           priority
@@ -42,7 +45,7 @@ export function HeroSection() {
           transition={{ duration: 0.8, delay: 0.2 }}
         >
           <p className="text-accent text-xs sm:text-sm md:text-base font-medium uppercase tracking-[0.2em] sm:tracking-[0.3em] mb-4 sm:mb-6">
-            Bienvenue chez Epictete
+            {t.hero.welcome}
           </p>
         </motion.div>
 
@@ -52,9 +55,9 @@ export function HeroSection() {
           transition={{ duration: 0.8, delay: 0.4 }}
           className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-heading font-semibold text-foreground leading-[1.1] sm:leading-tight"
         >
-          Une philosophie
+          {t.hero.tagline}
           <br />
-          <span className="text-accent">du goût</span>
+          <span className="text-accent">{t.hero.taglineAccent}</span>
         </motion.h1>
 
         <motion.p
@@ -63,8 +66,7 @@ export function HeroSection() {
           transition={{ duration: 0.8, delay: 0.6 }}
           className="mt-5 sm:mt-8 text-sm sm:text-base md:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed"
         >
-          Cuisine italienne et méditerranéenne gastronomique. Pizza au feu de bois, 
-          pâtes fraîches maison, produits bio de notre ferme.
+          {t.hero.description}
         </motion.p>
 
         {/* Quick Info Pills - Mobile */}
@@ -80,7 +82,7 @@ export function HeroSection() {
           </span>
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary/80 backdrop-blur-sm text-xs text-muted-foreground">
             <MapPin size={12} className="text-accent" />
-            Bouskoura Sud
+            {t.hero.location}
           </span>
         </motion.div>
 
@@ -92,12 +94,12 @@ export function HeroSection() {
         >
           <Button variant="outline" size="lg" className="w-full sm:w-auto text-base px-8 py-4 sm:py-3.5 border-accent-foreground/40 text-accent-foreground hover:bg-accent-foreground/10" asChild>
             <Link href="/reservation">
-              Réserver une table
+              {t.hero.reserve}
             </Link>
           </Button>
           <Button variant="outline" size="lg" className="w-full sm:w-auto text-base px-8 py-4 sm:py-3.5 border-accent-foreground/40 text-accent-foreground hover:bg-accent-foreground/10" asChild>
             <Link href="/menu">
-              Découvrir le menu
+              {t.hero.discover}
             </Link>
           </Button>
         </motion.div>
@@ -111,15 +113,15 @@ export function HeroSection() {
         >
           <div className="flex items-center gap-2">
             <Clock size={16} className="text-accent" />
-            <span>Ouvert 7j/7 · {siteConfig.hours.daily}</span>
+            <span>{t.hero.openStatus} · {siteConfig.hours.daily}</span>
           </div>
           <div className="w-px h-4 bg-border" />
           <div className="flex items-center gap-2">
             <MapPin size={16} className="text-accent" />
-            <span>Bouskoura Sud, Casablanca</span>
+            <span>{t.hero.locationFull}</span>
           </div>
           <div className="w-px h-4 bg-border" />
-          <a 
+          <a
             href={`tel:${siteConfig.contact.phone.replace(/\s/g, "")}`}
             className="flex items-center gap-2 hover:text-accent transition-colors"
           >
@@ -136,7 +138,7 @@ export function HeroSection() {
         transition={{ duration: 0.8, delay: 1.2 }}
         onClick={scrollToNext}
         className="absolute bottom-6 sm:bottom-10 left-1/2 -translate-x-1/2 text-muted-foreground hover:text-accent transition-colors p-2 touch-manipulation"
-        aria-label="Défiler vers la section suivante"
+        aria-label={t.common.scrollDown}
       >
         <motion.div
           animate={{ y: [0, 8, 0] }}

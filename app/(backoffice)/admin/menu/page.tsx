@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared/SortHeader';
 import Link from 'next/link';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface MenuItemForm {
   name: string;
@@ -85,6 +86,8 @@ export default function MenuPage() {
 
   const { hasPermission } = usePermissions();
   const canEdit = hasPermission('menu.write');
+  const { t } = useTranslation();
+  const mp = t.backoffice.menuPage;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -165,7 +168,7 @@ export default function MenuPage() {
       setFormData(prev => ({ ...prev, image_url: result.url }));
     } catch (err) {
       console.error('Image upload error:', err);
-      alert(err instanceof Error ? err.message : 'Failed to upload image');
+      alert(err instanceof Error ? err.message : mp.failedUpload);
     }
     setUploadingImage(false);
   };
@@ -215,7 +218,7 @@ export default function MenuPage() {
 
   const handleSave = async () => {
     if (!formData.name || !formData.name_fr || !formData.price) {
-      alert('Please fill in required fields');
+      alert(mp.fillRequired);
       return;
     }
     setSaving(true);
@@ -292,14 +295,14 @@ export default function MenuPage() {
       console.error('Save error:', err);
       const message = err && typeof err === 'object' && 'message' in err
         ? (err as { message: string }).message
-        : 'Error saving item';
+        : mp.saving;
       alert(message);
     }
     setSaving(false);
   };
 
   const handleDelete = async (itemId: string) => {
-    if (!confirm('Delete this item?')) return;
+    if (!confirm(mp.deleteItemConfirm)) return;
     setDeleting(itemId);
     setActiveDropdown(null);
     try {
@@ -308,7 +311,7 @@ export default function MenuPage() {
       setMenuItems(prev => prev.filter(item => item.id !== itemId));
     } catch (err) {
       console.error('Delete error:', err);
-      alert('Error deleting item');
+      alert(mp.errorDeleting);
     }
     setDeleting(null);
   };
@@ -458,24 +461,24 @@ export default function MenuPage() {
   }
 
   return (
-    <PermissionGate permission="menu.read" fallback={<div className="flex items-center justify-center h-[50vh]"><p className="text-muted-foreground">No permission</p></div>}>
+    <PermissionGate permission="menu.read" fallback={<div className="flex items-center justify-center h-[50vh]"><p className="text-muted-foreground">{mp.noPermission}</p></div>}>
       <div className="flex flex-col gap-5">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Menu</h1>
-            <p className="text-muted-foreground mt-1 text-sm">Manage your restaurant menu items</p>
+            <h1 className="text-2xl font-semibold text-foreground">{mp.title}</h1>
+            <p className="text-muted-foreground mt-1 text-sm">{mp.subtitle}</p>
           </div>
           <CanEditMenu>
             <div className="flex items-center gap-2">
               <button onClick={() => setShowRecipeMatch(true)} className="flex items-center gap-2 px-4 py-2.5 bg-secondary border border-border rounded-lg text-foreground text-sm font-medium hover:bg-card transition-colors">
-                <BookOpen className="w-4 h-4" />Match Recipes
+                <BookOpen className="w-4 h-4" />{mp.matchRecipes}
               </button>
               <Link href="/admin/menu/match-images" className="flex items-center gap-2 px-4 py-2.5 bg-secondary border border-border rounded-lg text-foreground text-sm font-medium hover:bg-card transition-colors">
-                <Images className="w-4 h-4" />Match Images
+                <Images className="w-4 h-4" />{mp.matchImages}
               </Link>
               <button onClick={() => handleOpenModal()} className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium">
-                <Plus className="w-4 h-4" />Add Item
+                <Plus className="w-4 h-4" />{mp.addItem}
               </button>
             </div>
           </CanEditMenu>
@@ -484,11 +487,11 @@ export default function MenuPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {[
-            { label: 'Total Items', value: totalItems, colorClass: 'text-[#606338]' },
-            { label: 'Available', value: availableItems, colorClass: 'text-green-500' },
-            { label: 'Signature', value: signatureItems, colorClass: 'text-yellow-500' },
-            { label: 'Featured', value: featuredItems, colorClass: 'text-orange-500' },
-            { label: 'With Images', value: itemsWithImages, colorClass: 'text-blue-500' }
+            { label: mp.totalItems, value: totalItems, colorClass: 'text-[#606338]' },
+            { label: mp.available, value: availableItems, colorClass: 'text-green-500' },
+            { label: mp.signatureDish, value: signatureItems, colorClass: 'text-yellow-500' },
+            { label: mp.featured, value: featuredItems, colorClass: 'text-orange-500' },
+            { label: mp.withImages, value: itemsWithImages, colorClass: 'text-blue-500' }
           ].map(stat => (
             <div key={stat.label} className="bg-secondary border border-border rounded-lg p-4">
               <p className="text-xs text-muted-foreground">{stat.label}</p>
@@ -500,7 +503,7 @@ export default function MenuPage() {
         {/* Category Tabs */}
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           <button onClick={() => setSelectedCategory(null)} className={`px-4 py-2 rounded-full text-[13px] font-medium whitespace-nowrap transition-all border ${!selectedCategory ? 'bg-[#606338] border-[#606338] text-white' : 'bg-card border-border text-muted-foreground hover:text-foreground'}`}>
-            All ({menuItems.length})
+            {mp.all} ({menuItems.length})
           </button>
           {categories.map(cat => {
             const count = menuItems.filter(i => i.category_id === cat.id).length;
@@ -517,10 +520,10 @@ export default function MenuPage() {
         <div className="flex gap-3 items-center flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search items..." className="w-full py-2.5 pl-10 pr-3 bg-secondary border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/40" />
+            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={mp.searchItems} className="w-full py-2.5 pl-10 pr-3 bg-secondary border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/40" />
           </div>
           <button onClick={() => setShowFilters(!showFilters)} className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg text-sm border ${showFilters ? 'bg-[#606338]/15 border-[#606338] text-[#606338]' : 'bg-secondary border-border text-muted-foreground'}`}>
-            <Filter className="w-4 h-4" />Filters
+            <Filter className="w-4 h-4" />{mp.filters}
           </button>
           <div className="flex bg-secondary border border-border rounded-lg overflow-hidden">
             <button onClick={() => setViewMode('grid')} className={`p-2.5 border-none cursor-pointer ${viewMode === 'grid' ? 'bg-card text-[#606338]' : 'bg-transparent text-muted-foreground'}`}><LayoutGrid className="w-4 h-4" /></button>
@@ -532,22 +535,22 @@ export default function MenuPage() {
         {showFilters && (
           <div className="flex gap-4 p-4 bg-secondary border border-border rounded-lg flex-wrap">
             <div>
-              <label className="text-xs text-muted-foreground block mb-1.5">Availability</label>
+              <label className="text-xs text-muted-foreground block mb-1.5">{mp.availability}</label>
               <select value={filterAvailable} onChange={(e) => setFilterAvailable(e.target.value as 'all' | 'available' | 'unavailable')} className="py-2 px-3 bg-card border border-border rounded-md text-foreground text-[13px]">
-                <option value="all">All</option>
-                <option value="available">Available only</option>
-                <option value="unavailable">Unavailable only</option>
+                <option value="all">{mp.all}</option>
+                <option value="available">{mp.availableOnly}</option>
+                <option value="unavailable">{mp.unavailableOnly}</option>
               </select>
             </div>
             <label className="flex items-center gap-2 cursor-pointer pt-5">
               <input type="checkbox" checked={filterSignature} onChange={(e) => setFilterSignature(e.target.checked)} className="w-4 h-4 accent-[#606338]" />
-              <span className="text-[13px] text-foreground">Signature dishes only</span>
+              <span className="text-[13px] text-foreground">{mp.signatureOnly}</span>
             </label>
           </div>
         )}
 
         {/* Results Count */}
-        <p className="text-[13px] text-muted-foreground">Showing {filteredItems.length} of {menuItems.length} items</p>
+        <p className="text-[13px] text-muted-foreground">{mp.showingOf.replace('{count}', String(filteredItems.length)).replace('{total}', String(menuItems.length))}</p>
 
         {/* Grid View */}
         {viewMode === 'grid' && (
@@ -557,9 +560,9 @@ export default function MenuPage() {
                 <div className="h-40 bg-card relative flex items-center justify-center">
                   {item.image_url ? <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" /> : <Image className="w-8 h-8 text-muted" />}
                   <div className="absolute top-2.5 left-2.5 flex gap-1.5">
-                    {item.is_signature && <span className="flex items-center gap-1 px-2 py-1 bg-yellow-500/90 rounded-md text-[11px] font-semibold text-black"><Star className="w-3 h-3" />Signature</span>}
-                    {item.is_featured && <span className="flex items-center gap-1 px-2 py-1 bg-orange-500/90 rounded-md text-[11px] font-semibold text-white"><Flame className="w-3 h-3" />Featured</span>}
-                    {!item.is_available && <span className="px-2 py-1 bg-red-500/90 rounded-md text-[11px] font-semibold text-white">Unavailable</span>}
+                    {item.is_signature && <span className="flex items-center gap-1 px-2 py-1 bg-yellow-500/90 rounded-md text-[11px] font-semibold text-black"><Star className="w-3 h-3" />{mp.signatureDish}</span>}
+                    {item.is_featured && <span className="flex items-center gap-1 px-2 py-1 bg-orange-500/90 rounded-md text-[11px] font-semibold text-white"><Flame className="w-3 h-3" />{mp.featured}</span>}
+                    {!item.is_available && <span className="px-2 py-1 bg-red-500/90 rounded-md text-[11px] font-semibold text-white">{mp.unavailable}</span>}
                     {item.recipe_id && <span className="flex items-center gap-1 px-2 py-1 bg-[#606338]/90 rounded-md text-[11px] font-semibold text-white"><BookOpen className="w-3 h-3" /></span>}
                   </div>
                   {canEdit && (
@@ -569,9 +572,9 @@ export default function MenuPage() {
                       </button>
                       {activeDropdown === item.id && (
                         <div onClick={(e) => e.stopPropagation()} className="absolute top-full right-0 mt-1 bg-card border border-border rounded-lg overflow-hidden z-10 min-w-[150px] shadow-2xl">
-                          <button onClick={() => handleOpenModal(item)} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary"><Pencil className="w-3.5 h-3.5" />Edit</button>
-                          <button onClick={() => toggleAvailability(item)} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary">{item.is_available ? <><EyeOff className="w-3.5 h-3.5" />Mark Unavailable</> : <><Eye className="w-3.5 h-3.5" />Mark Available</>}</button>
-                          <button onClick={() => handleDelete(item.id)} disabled={deleting === item.id} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-red-500 text-[13px] cursor-pointer text-left hover:bg-red-500/10"><Trash2 className="w-3.5 h-3.5" />{deleting === item.id ? 'Deleting...' : 'Delete'}</button>
+                          <button onClick={() => handleOpenModal(item)} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary"><Pencil className="w-3.5 h-3.5" />{mp.edit}</button>
+                          <button onClick={() => toggleAvailability(item)} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary">{item.is_available ? <><EyeOff className="w-3.5 h-3.5" />{mp.markUnavailable}</> : <><Eye className="w-3.5 h-3.5" />{mp.markAvailable}</>}</button>
+                          <button onClick={() => handleDelete(item.id)} disabled={deleting === item.id} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-red-500 text-[13px] cursor-pointer text-left hover:bg-red-500/10"><Trash2 className="w-3.5 h-3.5" />{deleting === item.id ? mp.deleting : mp.delete}</button>
                         </div>
                       )}
                     </div>
@@ -600,10 +603,10 @@ export default function MenuPage() {
         {viewMode === 'list' && (
           <div className="bg-secondary border border-border rounded-xl overflow-hidden">
             <div className="hidden md:grid grid-cols-[1fr_120px_140px_100px] gap-4 px-4 py-3 border-b border-border bg-card">
-              <SortHeader label="Item" field="name_fr" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
-              <SortHeader label="Category" field="category_id" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
-              <SortHeader label="Status" field="is_available" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
-              <SortHeader label="Price" field="price" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="right" className="text-xs font-semibold text-muted uppercase" />
+              <SortHeader label={mp.itemLabel} field="name_fr" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
+              <SortHeader label={mp.categoryLabel} field="category_id" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
+              <SortHeader label={mp.statusLabel} field="is_available" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
+              <SortHeader label={mp.priceLabel} field="price" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="right" className="text-xs font-semibold text-muted uppercase" />
             </div>
             {sortedItems.map((item, index) => (
               <div key={item.id} onClick={() => { setViewingItem(item); loadRecipeForView(item); }} className={`grid grid-cols-1 md:grid-cols-[1fr_120px_140px_100px] gap-4 px-4 py-3 items-center cursor-pointer hover:bg-card transition-colors ${index > 0 ? 'border-t border-border' : ''} ${!item.is_available ? 'opacity-60' : ''}`}>
@@ -627,7 +630,7 @@ export default function MenuPage() {
                 </div>
                 <div>
                   <span className={`inline-block px-2.5 py-1 rounded-md text-xs font-medium ${item.is_available ? 'bg-green-500/15 text-green-500' : 'bg-red-500/15 text-red-500'}`}>
-                    {item.is_available ? 'Available' : 'Unavailable'}
+                    {item.is_available ? mp.available : mp.unavailable}
                   </span>
                 </div>
                 <div className="flex items-center justify-end gap-3">
@@ -639,9 +642,9 @@ export default function MenuPage() {
                       </button>
                       {activeDropdown === item.id && (
                         <div onClick={(e) => e.stopPropagation()} className="absolute top-full right-0 mt-1 bg-card border border-border rounded-lg overflow-hidden z-10 min-w-[150px] shadow-2xl">
-                          <button onClick={() => handleOpenModal(item)} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary"><Pencil className="w-3.5 h-3.5" />Edit</button>
-                          <button onClick={() => toggleAvailability(item)} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary">{item.is_available ? <><EyeOff className="w-3.5 h-3.5" />Mark Unavailable</> : <><Eye className="w-3.5 h-3.5" />Mark Available</>}</button>
-                          <button onClick={() => handleDelete(item.id)} disabled={deleting === item.id} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-red-500 text-[13px] cursor-pointer text-left hover:bg-red-500/10"><Trash2 className="w-3.5 h-3.5" />{deleting === item.id ? 'Deleting...' : 'Delete'}</button>
+                          <button onClick={() => handleOpenModal(item)} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary"><Pencil className="w-3.5 h-3.5" />{mp.edit}</button>
+                          <button onClick={() => toggleAvailability(item)} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary">{item.is_available ? <><EyeOff className="w-3.5 h-3.5" />{mp.markUnavailable}</> : <><Eye className="w-3.5 h-3.5" />{mp.markAvailable}</>}</button>
+                          <button onClick={() => handleDelete(item.id)} disabled={deleting === item.id} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-red-500 text-[13px] cursor-pointer text-left hover:bg-red-500/10"><Trash2 className="w-3.5 h-3.5" />{deleting === item.id ? mp.deleting : mp.delete}</button>
                         </div>
                       )}
                     </div>
@@ -649,7 +652,7 @@ export default function MenuPage() {
                 </div>
               </div>
             ))}
-            {filteredItems.length === 0 && <div className="py-12 px-6 text-center"><p className="text-muted-foreground">No items found</p></div>}
+            {filteredItems.length === 0 && <div className="py-12 px-6 text-center"><p className="text-muted-foreground">{mp.noItemsFound}</p></div>}
           </div>
         )}
 
@@ -657,8 +660,8 @@ export default function MenuPage() {
         {menuItems.length === 0 && (
           <div className="bg-secondary border border-border rounded-xl py-16 px-6 flex flex-col items-center justify-center">
             <UtensilsCrossed className="w-12 h-12 text-muted mb-4" />
-            <p className="text-muted-foreground">No menu items yet</p>
-            <CanEditMenu><button onClick={() => handleOpenModal()} className="mt-4 px-5 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium cursor-pointer">Add your first item</button></CanEditMenu>
+            <p className="text-muted-foreground">{mp.noMenuItems}</p>
+            <CanEditMenu><button onClick={() => handleOpenModal()} className="mt-4 px-5 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium cursor-pointer">{mp.addFirstItem}</button></CanEditMenu>
           </div>
         )}
       </div>
@@ -668,14 +671,14 @@ export default function MenuPage() {
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-6">
           <div className="bg-secondary border border-border rounded-2xl w-full max-w-[500px] max-h-[90vh] overflow-auto shadow-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border sticky top-0 bg-secondary z-10">
-              <h2 className="text-lg font-semibold text-foreground">{editingItem ? 'Edit Item' : 'Add Item'}</h2>
+              <h2 className="text-lg font-semibold text-foreground">{editingItem ? mp.editItem : mp.addItem}</h2>
               <button onClick={handleCloseModal} className="p-2 bg-transparent border-none rounded-md cursor-pointer text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
             </div>
 
             <div className="p-5 flex flex-col gap-4">
               {/* Image Upload */}
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Dish Image</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{mp.dishImage}</label>
                 {formData.image_url ? (
                   <div className="relative">
                     <img
@@ -690,7 +693,7 @@ export default function MenuPage() {
                         className="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600/90 border-none rounded-md cursor-pointer text-white text-xs font-medium hover:bg-red-700 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                        Remove
+                        {mp.remove}
                       </button>
                     </div>
                     <div className="absolute bottom-2 right-2">
@@ -707,7 +710,7 @@ export default function MenuPage() {
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-black/70 border-none rounded-md cursor-pointer text-white text-xs font-medium hover:bg-black/90 transition-colors"
                       >
                         <Upload className="w-3.5 h-3.5" />
-                        Change Image
+                        {mp.changeImage}
                       </button>
                     </div>
                     {uploadingImage && (
@@ -731,17 +734,17 @@ export default function MenuPage() {
                     {uploadingImage ? (
                       <>
                         <Loader2 className="w-8 h-8 text-[#606338] animate-spin" />
-                        <p className="text-sm text-muted-foreground">Uploading...</p>
+                        <p className="text-sm text-muted-foreground">{mp.uploading}</p>
                       </>
                     ) : (
                       <>
                         <Upload className="w-8 h-8 text-muted" />
                         <div className="text-center">
                           <p className="text-sm text-foreground">
-                            Drag & drop an image or{' '}
-                            <span className="text-[#606338]">browse</span>
+                            {mp.dragDrop}{' '}
+                            <span className="text-[#606338]">{mp.browse}</span>
                           </p>
-                          <p className="text-xs text-muted mt-1">JPEG, PNG, WebP, GIF, HEIC (max 20MB)</p>
+                          <p className="text-xs text-muted mt-1">{mp.imageFormats}</p>
                         </div>
                         <input
                           type="file"
@@ -758,44 +761,44 @@ export default function MenuPage() {
               {/* Names */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Name (French) *</label>
-                  <input type="text" value={formData.name_fr} onChange={(e) => setFormData({ ...formData, name_fr: e.target.value })} className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50" placeholder="Saumon Grillé" />
+                  <label className="block text-xs text-muted-foreground mb-1.5">{mp.nameFr}</label>
+                  <input type="text" value={formData.name_fr} onChange={(e) => setFormData({ ...formData, name_fr: e.target.value })} className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50" placeholder={mp.nameFrPlaceholder} />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Name (English) *</label>
-                  <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50" placeholder="Grilled Salmon" />
+                  <label className="block text-xs text-muted-foreground mb-1.5">{mp.nameEn}</label>
+                  <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50" placeholder={mp.nameEnPlaceholder} />
                 </div>
               </div>
 
               {/* Category */}
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Category</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{mp.categoryLabel}</label>
                 <select value={formData.category_id} onChange={(e) => setFormData({ ...formData, category_id: e.target.value })} className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50">
-                  <option value="">Select category</option>
+                  <option value="">{mp.selectCategory}</option>
                   {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.icon} {cat.name_fr}</option>)}
                 </select>
               </div>
 
               {/* Price */}
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Price (DH) *</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{mp.priceDH}</label>
                 <input type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50" placeholder="0" />
               </div>
 
               {/* Descriptions */}
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Description (French)</label>
-                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={2} className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none resize-y focus:border-[#606338]/50" placeholder="Description en français..." />
+                <label className="block text-xs text-muted-foreground mb-1.5">{mp.descFr}</label>
+                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={2} className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none resize-y focus:border-[#606338]/50" placeholder={mp.descFrPlaceholder} />
               </div>
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Description (English)</label>
-                <textarea value={formData.description_en} onChange={(e) => setFormData({ ...formData, description_en: e.target.value })} rows={2} className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none resize-y focus:border-[#606338]/50" placeholder="Description in English..." />
+                <label className="block text-xs text-muted-foreground mb-1.5">{mp.descEn}</label>
+                <textarea value={formData.description_en} onChange={(e) => setFormData({ ...formData, description_en: e.target.value })} rows={2} className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none resize-y focus:border-[#606338]/50" placeholder={mp.descEnPlaceholder} />
               </div>
 
               {/* Chef Note */}
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Chef Note</label>
-                <input type="text" value={formData.chef_note} onChange={(e) => setFormData({ ...formData, chef_note: e.target.value })} className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50" placeholder="Special note from chef..." />
+                <label className="block text-xs text-muted-foreground mb-1.5">{mp.chefNote}</label>
+                <input type="text" value={formData.chef_note} onChange={(e) => setFormData({ ...formData, chef_note: e.target.value })} className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50" placeholder={mp.chefNotePlaceholder} />
               </div>
 
               {/* Recipe Section */}
@@ -807,14 +810,14 @@ export default function MenuPage() {
                 >
                   <div className="flex items-center gap-2">
                     <BookOpen className="w-4 h-4 text-[#606338]" />
-                    <span className="text-sm font-medium text-foreground">Fiche Technique (Recipe)</span>
+                    <span className="text-sm font-medium text-foreground">{mp.ficheTechnique}</span>
                     {formData.recipe_mode === 'existing' && formData.recipe_id && (
                       <span className="px-2 py-0.5 bg-[#606338]/10 text-[#606338] text-xs rounded-full">
                         {recipes.find(r => r.id === formData.recipe_id)?.name}
                       </span>
                     )}
                     {formData.recipe_mode === 'new' && formData.new_recipe_name && (
-                      <span className="px-2 py-0.5 bg-green-500/10 text-green-600 text-xs rounded-full">New Recipe</span>
+                      <span className="px-2 py-0.5 bg-green-500/10 text-green-600 text-xs rounded-full">{mp.newRecipe}</span>
                     )}
                   </div>
                   {showRecipeSection ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
@@ -833,7 +836,7 @@ export default function MenuPage() {
                             : 'bg-card border-border text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        No Recipe
+                        {mp.noRecipe}
                       </button>
                       <button
                         type="button"
@@ -844,7 +847,7 @@ export default function MenuPage() {
                             : 'bg-card border-border text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        Select Existing
+                        {mp.selectExisting}
                       </button>
                       <button
                         type="button"
@@ -863,20 +866,20 @@ export default function MenuPage() {
                             : 'bg-card border-border text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        Create New
+                        {mp.createNew}
                       </button>
                     </div>
 
                     {/* Existing Recipe Selection */}
                     {formData.recipe_mode === 'existing' && (
                       <div>
-                        <label className="block text-xs text-muted-foreground mb-1.5">Select Recipe</label>
+                        <label className="block text-xs text-muted-foreground mb-1.5">{mp.selectRecipe}</label>
                         <select
                           value={formData.recipe_id}
                           onChange={(e) => setFormData(prev => ({ ...prev, recipe_id: e.target.value }))}
                           className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50"
                         >
-                          <option value="">Choose a recipe...</option>
+                          <option value="">{mp.chooseRecipe}</option>
                           {recipes.map(recipe => (
                             <option key={recipe.id} value={recipe.id}>
                               {recipe.name} - {recipe.cost_price?.toFixed(2)} DH ({recipe.ingredients?.length || 0} ingredients)
@@ -886,9 +889,9 @@ export default function MenuPage() {
                         {formData.recipe_id && (
                           <div className="mt-2 p-2 bg-secondary rounded-lg">
                             <p className="text-xs text-muted-foreground">
-                              Cost: <span className="text-foreground font-medium">{recipes.find(r => r.id === formData.recipe_id)?.cost_price?.toFixed(2)} DH</span>
+                              {mp.cost}: <span className="text-foreground font-medium">{recipes.find(r => r.id === formData.recipe_id)?.cost_price?.toFixed(2)} DH</span>
                               {' · '}
-                              Portions: <span className="text-foreground font-medium">{recipes.find(r => r.id === formData.recipe_id)?.portions}</span>
+                              {mp.portions}: <span className="text-foreground font-medium">{recipes.find(r => r.id === formData.recipe_id)?.portions}</span>
                             </p>
                           </div>
                         )}
@@ -900,17 +903,17 @@ export default function MenuPage() {
                       <div className="space-y-3">
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-xs text-muted-foreground mb-1.5">Recipe Name</label>
+                            <label className="block text-xs text-muted-foreground mb-1.5">{mp.recipeName}</label>
                             <input
                               type="text"
                               value={formData.new_recipe_name}
                               onChange={(e) => setFormData(prev => ({ ...prev, new_recipe_name: e.target.value }))}
                               className="w-full py-2 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50"
-                              placeholder="Recipe name"
+                              placeholder={mp.recipeNamePlaceholder}
                             />
                           </div>
                           <div>
-                            <label className="block text-xs text-muted-foreground mb-1.5">Portions</label>
+                            <label className="block text-xs text-muted-foreground mb-1.5">{mp.portions}</label>
                             <input
                               type="number"
                               value={formData.new_recipe_portions}
@@ -924,13 +927,13 @@ export default function MenuPage() {
                         {/* Ingredients */}
                         <div>
                           <div className="flex items-center justify-between mb-2">
-                            <label className="text-xs text-muted-foreground">Ingredients</label>
+                            <label className="text-xs text-muted-foreground">{mp.ingredients}</label>
                             <button
                               type="button"
                               onClick={addIngredientRow}
                               className="flex items-center gap-1 text-xs text-[#606338] hover:text-[#4d4f2e]"
                             >
-                              <Plus className="w-3 h-3" /> Add
+                              <Plus className="w-3 h-3" /> {mp.add}
                             </button>
                           </div>
 
@@ -940,7 +943,7 @@ export default function MenuPage() {
                               onClick={addIngredientRow}
                               className="w-full py-4 border border-dashed border-border rounded-lg text-muted-foreground text-sm hover:border-[#606338]/50 hover:text-foreground transition-colors"
                             >
-                              + Add first ingredient
+                              {mp.addFirstIngredient}
                             </button>
                           ) : (
                             <div className="space-y-2 max-h-[200px] overflow-y-auto">
@@ -950,14 +953,14 @@ export default function MenuPage() {
                                     type="text"
                                     value={ing.ingredient_name}
                                     onChange={(e) => updateIngredient(idx, 'ingredient_name', e.target.value)}
-                                    placeholder="Ingredient"
+                                    placeholder={mp.ingredient}
                                     className="flex-1 py-1.5 px-2 bg-card border border-border rounded text-foreground text-xs outline-none focus:border-[#606338]/50"
                                   />
                                   <input
                                     type="number"
                                     value={ing.quantity}
                                     onChange={(e) => updateIngredient(idx, 'quantity', e.target.value)}
-                                    placeholder="Qty"
+                                    placeholder={mp.qty}
                                     className="w-16 py-1.5 px-2 bg-card border border-border rounded text-foreground text-xs outline-none focus:border-[#606338]/50"
                                     step="0.001"
                                   />
@@ -976,7 +979,7 @@ export default function MenuPage() {
                                     type="number"
                                     value={ing.unit_cost}
                                     onChange={(e) => updateIngredient(idx, 'unit_cost', e.target.value)}
-                                    placeholder="Cost/unit"
+                                    placeholder={mp.costUnit}
                                     className="w-20 py-1.5 px-2 bg-card border border-border rounded text-foreground text-xs outline-none focus:border-[#606338]/50"
                                     step="0.01"
                                   />
@@ -994,7 +997,7 @@ export default function MenuPage() {
 
                           {formData.new_recipe_ingredients.length > 0 && (
                             <div className="mt-2 p-2 bg-[#606338]/10 rounded-lg flex justify-between items-center">
-                              <span className="text-xs text-muted-foreground">Total Recipe Cost:</span>
+                              <span className="text-xs text-muted-foreground">{mp.totalRecipeCost}</span>
                               <span className="text-sm font-semibold text-[#606338]">{calculateNewRecipeCost().toFixed(2)} DH</span>
                             </div>
                           )}
@@ -1010,25 +1013,25 @@ export default function MenuPage() {
                 <div className="flex gap-6">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={formData.is_signature} onChange={(e) => setFormData({ ...formData, is_signature: e.target.checked })} className="w-4 h-4 accent-[#606338]" />
-                    <span className="text-sm text-foreground">Signature dish</span>
+                    <span className="text-sm text-foreground">{mp.signatureLabel}</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={formData.is_available} onChange={(e) => setFormData({ ...formData, is_available: e.target.checked })} className="w-4 h-4 accent-[#606338]" />
-                    <span className="text-sm text-foreground">Available</span>
+                    <span className="text-sm text-foreground">{mp.availableLabel}</span>
                   </label>
                 </div>
                 <label className="flex items-center gap-2 cursor-pointer p-2.5 bg-orange-500/5 border border-orange-500/20 rounded-lg">
                   <input type="checkbox" checked={formData.is_featured} onChange={(e) => setFormData({ ...formData, is_featured: e.target.checked })} className="w-4 h-4 accent-orange-500" />
                   <Flame className="w-4 h-4 text-orange-500" />
-                  <span className="text-sm text-foreground">Show on landing page</span>
+                  <span className="text-sm text-foreground">{mp.showOnLanding}</span>
                 </label>
               </div>
             </div>
 
             <div className="flex justify-end gap-3 px-5 py-4 border-t border-border sticky bottom-0 bg-secondary">
-              <button onClick={handleCloseModal} className="px-5 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm cursor-pointer hover:bg-card">Cancel</button>
+              <button onClick={handleCloseModal} className="px-5 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm cursor-pointer hover:bg-card">{mp.cancel}</button>
               <button onClick={handleSave} disabled={saving || uploadingImage} className="px-5 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] border-none rounded-lg text-white text-sm font-medium cursor-pointer disabled:opacity-70">
-                {saving ? 'Saving...' : (editingItem ? 'Save Changes' : 'Add Item')}
+                {saving ? mp.saving : (editingItem ? mp.saveChanges : mp.addItem)}
               </button>
             </div>
           </div>
@@ -1081,12 +1084,12 @@ export default function MenuPage() {
               <div className="absolute top-4 left-4 flex gap-2">
                 {viewingItem.is_signature && (
                   <span className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500 rounded-full text-xs font-bold text-black shadow-lg">
-                    <Star className="w-3.5 h-3.5 fill-current" /> Signature
+                    <Star className="w-3.5 h-3.5 fill-current" /> {mp.signatureDish}
                   </span>
                 )}
                 {viewingItem.is_featured && (
                   <span className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 rounded-full text-xs font-bold text-white shadow-lg">
-                    <Flame className="w-3.5 h-3.5" /> Featured
+                    <Flame className="w-3.5 h-3.5" /> {mp.featured}
                   </span>
                 )}
               </div>
@@ -1102,7 +1105,7 @@ export default function MenuPage() {
               <div className="absolute bottom-4 left-4">
                 <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg ${viewingItem.is_available ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
                   <span className={`w-2 h-2 rounded-full ${viewingItem.is_available ? 'bg-white animate-pulse' : 'bg-white/60'}`} />
-                  {viewingItem.is_available ? 'Available' : 'Unavailable'}
+                  {viewingItem.is_available ? mp.available : mp.unavailable}
                 </span>
               </div>
             </div>
@@ -1126,13 +1129,13 @@ export default function MenuPage() {
                 <div className="space-y-4 mb-5">
                   {viewingItem.description && (
                     <div className="p-4 bg-secondary/50 rounded-xl">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Description</p>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">{mp.descriptionLabel}</p>
                       <p className="text-foreground text-sm leading-relaxed">{viewingItem.description}</p>
                     </div>
                   )}
                   {viewingItem.description_en && (
                     <div className="p-4 bg-secondary/50 rounded-xl">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Description (EN)</p>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">{mp.descriptionEn}</p>
                       <p className="text-foreground text-sm leading-relaxed">{viewingItem.description_en}</p>
                     </div>
                   )}
@@ -1144,7 +1147,7 @@ export default function MenuPage() {
                 <div className="mb-5 p-4 bg-gradient-to-br from-[#606338]/10 to-[#606338]/5 border border-[#606338]/20 rounded-xl">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-lg">👨‍🍳</span>
-                    <p className="text-sm font-semibold text-[#606338]">Chef&apos;s Note</p>
+                    <p className="text-sm font-semibold text-[#606338]">{mp.chefsNote}</p>
                   </div>
                   <p className="text-foreground text-sm italic leading-relaxed">&ldquo;{viewingItem.chef_note}&rdquo;</p>
                 </div>
@@ -1156,21 +1159,21 @@ export default function MenuPage() {
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <BookOpen className="w-4 h-4 text-[#606338]" />
-                      <p className="text-sm font-semibold text-foreground">Fiche Technique</p>
+                      <p className="text-sm font-semibold text-foreground">{mp.ficheTechnique}</p>
                     </div>
                     <div className="flex items-center gap-3 text-xs">
                       <span className="text-muted-foreground">
-                        Cost: <span className="font-medium text-[#606338]">{viewingRecipe.cost_price?.toFixed(2)} DH</span>
+                        {mp.cost}: <span className="font-medium text-[#606338]">{viewingRecipe.cost_price?.toFixed(2)} DH</span>
                       </span>
                       <span className="text-muted-foreground">
-                        Portions: <span className="font-medium text-foreground">{viewingRecipe.portions}</span>
+                        {mp.portions}: <span className="font-medium text-foreground">{viewingRecipe.portions}</span>
                       </span>
                     </div>
                   </div>
 
                   {viewingRecipe.ingredients && viewingRecipe.ingredients.length > 0 && (
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground mb-2">Ingredients ({viewingRecipe.ingredients.length})</p>
+                      <p className="text-xs text-muted-foreground mb-2">{mp.ingredients} ({viewingRecipe.ingredients.length})</p>
                       <div className="max-h-[150px] overflow-y-auto space-y-1">
                         {viewingRecipe.ingredients.map((ing, idx) => (
                           <div key={idx} className="flex items-center justify-between py-1 px-2 bg-card/50 rounded text-xs">
@@ -1183,12 +1186,12 @@ export default function MenuPage() {
                         ))}
                       </div>
                       <div className="flex justify-between items-center pt-2 mt-2 border-t border-border">
-                        <span className="text-xs text-muted-foreground">Total Cost</span>
+                        <span className="text-xs text-muted-foreground">{mp.totalCost}</span>
                         <span className="text-sm font-semibold text-[#606338]">{viewingRecipe.cost_price?.toFixed(2)} DH</span>
                       </div>
                       {viewingItem.price > 0 && (
                         <div className="flex justify-between items-center pt-1">
-                          <span className="text-xs text-muted-foreground">Margin</span>
+                          <span className="text-xs text-muted-foreground">{mp.margin}</span>
                           <span className="text-sm font-medium text-green-600">
                             {(viewingItem.price - (viewingRecipe.cost_price || 0)).toFixed(2)} DH
                             ({(((viewingItem.price - (viewingRecipe.cost_price || 0)) / viewingItem.price) * 100).toFixed(1)}%)
@@ -1204,7 +1207,7 @@ export default function MenuPage() {
                 <div className="mb-5 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                   <div className="flex items-center gap-2">
                     <BookOpen className="w-4 h-4 text-yellow-600" />
-                    <p className="text-xs text-yellow-700">No recipe assigned to this item</p>
+                    <p className="text-xs text-yellow-700">{mp.noRecipeAssigned}</p>
                   </div>
                 </div>
               )}
@@ -1213,11 +1216,11 @@ export default function MenuPage() {
               <div className="flex items-center gap-4 pt-4 border-t border-border text-xs text-muted">
                 <div className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-muted" />
-                  Added {new Date(viewingItem.created_at).toLocaleDateString()}
+                  {mp.added} {new Date(viewingItem.created_at).toLocaleDateString()}
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-muted" />
-                  Updated {new Date(viewingItem.updated_at).toLocaleDateString()}
+                  {mp.updated} {new Date(viewingItem.updated_at).toLocaleDateString()}
                 </div>
               </div>
             </div>
@@ -1229,7 +1232,7 @@ export default function MenuPage() {
                   onClick={() => { setViewingItem(null); setViewingRecipe(null); handleOpenModal(viewingItem); }}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-br from-[#606338] to-[#4d4f2e] border-none rounded-xl text-white text-sm font-semibold cursor-pointer hover:from-[#7A7B4E] hover:to-[#606338] transition-all shadow-lg shadow-[#606338]/20"
                 >
-                  <Pencil className="w-4 h-4" /> Edit Item
+                  <Pencil className="w-4 h-4" /> {mp.editItemBtn}
                 </button>
                 <button
                   onClick={() => toggleAvailability(viewingItem)}
@@ -1256,9 +1259,9 @@ export default function MenuPage() {
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Match Recipes</h2>
+                <h2 className="text-lg font-semibold text-foreground">{mp.matchRecipesTitle}</h2>
                 <p className="text-xs text-muted-foreground">
-                  {totalUnlinked} dishes without recipe{recipeMatchCount > 0 && <> &middot; {recipeMatchCount} matched</>}{recipeMatchSkipped.size > 0 && <> &middot; {recipeMatchSkipped.size} skipped</>}
+                  {totalUnlinked} {mp.dishesWithoutRecipe}{recipeMatchCount > 0 && <> &middot; {recipeMatchCount} matched</>}{recipeMatchSkipped.size > 0 && <> &middot; {recipeMatchSkipped.size} skipped</>}
                 </p>
               </div>
               <button onClick={() => { setShowRecipeMatch(false); setRecipeMatchSuccess(null); setRecipeMatchSkipped(new Set()); setRecipeMatchCount(0); setRecipeSearchQuery(''); }} className="p-2 bg-transparent border-none rounded-md cursor-pointer text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
@@ -1289,12 +1292,12 @@ export default function MenuPage() {
                     <Check className="w-7 h-7 text-green-500" />
                   </div>
                   <p className="text-foreground font-medium">
-                    {totalUnlinked === 0 ? 'All dishes have recipes!' : 'All remaining dishes skipped'}
+                    {totalUnlinked === 0 ? mp.allHaveRecipes : mp.allSkipped}
                   </p>
-                  {recipeMatchCount > 0 && <p className="text-sm text-muted-foreground">{recipeMatchCount} matched this session</p>}
+                  {recipeMatchCount > 0 && <p className="text-sm text-muted-foreground">{recipeMatchCount} {mp.matchedThisSession}</p>}
                   {recipeMatchSkipped.size > 0 && totalUnlinked > 0 && (
                     <button onClick={() => setRecipeMatchSkipped(new Set())} className="mt-2 px-4 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-card transition-colors">
-                      Show skipped dishes again
+                      {mp.showSkippedAgain}
                     </button>
                   )}
                 </div>
@@ -1309,7 +1312,7 @@ export default function MenuPage() {
                       ) : (
                         <div className="w-full h-full bg-gradient-to-br from-card to-secondary flex flex-col items-center justify-center gap-2">
                           <Image className="w-10 h-10 text-muted" />
-                          <p className="text-xs text-muted-foreground">No image</p>
+                          <p className="text-xs text-muted-foreground">{mp.noImage}</p>
                         </div>
                       )}
                     </div>
@@ -1326,7 +1329,7 @@ export default function MenuPage() {
                           onClick={skipDish}
                           className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors shrink-0"
                         >
-                          Skip
+                          {mp.skipBtn}
                         </button>
                       </div>
                     </div>
@@ -1336,19 +1339,19 @@ export default function MenuPage() {
                   {recipeMatchSaving && (
                     <div className="flex items-center justify-center gap-2 py-3">
                       <Loader2 className="w-4 h-4 text-[#606338] animate-spin" />
-                      <p className="text-sm text-muted-foreground">Saving...</p>
+                      <p className="text-sm text-muted-foreground">{mp.saving}</p>
                     </div>
                   )}
 
                   {/* Recipe search */}
-                  <p className="text-xs text-muted-foreground mb-2">Select a fiche technique:</p>
+                  <p className="text-xs text-muted-foreground mb-2">{mp.selectFiche}</p>
                   <div className="relative mb-3">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="text"
                       value={recipeSearchQuery}
                       onChange={e => setRecipeSearchQuery(e.target.value)}
-                      placeholder="Search recipes..."
+                      placeholder={mp.searchRecipes}
                       className="w-full pl-9 pr-4 py-2.5 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[#606338]"
                     />
                   </div>
@@ -1378,14 +1381,14 @@ export default function MenuPage() {
                       </button>
                     ))}
                     {recipes.length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-8">No recipes available. Create recipes first in the Recipes page.</p>
+                      <p className="text-sm text-muted-foreground text-center py-8">{mp.noRecipesAvailable}</p>
                     )}
                     {recipes.length > 0 && recipes.filter(r => {
                       if (!recipeSearchQuery) return true;
                       const q = recipeSearchQuery.toLowerCase();
                       return r.name.toLowerCase().includes(q) || (r.name_fr && r.name_fr.toLowerCase().includes(q)) || (r.category && r.category.toLowerCase().includes(q));
                     }).length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-4">No recipes match your search</p>
+                      <p className="text-sm text-muted-foreground text-center py-4">{mp.noRecipesMatch}</p>
                     )}
                   </div>
                 </>

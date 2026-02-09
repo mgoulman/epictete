@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { usePermissions } from '@/lib/auth/hooks';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 import {
   BookOpen, Plus, Search, Edit2, Trash2, X,
   Package, DollarSign, Link2, Unlink, Eye, ChefHat,
@@ -57,6 +58,8 @@ interface RecipeDetail extends Omit<Recipe, 'ingredient_count'> {
 export default function RecipesPage() {
   const { hasPermission } = usePermissions();
   const canWrite = hasPermission('menu.write');
+  const { t } = useTranslation();
+  const rc = t.backoffice.recipesPage;
 
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,7 +145,7 @@ export default function RecipesPage() {
 
   const handleCreateRecipe = async () => {
     if (!newRecipe.name) {
-      alert('Veuillez entrer un nom de recette');
+      alert(rc.nameRequired);
       return;
     }
 
@@ -206,7 +209,7 @@ export default function RecipesPage() {
   };
 
   const handleDeleteRecipe = async (id: string) => {
-    if (!confirm('Supprimer cette recette?')) return;
+    if (!confirm(rc.deleteRecipe)) return;
 
     try {
       await fetch(`/api/recipes?type=recipe&id=${id}`, { method: 'DELETE' });
@@ -218,7 +221,7 @@ export default function RecipesPage() {
 
   const handleAddIngredient = async () => {
     if (!selectedRecipe || !newIngredient.ingredient_name) {
-      alert('Veuillez entrer un nom d\'ingrédient');
+      alert(rc.ingredientNameRequired);
       return;
     }
 
@@ -276,7 +279,7 @@ export default function RecipesPage() {
   };
 
   const handleDeleteIngredient = async (id: string) => {
-    if (!confirm('Supprimer cet ingrédient?')) return;
+    if (!confirm(rc.deleteIngredient)) return;
 
     try {
       await fetch(`/api/recipes?type=ingredient&id=${id}`, { method: 'DELETE' });
@@ -320,8 +323,8 @@ export default function RecipesPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Fiches Techniques</h1>
-          <p className="text-muted-foreground mt-1">Gérer les recettes et leurs ingrédients</p>
+          <h1 className="text-2xl font-bold text-foreground">{rc.title}</h1>
+          <p className="text-muted-foreground mt-1">{rc.subtitle}</p>
         </div>
         {canWrite && (
           <button
@@ -329,7 +332,7 @@ export default function RecipesPage() {
             className="flex items-center gap-2 px-4 py-2.5 bg-[#606338] text-white rounded-lg hover:bg-[#4d4f2e] transition-colors"
           >
             <Plus className="w-4 h-4" />
-            Nouvelle Recette
+            {rc.newRecipe}
           </button>
         )}
       </div>
@@ -340,7 +343,7 @@ export default function RecipesPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Rechercher une recette..."
+            placeholder={rc.searchRecipe}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-secondary border border-border rounded-lg text-foreground text-sm"
@@ -357,7 +360,7 @@ export default function RecipesPage() {
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">{recipes.length}</p>
-              <p className="text-xs text-muted-foreground">Recettes</p>
+              <p className="text-xs text-muted-foreground">{rc.recipes}</p>
             </div>
           </div>
         </div>
@@ -368,7 +371,7 @@ export default function RecipesPage() {
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">{categories.length}</p>
-              <p className="text-xs text-muted-foreground">Catégories</p>
+              <p className="text-xs text-muted-foreground">{rc.categories}</p>
             </div>
           </div>
         </div>
@@ -381,7 +384,7 @@ export default function RecipesPage() {
               <p className="text-2xl font-bold text-foreground">
                 {recipes.reduce((sum, r) => sum + r.ingredient_count, 0)}
               </p>
-              <p className="text-xs text-muted-foreground">Ingrédients Total</p>
+              <p className="text-xs text-muted-foreground">{rc.totalIngredients}</p>
             </div>
           </div>
         </div>
@@ -394,7 +397,7 @@ export default function RecipesPage() {
               <p className="text-2xl font-bold text-foreground">
                 {formatCurrency(recipes.reduce((sum, r) => sum + r.cost_price, 0) / (recipes.length || 1))}
               </p>
-              <p className="text-xs text-muted-foreground">Coût Moyen</p>
+              <p className="text-xs text-muted-foreground">{rc.averageCost}</p>
             </div>
           </div>
         </div>
@@ -409,13 +412,13 @@ export default function RecipesPage() {
         ) : filteredRecipes.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64">
             <BookOpen className="w-12 h-12 text-muted mb-4" />
-            <p className="text-muted-foreground">Aucune recette trouvée</p>
+            <p className="text-muted-foreground">{rc.noRecipeFound}</p>
             {canWrite && (
               <button
                 onClick={() => setShowRecipeModal(true)}
                 className="mt-4 flex items-center gap-2 px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm"
               >
-                <Plus className="w-4 h-4" /> Ajouter une recette
+                <Plus className="w-4 h-4" /> {rc.addRecipe}
               </button>
             )}
           </div>
@@ -423,12 +426,12 @@ export default function RecipesPage() {
           <table className="w-full">
             <thead className="bg-card">
               <tr>
-                <th className="px-4 py-3 text-left"><SortHeader label="Recette" field="name" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
-                <th className="px-4 py-3 text-left"><SortHeader label="Catégorie" field="category" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
-                <th className="px-4 py-3 text-center"><SortHeader label="Portions" field="portions" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
-                <th className="px-4 py-3 text-center"><SortHeader label="Ingrédients" field="ingredient_count" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
-                <th className="px-4 py-3 text-right"><SortHeader label="Coût" field="cost_price" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
-                {canWrite && <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">Actions</th>}
+                <th className="px-4 py-3 text-left"><SortHeader label={rc.recipe} field="name" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                <th className="px-4 py-3 text-left"><SortHeader label={rc.category} field="category" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                <th className="px-4 py-3 text-center"><SortHeader label={rc.portions} field="portions" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
+                <th className="px-4 py-3 text-center"><SortHeader label={rc.ingredients} field="ingredient_count" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
+                <th className="px-4 py-3 text-right"><SortHeader label={rc.cost} field="cost_price" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
+                {canWrite && <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">{rc.actions}</th>}
               </tr>
             </thead>
             <tbody>
@@ -472,21 +475,21 @@ export default function RecipesPage() {
                         <button
                           onClick={() => { fetchRecipeDetail(recipe.id); setShowDetailModal(true); }}
                           className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-card rounded-lg"
-                          title="Voir détails"
+                          title={rc.viewDetails}
                         >
                           <Eye className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => setEditingRecipe(recipe)}
                           className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-card rounded-lg"
-                          title="Modifier"
+                          title={rc.edit}
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteRecipe(recipe.id)}
                           className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg"
-                          title="Supprimer"
+                          title={rc.delete}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -505,7 +508,7 @@ export default function RecipesPage() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-secondary border border-border rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <h2 className="text-lg font-semibold text-foreground">Nouvelle Fiche Technique</h2>
+              <h2 className="text-lg font-semibold text-foreground">{rc.newSheet}</h2>
               <button onClick={() => setShowRecipeModal(false)} className="p-2 text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
@@ -514,36 +517,36 @@ export default function RecipesPage() {
               {/* Basic Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Nom de la recette *</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{rc.recipeName} *</label>
                   <input
                     type="text"
                     value={newRecipe.name}
                     onChange={e => setNewRecipe({ ...newRecipe, name: e.target.value })}
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
-                    placeholder="ex: Tiramisu Classique"
+                    placeholder={rc.namePlaceholder}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Nom français</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{rc.nameFr}</label>
                   <input
                     type="text"
                     value={newRecipe.name_fr}
                     onChange={e => setNewRecipe({ ...newRecipe, name_fr: e.target.value })}
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
-                    placeholder="ex: Tiramisu Classique"
+                    placeholder={rc.namePlaceholder}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Catégorie</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{rc.category}</label>
                   <input
                     type="text"
                     value={newRecipe.category}
                     onChange={e => setNewRecipe({ ...newRecipe, category: e.target.value })}
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
-                    placeholder="ex: dessert, entrée, pâtes"
+                    placeholder={rc.categoryPlaceholder}
                     list="recipe-categories"
                   />
                   <datalist id="recipe-categories">
@@ -553,16 +556,16 @@ export default function RecipesPage() {
                   </datalist>
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Difficulté</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{rc.difficulty}</label>
                   <select
                     value={newRecipe.difficulty}
                     onChange={e => setNewRecipe({ ...newRecipe, difficulty: e.target.value as '' | 'facile' | 'moyen' | 'difficile' })}
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
                   >
-                    <option value="">-- Sélectionner --</option>
-                    <option value="facile">Facile</option>
-                    <option value="moyen">Moyen</option>
-                    <option value="difficile">Difficile</option>
+                    <option value="">{rc.selectDifficulty}</option>
+                    <option value="facile">{rc.easy}</option>
+                    <option value="moyen">{rc.medium}</option>
+                    <option value="difficile">{rc.hard}</option>
                   </select>
                 </div>
               </div>
@@ -570,7 +573,7 @@ export default function RecipesPage() {
               {/* Portions & Pricing */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Nombre de portions</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{rc.portionCount}</label>
                   <input
                     type="number"
                     value={newRecipe.portions}
@@ -580,7 +583,7 @@ export default function RecipesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Prix de vente (DH)</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{rc.sellingPrice}</label>
                   <input
                     type="number"
                     step="0.01"
@@ -596,7 +599,7 @@ export default function RecipesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1.5">
-                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Temps de préparation (min)</span>
+                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {rc.prepTime}</span>
                   </label>
                   <input
                     type="number"
@@ -609,7 +612,7 @@ export default function RecipesPage() {
                 </div>
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1.5">
-                    <span className="flex items-center gap-1"><Timer className="w-3 h-3" /> Temps de cuisson (min)</span>
+                    <span className="flex items-center gap-1"><Timer className="w-3 h-3" /> {rc.cookTime}</span>
                   </label>
                   <input
                     type="number"
@@ -624,25 +627,25 @@ export default function RecipesPage() {
 
               {/* Instructions */}
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Instructions de préparation</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{rc.instructions}</label>
                 <textarea
                   value={newRecipe.instructions}
                   onChange={e => setNewRecipe({ ...newRecipe, instructions: e.target.value })}
                   className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm resize-none"
                   rows={4}
-                  placeholder="1. Préparer les ingrédients...&#10;2. Mélanger...&#10;3. Cuire..."
+                  placeholder={rc.instructionsPlaceholder}
                 />
               </div>
 
               {/* Notes */}
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Notes</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{rc.notes}</label>
                 <textarea
                   value={newRecipe.notes}
                   onChange={e => setNewRecipe({ ...newRecipe, notes: e.target.value })}
                   className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm resize-none"
                   rows={2}
-                  placeholder="Conseils, variantes, allergènes..."
+                  placeholder={rc.notesPlaceholder}
                 />
               </div>
             </div>
@@ -651,13 +654,13 @@ export default function RecipesPage() {
                 onClick={() => setShowRecipeModal(false)}
                 className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm"
               >
-                Annuler
+                {rc.cancel}
               </button>
               <button
                 onClick={handleCreateRecipe}
                 className="px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm font-medium"
               >
-                Créer
+                {rc.create}
               </button>
             </div>
           </div>
@@ -669,7 +672,7 @@ export default function RecipesPage() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-secondary border border-border rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <h2 className="text-lg font-semibold text-foreground">Modifier Fiche Technique</h2>
+              <h2 className="text-lg font-semibold text-foreground">{rc.editSheet}</h2>
               <button onClick={() => setEditingRecipe(null)} className="p-2 text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
@@ -678,7 +681,7 @@ export default function RecipesPage() {
               {/* Basic Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Nom de la recette *</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{rc.recipeName} *</label>
                   <input
                     type="text"
                     value={editingRecipe.name}
@@ -687,7 +690,7 @@ export default function RecipesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Nom français</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{rc.nameFr}</label>
                   <input
                     type="text"
                     value={editingRecipe.name_fr || ''}
@@ -699,7 +702,7 @@ export default function RecipesPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Catégorie</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{rc.category}</label>
                   <input
                     type="text"
                     value={editingRecipe.category || ''}
@@ -714,16 +717,16 @@ export default function RecipesPage() {
                   </datalist>
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Difficulté</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{rc.difficulty}</label>
                   <select
                     value={editingRecipe.difficulty || ''}
                     onChange={e => setEditingRecipe({ ...editingRecipe, difficulty: (e.target.value || null) as 'facile' | 'moyen' | 'difficile' | null })}
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
                   >
-                    <option value="">-- Sélectionner --</option>
-                    <option value="facile">Facile</option>
-                    <option value="moyen">Moyen</option>
-                    <option value="difficile">Difficile</option>
+                    <option value="">{rc.selectDifficulty}</option>
+                    <option value="facile">{rc.easy}</option>
+                    <option value="moyen">{rc.medium}</option>
+                    <option value="difficile">{rc.hard}</option>
                   </select>
                 </div>
               </div>
@@ -731,7 +734,7 @@ export default function RecipesPage() {
               {/* Portions & Pricing */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Nombre de portions</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{rc.portionCount}</label>
                   <input
                     type="number"
                     value={editingRecipe.portions}
@@ -741,7 +744,7 @@ export default function RecipesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Prix de vente (DH)</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{rc.sellingPrice}</label>
                   <input
                     type="number"
                     step="0.01"
@@ -752,7 +755,7 @@ export default function RecipesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Coût (calculé)</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{rc.costCalculated}</label>
                   <div className="py-2.5 px-3 bg-card/50 border border-border rounded-lg text-foreground text-sm font-medium">
                     {formatCurrency(editingRecipe.cost_price)}
                   </div>
@@ -763,7 +766,7 @@ export default function RecipesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1.5">
-                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Temps de préparation (min)</span>
+                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {rc.prepTime}</span>
                   </label>
                   <input
                     type="number"
@@ -776,7 +779,7 @@ export default function RecipesPage() {
                 </div>
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1.5">
-                    <span className="flex items-center gap-1"><Timer className="w-3 h-3" /> Temps de cuisson (min)</span>
+                    <span className="flex items-center gap-1"><Timer className="w-3 h-3" /> {rc.cookTime}</span>
                   </label>
                   <input
                     type="number"
@@ -791,25 +794,25 @@ export default function RecipesPage() {
 
               {/* Instructions */}
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Instructions de préparation</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{rc.instructions}</label>
                 <textarea
                   value={editingRecipe.instructions || ''}
                   onChange={e => setEditingRecipe({ ...editingRecipe, instructions: e.target.value })}
                   className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm resize-none"
                   rows={4}
-                  placeholder="1. Préparer les ingrédients...&#10;2. Mélanger...&#10;3. Cuire..."
+                  placeholder={rc.instructionsPlaceholder}
                 />
               </div>
 
               {/* Notes */}
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Notes</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{rc.notes}</label>
                 <textarea
                   value={editingRecipe.notes || ''}
                   onChange={e => setEditingRecipe({ ...editingRecipe, notes: e.target.value })}
                   className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm resize-none"
                   rows={2}
-                  placeholder="Conseils, variantes, allergènes..."
+                  placeholder={rc.notesPlaceholder}
                 />
               </div>
             </div>
@@ -818,13 +821,13 @@ export default function RecipesPage() {
                 onClick={() => setEditingRecipe(null)}
                 className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm"
               >
-                Annuler
+                {rc.cancel}
               </button>
               <button
                 onClick={handleUpdateRecipe}
                 className="px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm font-medium"
               >
-                Enregistrer
+                {rc.save}
               </button>
             </div>
           </div>
@@ -841,7 +844,7 @@ export default function RecipesPage() {
                 <p className="text-sm text-muted-foreground">
                   {selectedRecipe.category && <span className="capitalize">{selectedRecipe.category}</span>}
                   {selectedRecipe.category && ' • '}
-                  {selectedRecipe.portions} portion(s)
+                  {selectedRecipe.portions} {rc.portion}
                   {selectedRecipe.difficulty && (
                     <span className={`ml-2 px-1.5 py-0.5 rounded text-xs capitalize ${
                       selectedRecipe.difficulty === 'facile' ? 'bg-green-500/10 text-green-600' :
@@ -865,14 +868,14 @@ export default function RecipesPage() {
                   <div className="bg-card rounded-lg p-3 text-center">
                     <Clock className="w-4 h-4 mx-auto text-muted-foreground mb-1" />
                     <p className="text-sm font-medium text-foreground">{selectedRecipe.preparation_time} min</p>
-                    <p className="text-xs text-muted-foreground">Préparation</p>
+                    <p className="text-xs text-muted-foreground">{rc.preparation}</p>
                   </div>
                 )}
                 {selectedRecipe.cooking_time && (
                   <div className="bg-card rounded-lg p-3 text-center">
                     <Timer className="w-4 h-4 mx-auto text-muted-foreground mb-1" />
                     <p className="text-sm font-medium text-foreground">{selectedRecipe.cooking_time} min</p>
-                    <p className="text-xs text-muted-foreground">Cuisson</p>
+                    <p className="text-xs text-muted-foreground">{rc.cooking}</p>
                   </div>
                 )}
                 {(selectedRecipe.preparation_time || selectedRecipe.cooking_time) && (
@@ -881,14 +884,14 @@ export default function RecipesPage() {
                     <p className="text-sm font-medium text-foreground">
                       {(selectedRecipe.preparation_time || 0) + (selectedRecipe.cooking_time || 0)} min
                     </p>
-                    <p className="text-xs text-muted-foreground">Total</p>
+                    <p className="text-xs text-muted-foreground">{rc.total}</p>
                   </div>
                 )}
                 {selectedRecipe.selling_price && (
                   <div className="bg-card rounded-lg p-3 text-center">
                     <DollarSign className="w-4 h-4 mx-auto text-green-500 mb-1" />
                     <p className="text-sm font-medium text-green-600">{formatCurrency(selectedRecipe.selling_price)}</p>
-                    <p className="text-xs text-muted-foreground">Prix de vente</p>
+                    <p className="text-xs text-muted-foreground">{rc.sellingPrice}</p>
                   </div>
                 )}
               </div>
@@ -896,7 +899,7 @@ export default function RecipesPage() {
               {/* Instructions */}
               {selectedRecipe.instructions && (
                 <div className="mb-5">
-                  <h3 className="font-medium text-foreground mb-2">Instructions</h3>
+                  <h3 className="font-medium text-foreground mb-2">{rc.instructions}</h3>
                   <div className="bg-card rounded-lg p-3 text-sm text-muted-foreground whitespace-pre-line">
                     {selectedRecipe.instructions}
                   </div>
@@ -906,7 +909,7 @@ export default function RecipesPage() {
               {/* Notes */}
               {selectedRecipe.notes && (
                 <div className="mb-5">
-                  <h3 className="font-medium text-foreground mb-2">Notes</h3>
+                  <h3 className="font-medium text-foreground mb-2">{rc.notes}</h3>
                   <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 text-sm text-foreground">
                     {selectedRecipe.notes}
                   </div>
@@ -915,20 +918,20 @@ export default function RecipesPage() {
 
               {/* Ingredients */}
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-medium text-foreground">Ingrédients</h3>
+                <h3 className="font-medium text-foreground">{rc.ingredients}</h3>
                 {canWrite && (
                   <button
                     onClick={() => setShowIngredientModal(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-[#606338] text-white rounded-lg text-xs font-medium"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Ajouter
+                    <Plus className="w-3.5 h-3.5" /> {t.backoffice.shared.add}
                   </button>
                 )}
               </div>
 
               {selectedRecipe.ingredients.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  Aucun ingrédient ajouté
+                  {rc.noIngredients}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -956,7 +959,7 @@ export default function RecipesPage() {
                             <button
                               onClick={() => handleLinkInventory(ing)}
                               className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded"
-                              title="Modifier / Lier à l'inventaire"
+                              title={rc.editLinkInventory}
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
@@ -979,11 +982,11 @@ export default function RecipesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Coût total</span>
+                    <span className="text-sm text-muted-foreground">{rc.totalCost}</span>
                     <span className="text-lg font-bold text-[#606338]">{formatCurrency(selectedRecipe.cost_price)}</span>
                   </div>
                   <div className="flex items-center justify-between mt-1">
-                    <span className="text-xs text-muted-foreground">Coût par portion</span>
+                    <span className="text-xs text-muted-foreground">{rc.costPerPortion}</span>
                     <span className="text-sm font-medium text-foreground">
                       {formatCurrency(selectedRecipe.cost_price / (selectedRecipe.portions || 1))}
                     </span>
@@ -992,11 +995,11 @@ export default function RecipesPage() {
                 {selectedRecipe.selling_price && selectedRecipe.selling_price > 0 && (
                   <div className="border-l border-border pl-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Prix de vente</span>
+                      <span className="text-sm text-muted-foreground">{rc.sellingPrice}</span>
                       <span className="text-lg font-bold text-green-600">{formatCurrency(selectedRecipe.selling_price)}</span>
                     </div>
                     <div className="flex items-center justify-between mt-1">
-                      <span className="text-xs text-muted-foreground">Marge</span>
+                      <span className="text-xs text-muted-foreground">{rc.margin}</span>
                       <span className={`text-sm font-medium ${
                         selectedRecipe.selling_price > selectedRecipe.cost_price ? 'text-green-600' : 'text-red-500'
                       }`}>
@@ -1018,7 +1021,7 @@ export default function RecipesPage() {
           <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <h2 className="text-lg font-semibold text-foreground">
-                {editingIngredient ? 'Modifier Ingrédient' : 'Ajouter Ingrédient'}
+                {editingIngredient ? rc.editIngredient : rc.addIngredient}
               </h2>
               <button
                 onClick={() => { setShowIngredientModal(false); setEditingIngredient(null); }}
@@ -1029,7 +1032,7 @@ export default function RecipesPage() {
             </div>
             <div className="p-5 space-y-4">
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Nom de l'ingrédient *</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{rc.ingredientName} *</label>
                 <input
                   type="text"
                   value={editingIngredient ? editingIngredient.ingredient_name : newIngredient.ingredient_name}
@@ -1038,12 +1041,12 @@ export default function RecipesPage() {
                     : setNewIngredient({ ...newIngredient, ingredient_name: e.target.value })
                   }
                   className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
-                  placeholder="ex: mascarpone, crème, sucre"
+                  placeholder={rc.ingredientPlaceholder}
                 />
               </div>
 
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Lier à l'inventaire (optionnel)</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{rc.linkInventory}</label>
                 <select
                   value={editingIngredient ? (editingIngredient.inventory_item_id || '') : newIngredient.inventory_item_id}
                   onChange={e => {
@@ -1066,7 +1069,7 @@ export default function RecipesPage() {
                   }}
                   className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
                 >
-                  <option value="">-- Non lié --</option>
+                  <option value="">{rc.notLinked}</option>
                   {inventoryItems.map(item => (
                     <option key={item.id} value={item.id}>
                       {item.name} ({item.unit} - {formatCurrency(item.cost_per_unit)})
@@ -1077,7 +1080,7 @@ export default function RecipesPage() {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Quantité</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{rc.quantity}</label>
                   <input
                     type="number"
                     step="0.001"
@@ -1090,7 +1093,7 @@ export default function RecipesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Unité</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{rc.unit}</label>
                   <select
                     value={editingIngredient ? editingIngredient.unit : newIngredient.unit}
                     onChange={e => editingIngredient
@@ -1107,7 +1110,7 @@ export default function RecipesPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Prix/Unité</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{rc.unitCost}</label>
                   <input
                     type="number"
                     step="0.01"
@@ -1123,7 +1126,7 @@ export default function RecipesPage() {
 
               <div className="p-3 bg-card rounded-lg">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Total</span>
+                  <span className="text-sm text-muted-foreground">{rc.total}</span>
                   <span className="font-bold text-[#606338]">
                     {formatCurrency(
                       (editingIngredient ? editingIngredient.quantity : newIngredient.quantity) *
@@ -1138,13 +1141,13 @@ export default function RecipesPage() {
                 onClick={() => { setShowIngredientModal(false); setEditingIngredient(null); }}
                 className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm"
               >
-                Annuler
+                {rc.cancel}
               </button>
               <button
                 onClick={editingIngredient ? handleUpdateIngredient : handleAddIngredient}
                 className="px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm font-medium"
               >
-                {editingIngredient ? 'Enregistrer' : 'Ajouter'}
+                {editingIngredient ? rc.save : t.backoffice.shared.add}
               </button>
             </div>
           </div>

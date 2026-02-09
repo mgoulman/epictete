@@ -5,26 +5,28 @@ import { useInView } from "framer-motion";
 import { useRef } from "react";
 import { Leaf, Flame, Heart } from "lucide-react";
 import { Section } from "@/components/layout/section";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 
 export function PhilosophySection() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
+  const { t } = useTranslation();
 
   const features = [
     {
       icon: Leaf,
-      title: "Bio de notre ferme",
-      description: "Produits frais et biologiques cultivés dans notre propre ferme",
+      title: t.philosophy.organic,
+      description: t.philosophy.organicDesc,
     },
     {
       icon: Flame,
-      title: "Four à bois",
-      description: "Pizzas cuites au feu de bois traditionnel napolitain",
+      title: t.philosophy.woodFired,
+      description: t.philosophy.woodFiredDesc,
     },
     {
       icon: Heart,
-      title: "Fait maison",
-      description: "Pâtes fraîches et sauces préparées chaque jour",
+      title: t.philosophy.homemade,
+      description: t.philosophy.homemadeDesc,
     },
   ];
 
@@ -49,9 +51,9 @@ export function PhilosophySection() {
             transition={{ duration: 0.8, delay: 0.1 }}
             className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-heading font-semibold text-foreground"
           >
-            Savoure chaque instant,
+            {t.philosophy.title}
             <br className="hidden sm:block" />
-            <span className="text-accent"> maîtrise chaque choix</span>
+            <span className="text-accent">{t.philosophy.titleAccent}</span>
           </motion.h2>
 
           <motion.p
@@ -60,8 +62,7 @@ export function PhilosophySection() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="mt-4 sm:mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed"
           >
-            Inspirés par la philosophie stoïcienne d&apos;Épictète, nous créons une 
-            expérience où chaque plat est une célébration des saveurs méditerranéennes.
+            {t.philosophy.description}
           </motion.p>
         </div>
 
@@ -100,9 +101,9 @@ export function PhilosophySection() {
           className="flex flex-wrap justify-center gap-6 sm:gap-8 md:gap-12"
         >
           {[
-            { number: "2025", label: "Ouverture" },
-            { number: "7j/7", label: "À votre service" },
-            { number: "100%", label: "Passion" },
+            { number: "2025", label: t.philosophy.opening },
+            { number: "7j/7", label: t.philosophy.atYourService },
+            { number: "100%", label: t.philosophy.passion },
           ].map((stat, index) => (
             <div key={index} className="text-center min-w-[80px]">
               <div className="text-2xl sm:text-3xl md:text-4xl font-heading text-accent font-semibold">

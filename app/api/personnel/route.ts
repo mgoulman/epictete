@@ -53,6 +53,8 @@ export async function GET(request: NextRequest) {
     if (type === 'time-off') {
       const staffId = searchParams.get('staffId');
       const status = searchParams.get('status');
+      const startDate = searchParams.get('startDate');
+      const endDate = searchParams.get('endDate');
 
       let query = supabase
         .from('time_off')
@@ -61,6 +63,10 @@ export async function GET(request: NextRequest) {
 
       if (staffId) query = query.eq('staff_id', staffId);
       if (status) query = query.eq('status', status);
+      // Overlap filter: time-off that overlaps with the given date range
+      if (startDate && endDate) {
+        query = query.lte('start_date', endDate).gte('end_date', startDate);
+      }
 
       const { data, error } = await query;
       if (error) throw error;

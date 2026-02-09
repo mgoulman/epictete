@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import type { Role, ProfileWithRole } from '@/lib/types/auth';
 import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared/SortHeader';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface UserFormData {
   email: string;
@@ -26,6 +27,9 @@ const emptyForm: UserFormData = {
 };
 
 export default function UsersPage() {
+  const { t } = useTranslation();
+  const u = t.backoffice.users;
+
   const [users, setUsers] = useState<ProfileWithRole[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,11 +123,11 @@ export default function UsersPage() {
 
   const handleSave = async () => {
     if (!formData.full_name || !formData.role_id) {
-      setFormError('Please fill in all required fields');
+      setFormError(u.requiredFields);
       return;
     }
     if (!editingUser && (!formData.email || !formData.password)) {
-      setFormError('Email and password are required for new users');
+      setFormError(u.emailPasswordRequired);
       return;
     }
 
@@ -227,12 +231,12 @@ export default function UsersPage() {
   );
 
   const totalUsers = users.length;
-  const activeUsers = users.filter(u => u.is_active).length;
-  const inactiveUsers = users.filter(u => !u.is_active).length;
+  const activeUsers = users.filter(usr => usr.is_active).length;
+  const inactiveUsers = users.filter(usr => !usr.is_active).length;
 
   const getRoleName = (roleId: string | null) => {
-    if (!roleId) return 'No Role';
-    return roles.find(r => r.id === roleId)?.display_name || 'Unknown';
+    if (!roleId) return u.noRole;
+    return roles.find(r => r.id === roleId)?.display_name || u.unknown;
   };
 
   const getRoleClasses = (roleName: string | undefined) => {
@@ -269,7 +273,7 @@ export default function UsersPage() {
       permission="users.manage"
       fallback={
         <div className="flex items-center justify-center h-[50vh]">
-          <p className="text-muted-foreground">You do not have permission to access this page.</p>
+          <p className="text-muted-foreground">{t.backoffice.shared.noPermission}</p>
         </div>
       }
     >
@@ -277,15 +281,15 @@ export default function UsersPage() {
         {/* Header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Users</h1>
-            <p className="text-muted-foreground mt-1 text-sm">Manage team accounts and permissions</p>
+            <h1 className="text-2xl font-semibold text-foreground">{u.title}</h1>
+            <p className="text-muted-foreground mt-1 text-sm">{u.subtitle}</p>
           </div>
           <button
             onClick={() => handleOpenModal()}
             className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium"
           >
             <Plus className="w-4 h-4" />
-            Add User
+            {u.addUser}
           </button>
         </div>
 
@@ -302,9 +306,9 @@ export default function UsersPage() {
         {/* Stats Cards */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: 'Total Users', value: totalUsers, colorClass: 'text-[#606338]', bgClass: 'bg-[#606338]/10', icon: Users },
-            { label: 'Active', value: activeUsers, colorClass: 'text-green-500', bgClass: 'bg-green-500/10', icon: UserCheck },
-            { label: 'Inactive', value: inactiveUsers, colorClass: 'text-red-500', bgClass: 'bg-red-500/10', icon: UserX }
+            { label: u.totalUsers, value: totalUsers, colorClass: 'text-[#606338]', bgClass: 'bg-[#606338]/10', icon: Users },
+            { label: u.active, value: activeUsers, colorClass: 'text-green-500', bgClass: 'bg-green-500/10', icon: UserCheck },
+            { label: u.inactive, value: inactiveUsers, colorClass: 'text-red-500', bgClass: 'bg-red-500/10', icon: UserX }
           ].map(stat => (
             <div key={stat.label} className="bg-secondary border border-border rounded-lg p-4 flex items-center gap-3">
               <div className={`w-10 h-10 rounded-lg ${stat.bgClass} flex items-center justify-center`}>
@@ -326,10 +330,10 @@ export default function UsersPage() {
               !selectedRole ? 'bg-[#606338] border-[#606338] text-white' : 'bg-card border-border text-muted-foreground hover:text-foreground'
             }`}
           >
-            All Roles ({users.length})
+            {u.allRoles} ({users.length})
           </button>
           {roles.map(role => {
-            const count = users.filter(u => u.role_id === role.id).length;
+            const count = users.filter(usr => usr.role_id === role.id).length;
             const isSelected = selectedRole === role.id;
             const classes = getRoleClasses(role.name);
             return (
@@ -355,7 +359,7 @@ export default function UsersPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name or email..."
+              placeholder={u.searchPlaceholder}
               className="w-full py-2.5 pl-10 pr-3 bg-secondary border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/40"
             />
           </div>
@@ -364,23 +368,23 @@ export default function UsersPage() {
             onChange={(e) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
             className="py-2.5 px-3.5 bg-secondary border border-border rounded-lg text-foreground text-sm cursor-pointer"
           >
-            <option value="all">All Status</option>
-            <option value="active">Active Only</option>
-            <option value="inactive">Inactive Only</option>
+            <option value="all">{u.allStatus}</option>
+            <option value="active">{u.activeOnly}</option>
+            <option value="inactive">{u.inactiveOnly}</option>
           </select>
         </div>
 
         {/* Results Count */}
-        <p className="text-[13px] text-muted-foreground">Showing {filteredUsers.length} of {users.length} users</p>
+        <p className="text-[13px] text-muted-foreground">{`${t.backoffice.shared.showing} ${filteredUsers.length} ${t.backoffice.shared.of} ${users.length} ${u.title.toLowerCase()}`}</p>
 
         {/* Users Table */}
         <div className="bg-secondary border border-border rounded-xl overflow-hidden">
           {/* Header */}
           <div className="hidden md:grid grid-cols-[1fr_140px_120px_100px_50px] gap-4 px-4 py-3 border-b border-border bg-card">
-            <SortHeader label="User" field="full_name" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
-            <SortHeader label="Role" field="role.name" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
-            <SortHeader label="Status" field="is_active" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
-            <SortHeader label="Joined" field="created_at" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
+            <SortHeader label={u.user} field="full_name" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
+            <SortHeader label={u.role} field="role.name" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
+            <SortHeader label={u.status} field="is_active" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
+            <SortHeader label={u.joined} field="created_at" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-semibold text-muted uppercase" />
             <span></span>
           </div>
 
@@ -400,7 +404,7 @@ export default function UsersPage() {
                     {getInitials(user)}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{user.full_name || 'No name'}</p>
+                    <p className="text-sm font-medium text-foreground truncate">{user.full_name || u.noName}</p>
                     <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
                       <Mail className="w-3 h-3" />
                       {user.email}
@@ -421,7 +425,7 @@ export default function UsersPage() {
                   <span className={`inline-block px-2.5 py-1 rounded-md text-xs font-medium ${
                     user.is_active ? 'bg-green-500/15 text-green-500' : 'bg-red-500/15 text-red-500'
                   }`}>
-                    {user.is_active ? 'Active' : 'Inactive'}
+                    {user.is_active ? u.active : u.inactive}
                   </span>
                 </div>
 
@@ -450,20 +454,20 @@ export default function UsersPage() {
                         className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary"
                       >
                         <Pencil className="w-3.5 h-3.5" />
-                        Edit User
+                        {u.editUser}
                       </button>
                       <button
                         onClick={() => { setConfirmDialog({ type: 'toggle', user }); setActiveDropdown(null); }}
                         className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary"
                       >
-                        {user.is_active ? <><UserX className="w-3.5 h-3.5" />Deactivate</> : <><UserCheck className="w-3.5 h-3.5" />Activate</>}
+                        {user.is_active ? <><UserX className="w-3.5 h-3.5" />{u.deactivate}</> : <><UserCheck className="w-3.5 h-3.5" />{u.activate}</>}
                       </button>
                       <button
                         onClick={() => { setConfirmDialog({ type: 'delete', user }); setActiveDropdown(null); }}
                         className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-red-500 text-[13px] cursor-pointer text-left hover:bg-red-500/10"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                        Delete User
+                        {u.deleteUser}
                       </button>
                     </div>
                   )}
@@ -475,7 +479,7 @@ export default function UsersPage() {
           {filteredUsers.length === 0 && (
             <div className="py-12 px-6 text-center">
               <Users className="w-12 h-12 text-muted mx-auto mb-4" />
-              <p className="text-muted-foreground">No users found</p>
+              <p className="text-muted-foreground">{u.noUsers}</p>
             </div>
           )}
         </div>
@@ -486,7 +490,7 @@ export default function UsersPage() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-6">
           <div className="bg-secondary border border-border rounded-2xl w-full max-w-[450px] max-h-[90vh] overflow-auto shadow-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border sticky top-0 bg-secondary z-10">
-              <h2 className="text-lg font-semibold text-foreground">{editingUser ? 'Edit User' : 'Add User'}</h2>
+              <h2 className="text-lg font-semibold text-foreground">{editingUser ? u.editUser : u.addUser}</h2>
               <button onClick={handleCloseModal} className="p-2 bg-transparent border-none rounded-md cursor-pointer text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
@@ -500,47 +504,47 @@ export default function UsersPage() {
               {!editingUser && (
                 <>
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1.5">Email *</label>
+                    <label className="block text-xs text-muted-foreground mb-1.5">{u.email} *</label>
                     <input
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/40"
-                      placeholder="user@example.com"
+                      placeholder={u.placeholderEmail}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1.5">Password *</label>
+                    <label className="block text-xs text-muted-foreground mb-1.5">{u.password} *</label>
                     <input
                       type="password"
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/40"
-                      placeholder="Minimum 6 characters"
+                      placeholder={u.minChars}
                     />
                   </div>
                 </>
               )}
 
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Full Name *</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{u.fullName} *</label>
                 <input
                   type="text"
                   value={formData.full_name}
                   onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                   className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/40"
-                  placeholder="John Doe"
+                  placeholder={u.placeholderName}
                 />
               </div>
 
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Role *</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{u.role} *</label>
                 <select
                   value={formData.role_id}
                   onChange={(e) => setFormData({ ...formData, role_id: e.target.value })}
                   className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none"
                 >
-                  <option value="">Select a role</option>
+                  <option value="">{u.selectRole}</option>
                   {roles.map(role => (
                     <option key={role.id} value={role.id}>{role.display_name}</option>
                   ))}
@@ -554,20 +558,20 @@ export default function UsersPage() {
                   onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
                   className="w-4 h-4 accent-[#606338]"
                 />
-                <span className="text-sm text-foreground">Account is active</span>
+                <span className="text-sm text-foreground">{u.accountActive}</span>
               </label>
             </div>
 
             <div className="flex justify-end gap-3 px-5 py-4 border-t border-border sticky bottom-0 bg-secondary">
               <button onClick={handleCloseModal} className="px-5 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm cursor-pointer hover:bg-card">
-                Cancel
+                {t.backoffice.shared.cancel}
               </button>
               <button
                 onClick={handleSave}
                 disabled={saving}
                 className="px-5 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] border-none rounded-lg text-white text-sm font-medium cursor-pointer disabled:opacity-70 disabled:cursor-wait"
               >
-                {saving ? 'Saving...' : (editingUser ? 'Save Changes' : 'Create User')}
+                {saving ? u.saving : (editingUser ? u.saveChanges : u.createUser)}
               </button>
             </div>
           </div>
@@ -579,15 +583,15 @@ export default function UsersPage() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-6">
           <div className="bg-secondary border border-border rounded-2xl w-full max-w-[400px] p-6 shadow-2xl">
             <h3 className="text-lg font-semibold text-foreground mb-3">
-              {confirmDialog.type === 'delete' ? 'Delete User' : confirmDialog.user.is_active ? 'Deactivate User' : 'Activate User'}
+              {confirmDialog.type === 'delete' ? u.deleteUser : confirmDialog.user.is_active ? u.deactivateUser : u.activateUser}
             </h3>
             <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
               {confirmDialog.type === 'delete' ? (
-                <>Are you sure you want to delete <strong className="text-foreground">{confirmDialog.user.full_name || confirmDialog.user.email}</strong>? This action cannot be undone.</>
+                <>{u.confirmDeleteMsg} <strong className="text-foreground">{confirmDialog.user.full_name || confirmDialog.user.email}</strong>? {u.cannotUndo}</>
               ) : confirmDialog.user.is_active ? (
-                <>Are you sure you want to deactivate <strong className="text-foreground">{confirmDialog.user.full_name || confirmDialog.user.email}</strong>? They will no longer be able to access the system.</>
+                <>{u.confirmDeactivateMsg} <strong className="text-foreground">{confirmDialog.user.full_name || confirmDialog.user.email}</strong>? {u.noAccessMsg}</>
               ) : (
-                <>Are you sure you want to activate <strong className="text-foreground">{confirmDialog.user.full_name || confirmDialog.user.email}</strong>?</>
+                <>{u.confirmActivateMsg} <strong className="text-foreground">{confirmDialog.user.full_name || confirmDialog.user.email}</strong>?</>
               )}
             </p>
             <div className="flex justify-end gap-3">
@@ -596,7 +600,7 @@ export default function UsersPage() {
                 disabled={confirming}
                 className="px-5 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm cursor-pointer hover:bg-card"
               >
-                Cancel
+                {t.backoffice.shared.cancel}
               </button>
               <button
                 onClick={confirmDialog.type === 'delete' ? handleDelete : handleToggleActive}
@@ -605,7 +609,7 @@ export default function UsersPage() {
                   confirmDialog.type === 'delete' || confirmDialog.user.is_active ? 'bg-red-500' : 'bg-green-500'
                 }`}
               >
-                {confirming ? 'Processing...' : confirmDialog.type === 'delete' ? 'Delete' : confirmDialog.user.is_active ? 'Deactivate' : 'Activate'}
+                {confirming ? t.backoffice.shared.processing : confirmDialog.type === 'delete' ? t.backoffice.shared.delete : confirmDialog.user.is_active ? u.deactivate : u.activate}
               </button>
             </div>
           </div>

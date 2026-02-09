@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { LanguageProvider, HtmlLangUpdater } from "@/lib/i18n/context";
 import { siteConfig } from "@/config/site";
 import "./globals.css";
 
@@ -61,6 +62,7 @@ export const metadata: Metadata = {
     languages: {
       "fr-MA": siteConfig.url,
       "fr": siteConfig.url,
+      "en": siteConfig.url,
     },
   },
   openGraph: {
@@ -198,7 +200,7 @@ const jsonLd = {
       publisher: {
         "@id": `${siteConfig.url}/#restaurant`,
       },
-      inLanguage: "fr-MA",
+      inLanguage: ["fr-MA", "en"],
       potentialAction: {
         "@type": "SearchAction",
         target: {
@@ -263,7 +265,10 @@ export default function RootLayout({
       </head>
       <body className={`${playfair.variable} ${inter.variable} antialiased`}>
         <ThemeProvider defaultTheme="dark" storageKey="epictete-theme">
-          {children}
+          <LanguageProvider>
+            <HtmlLangUpdater />
+            {children}
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -6,6 +6,7 @@ import {
   Minus, UserCheck, Sparkles, ShowerHead, ArrowRight
 } from 'lucide-react';
 import { useAuth, usePermissions } from '@/lib/auth/hooks';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 import type {
   FloorZone, Table, TableSession, TableOrder, TableStatus, TableShape,
   SessionStatus, OrderItemStatus
@@ -111,6 +112,8 @@ interface MenuCategory {
 export default function ServicePage() {
   const { user } = useAuth();
   const { isAdmin } = usePermissions();
+  const { t } = useTranslation();
+  const sv = t.backoffice.servicePage;
   const [zones, setZones] = useState<FloorZone[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
   const [activeZoneId, setActiveZoneId] = useState<string>('');
@@ -431,7 +434,7 @@ export default function ServicePage() {
   if (loading) {
     return (
       <div className="p-6 max-w-7xl mx-auto">
-        <div className="text-center py-20 text-muted-foreground">Loading service view...</div>
+        <div className="text-center py-20 text-muted-foreground">{sv.loading}</div>
       </div>
     );
   }
@@ -443,10 +446,10 @@ export default function ServicePage() {
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
             <ClipboardList className="w-5 h-5 md:w-6 md:h-6" />
-            Service
+            {sv.title}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {isAdmin() ? 'All tables' : 'Your assigned tables'}
+            {isAdmin() ? sv.allTables : sv.yourTables}
           </p>
         </div>
       </div>
@@ -484,7 +487,7 @@ export default function ServicePage() {
 
         {tables.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-            <p className="text-sm">No tables assigned to you in this zone.</p>
+            <p className="text-sm">{sv.noTablesInZone}</p>
           </div>
         )}
 
@@ -534,7 +537,7 @@ export default function ServicePage() {
           </div>
         ))}
         <span className="text-muted-foreground/50">|</span>
-        <span>Tap table to interact</span>
+        <span>{sv.tapToInteract}</span>
       </div>
 
       {/* Seat Guests Modal */}
@@ -542,7 +545,7 @@ export default function ServicePage() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center">
           <div className="bg-card border border-border rounded-t-2xl md:rounded-xl w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Seat Guests at {selectedTable.table_number}</h3>
+              <h3 className="text-lg font-semibold">{sv.seatGuestsAt} {selectedTable.table_number}</h3>
               <button onClick={() => setShowSeatModal(false)} className="p-2 hover:bg-secondary rounded-lg">
                 <X className="w-4 h-4" />
               </button>
@@ -556,7 +559,7 @@ export default function ServicePage() {
               </button>
               <div className="text-center">
                 <span className="text-4xl font-bold text-foreground">{guestCount}</span>
-                <p className="text-sm text-muted-foreground mt-1">guests</p>
+                <p className="text-sm text-muted-foreground mt-1">{sv.guests}</p>
               </div>
               <button
                 onClick={() => setGuestCount(Math.min(selectedTable.seats, guestCount + 1))}
@@ -571,11 +574,11 @@ export default function ServicePage() {
               className="w-full py-3 bg-[#606338] text-white rounded-xl text-sm font-medium hover:bg-[#4d4f2e] disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <UserCheck className="w-4 h-4" />
-              Seat {guestCount} Guests
+              {sv.seatGuestsAt} {guestCount} {sv.guests}
             </button>
             {!myStaffId && (
               <p className="text-xs text-red-500 mt-2 text-center">
-                No staff profile linked to your account. Ask admin to link your profile.
+                {sv.noStaffProfile}
               </p>
             )}
           </div>
@@ -592,7 +595,7 @@ export default function ServicePage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-semibold text-foreground">
-                    {selectedTable?.table_number} - Session
+                    {selectedTable?.table_number} - {sv.session}
                   </h3>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-xs px-2 py-0.5 rounded-full text-white"
@@ -601,7 +604,7 @@ export default function ServicePage() {
                       {SESSION_STATUS_CONFIG[activeSession.status as SessionStatus]?.label}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {activeSession.guests_count} guests
+                      {activeSession.guests_count} {sv.guests}
                     </span>
                   </div>
                 </div>
@@ -614,20 +617,20 @@ export default function ServicePage() {
             {/* Orders list */}
             <div className="p-4">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="font-medium text-foreground text-sm">Orders</h4>
+                <h4 className="font-medium text-foreground text-sm">{sv.orders}</h4>
                 <button
                   onClick={() => { loadMenuItems(); setShowMenuPicker(true); }}
                   disabled={activeSession.status === 'billed' || activeSession.status === 'closed'}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-[#606338] text-white rounded-lg text-xs font-medium hover:bg-[#4d4f2e] disabled:opacity-50"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  Add Item
+                  {sv.addItemBtn}
                 </button>
               </div>
 
               {orders.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">
-                  No orders yet. Add items from the menu.
+                  {sv.noOrdersYet}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -692,7 +695,7 @@ export default function ServicePage() {
               {/* Total */}
               {orders.length > 0 && (
                 <div className="mt-4 p-3 bg-secondary rounded-lg flex items-center justify-between">
-                  <span className="text-sm font-medium text-muted-foreground">Total</span>
+                  <span className="text-sm font-medium text-muted-foreground">{sv.total}</span>
                   <span className="text-lg font-bold text-foreground">{orderTotal.toFixed(2)} DH</span>
                 </div>
               )}
@@ -705,7 +708,7 @@ export default function ServicePage() {
                     className="w-full py-3 bg-blue-500 text-white rounded-xl text-sm font-medium hover:bg-blue-600 flex items-center justify-center gap-2"
                   >
                     <Check className="w-4 h-4" />
-                    Mark All Served
+                    {sv.markAllServed}
                   </button>
                 )}
 
@@ -715,7 +718,7 @@ export default function ServicePage() {
                     className="w-full py-3 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 flex items-center justify-center gap-2"
                   >
                     <Receipt className="w-4 h-4" />
-                    Generate Bill
+                    {sv.generateBill}
                   </button>
                 )}
 
@@ -725,7 +728,7 @@ export default function ServicePage() {
                     className="w-full py-3 bg-amber-500/20 text-amber-600 rounded-xl text-sm font-medium hover:bg-amber-500/30 flex items-center justify-center gap-2 mb-2"
                   >
                     <Receipt className="w-4 h-4" />
-                    View Bill
+                    {sv.viewBill}
                   </button>
                 )}
 
@@ -735,7 +738,7 @@ export default function ServicePage() {
                     className="w-full py-3 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 flex items-center justify-center gap-2"
                   >
                     <ArrowRight className="w-4 h-4" />
-                    Close Table
+                    {sv.closeTable}
                   </button>
                 )}
               </div>
@@ -753,7 +756,7 @@ export default function ServicePage() {
               <Sparkles className="w-5 h-5 mx-auto mb-1 text-[#606338]" />
               <h3 className="font-bold text-lg">Epictète</h3>
               <p className="text-xs text-gray-500 mt-1">
-                Table {selectedTable?.table_number} - {activeSession.guests_count} guests
+                Table {selectedTable?.table_number} - {activeSession.guests_count} {sv.guests}
               </p>
               <p className="text-xs text-gray-400">
                 {new Date().toLocaleDateString('fr-FR')} {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
@@ -776,7 +779,7 @@ export default function ServicePage() {
             {/* Total */}
             <div className="p-4 border-b border-dashed border-gray-300">
               <div className="flex justify-between items-center">
-                <span className="font-bold text-lg">Total</span>
+                <span className="font-bold text-lg">{sv.total}</span>
                 <span className="font-bold text-xl">{(activeSession.total_amount || orderTotal).toFixed(2)} DH</span>
               </div>
             </div>
@@ -787,13 +790,13 @@ export default function ServicePage() {
                 onClick={() => setShowBill(false)}
                 className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
               >
-                Back
+                {sv.backBtn}
               </button>
               <button
                 onClick={handleCloseTable}
                 className="flex-1 py-2.5 bg-[#606338] text-white rounded-lg text-sm font-medium hover:bg-[#4d4f2e]"
               >
-                Close Table
+                {sv.closeTable}
               </button>
             </div>
           </div>
@@ -810,7 +813,7 @@ export default function ServicePage() {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-foreground flex items-center gap-2">
                   <Plus className="w-4 h-4" />
-                  Add Menu Item
+                  {sv.addMenuItem}
                 </h3>
                 <button onClick={() => setShowMenuPicker(false)} className="p-2 hover:bg-secondary rounded-lg">
                   <X className="w-4 h-4" />
@@ -822,7 +825,7 @@ export default function ServicePage() {
                   type="text"
                   value={menuSearch}
                   onChange={(e) => setMenuSearch(e.target.value)}
-                  placeholder="Search menu..."
+                  placeholder={sv.searchMenu}
                   className="w-full pl-10 pr-4 py-2.5 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
                   autoFocus
                 />
@@ -837,7 +840,7 @@ export default function ServicePage() {
                       : 'bg-secondary text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  All
+                  {sv.allFilter}
                 </button>
                 {menuCategories.map(cat => (
                   <button
@@ -875,7 +878,7 @@ export default function ServicePage() {
               </div>
               {filteredMenuItems.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground text-sm">
-                  No items match your search.
+                  {sv.noItemsMatch}
                 </div>
               )}
             </div>

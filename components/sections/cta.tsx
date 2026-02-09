@@ -7,10 +7,12 @@ import Link from "next/link";
 import { MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 
 export function CTASection() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
+  const { t } = useTranslation();
 
   return (
     <section className="relative py-16 sm:py-24 md:py-32 overflow-hidden">
@@ -27,7 +29,7 @@ export function CTASection() {
           transition={{ duration: 0.8 }}
         >
           <p className="text-accent text-xs sm:text-sm font-medium uppercase tracking-[0.2em] sm:tracking-[0.3em] mb-3 sm:mb-4">
-            Réservation
+            {t.cta.eyebrow}
           </p>
         </motion.div>
 
@@ -37,9 +39,9 @@ export function CTASection() {
           transition={{ duration: 0.8, delay: 0.1 }}
           className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-heading font-semibold text-foreground leading-tight"
         >
-          Prêt à vivre l&apos;expérience
+          {t.cta.title}
           <br />
-          <span className="text-accent">Epictete ?</span>
+          <span className="text-accent">{t.cta.titleAccent}</span>
         </motion.h2>
 
         <motion.p
@@ -48,8 +50,7 @@ export function CTASection() {
           transition={{ duration: 0.8, delay: 0.2 }}
           className="mt-4 sm:mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto"
         >
-          Réservez votre table dès maintenant et laissez-nous vous guider dans 
-          un voyage culinaire méditerranéen inoubliable.
+          {t.cta.description}
         </motion.p>
 
         <motion.div
@@ -60,13 +61,13 @@ export function CTASection() {
         >
           <Button size="lg" className="w-full sm:w-auto text-base py-4 sm:py-3.5" asChild>
             <Link href="/reservation">
-              Réserver maintenant
+              {t.cta.reserveNow}
             </Link>
           </Button>
           <Button variant="outline" size="lg" className="w-full sm:w-auto text-base py-4 sm:py-3.5" asChild>
             <Link href="/contact">
               <MessageCircle size={18} className="mr-2" />
-              Nous contacter
+              {t.cta.contactUs}
             </Link>
           </Button>
         </motion.div>
@@ -77,14 +78,14 @@ export function CTASection() {
           transition={{ duration: 0.8, delay: 0.5 }}
           className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 text-sm text-muted-foreground"
         >
-          <a 
+          <a
             href={`tel:${siteConfig.contact.phone.replace(/\s/g, "")}`}
             className="hover:text-accent transition-colors"
           >
             <span className="text-accent">{siteConfig.contact.phone}</span>
           </a>
-          <span className="hidden sm:inline">•</span>
-          <a 
+          <span className="hidden sm:inline">&bull;</span>
+          <a
             href={`tel:${siteConfig.contact.phoneSecondary.replace(/\s/g, "")}`}
             className="hover:text-accent transition-colors"
           >

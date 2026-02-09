@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { usePermissions } from '@/lib/auth/hooks';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 import {
   BookOpen, Plus, Search, Edit2, Trash2, X, Eye,
   GripVertical, Check, Calendar, Tag, ToggleLeft, ToggleRight
@@ -46,18 +47,20 @@ interface MenuDetail extends Omit<Menu, 'item_count'> {
   items: MenuItemLink[];
 }
 
-const MENU_TYPES = [
-  { value: 'standard', label: 'Standard' },
-  { value: 'lunch', label: 'Déjeuner' },
-  { value: 'dinner', label: 'Dîner' },
-  { value: 'tasting', label: 'Dégustation' },
-  { value: 'seasonal', label: 'Saisonnier' },
-  { value: 'special', label: 'Spécial' }
-];
-
 export default function MenusPage() {
   const { hasPermission } = usePermissions();
   const canWrite = hasPermission('menu.write');
+  const { t } = useTranslation();
+  const mn = t.backoffice.menusPage;
+
+  const MENU_TYPES = [
+    { value: 'standard', label: mn.menuTypes.standard },
+    { value: 'lunch', label: mn.menuTypes.lunch },
+    { value: 'dinner', label: mn.menuTypes.dinner },
+    { value: 'tasting', label: mn.menuTypes.tasting },
+    { value: 'seasonal', label: mn.menuTypes.seasonal },
+    { value: 'special', label: mn.menuTypes.special }
+  ];
 
   const [menus, setMenus] = useState<Menu[]>([]);
   const [allMenuItems, setAllMenuItems] = useState<MenuItem[]>([]);
@@ -130,7 +133,7 @@ export default function MenusPage() {
 
   const handleCreateMenu = async () => {
     if (!newMenu.name) {
-      alert('Veuillez entrer un nom de menu');
+      alert(mn.nameRequired);
       return;
     }
 
@@ -195,7 +198,7 @@ export default function MenusPage() {
   };
 
   const handleDeleteMenu = async (id: string) => {
-    if (!confirm('Supprimer ce menu?')) return;
+    if (!confirm(mn.deleteMenu)) return;
 
     try {
       await fetch(`/api/menus?type=menu&id=${id}`, { method: 'DELETE' });
@@ -251,7 +254,7 @@ export default function MenusPage() {
   };
 
   const handleRemoveItem = async (linkId: string) => {
-    if (!confirm('Retirer cet article du menu?')) return;
+    if (!confirm(mn.removeItem)) return;
 
     try {
       await fetch(`/api/menus?type=menu-item&id=${linkId}`, { method: 'DELETE' });
@@ -292,8 +295,8 @@ export default function MenusPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Menus</h1>
-          <p className="text-muted-foreground mt-1">Créer et gérer vos différents menus</p>
+          <h1 className="text-2xl font-bold text-foreground">{mn.title}</h1>
+          <p className="text-muted-foreground mt-1">{mn.subtitle}</p>
         </div>
         {canWrite && (
           <button
@@ -301,7 +304,7 @@ export default function MenusPage() {
             className="flex items-center gap-2 px-4 py-2.5 bg-[#606338] text-white rounded-lg hover:bg-[#4d4f2e] transition-colors"
           >
             <Plus className="w-4 h-4" />
-            Nouveau Menu
+            {mn.newMenu}
           </button>
         )}
       </div>
@@ -312,7 +315,7 @@ export default function MenusPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Rechercher un menu..."
+            placeholder={mn.searchMenu}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-secondary border border-border rounded-lg text-foreground text-sm"
@@ -329,7 +332,7 @@ export default function MenusPage() {
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">{menus.length}</p>
-              <p className="text-xs text-muted-foreground">Menus Total</p>
+              <p className="text-xs text-muted-foreground">{mn.menusTotal}</p>
             </div>
           </div>
         </div>
@@ -342,7 +345,7 @@ export default function MenusPage() {
               <p className="text-2xl font-bold text-foreground">
                 {menus.filter(m => m.is_active).length}
               </p>
-              <p className="text-xs text-muted-foreground">Menus Actifs</p>
+              <p className="text-xs text-muted-foreground">{mn.activeMenus}</p>
             </div>
           </div>
         </div>
@@ -355,7 +358,7 @@ export default function MenusPage() {
               <p className="text-2xl font-bold text-foreground">
                 {menus.reduce((sum, m) => sum + m.item_count, 0)}
               </p>
-              <p className="text-xs text-muted-foreground">Articles Total</p>
+              <p className="text-xs text-muted-foreground">{mn.totalItems}</p>
             </div>
           </div>
         </div>
@@ -368,7 +371,7 @@ export default function MenusPage() {
               <p className="text-2xl font-bold text-foreground">
                 {menus.filter(m => m.type === 'seasonal').length}
               </p>
-              <p className="text-xs text-muted-foreground">Saisonniers</p>
+              <p className="text-xs text-muted-foreground">{mn.seasonal}</p>
             </div>
           </div>
         </div>
@@ -382,13 +385,13 @@ export default function MenusPage() {
       ) : filteredMenus.length === 0 ? (
         <div className="bg-secondary border border-border rounded-xl p-12 flex flex-col items-center justify-center">
           <BookOpen className="w-12 h-12 text-muted mb-4" />
-          <p className="text-muted-foreground">Aucun menu trouvé</p>
+          <p className="text-muted-foreground">{mn.noMenuFound}</p>
           {canWrite && (
             <button
               onClick={() => setShowMenuModal(true)}
               className="mt-4 flex items-center gap-2 px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm"
             >
-              <Plus className="w-4 h-4" /> Créer un menu
+              <Plus className="w-4 h-4" /> {mn.createMenu}
             </button>
           )}
         </div>
@@ -409,7 +412,7 @@ export default function MenusPage() {
                 <button
                   onClick={() => handleToggleActive(menu)}
                   className={`p-1 rounded ${menu.is_active ? 'text-green-500' : 'text-muted-foreground'}`}
-                  title={menu.is_active ? 'Actif' : 'Inactif'}
+                  title={menu.is_active ? mn.active : mn.inactive}
                 >
                   {menu.is_active ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
                 </button>
@@ -420,7 +423,7 @@ export default function MenusPage() {
                   {getTypeLabel(menu.type)}
                 </span>
                 <span className="px-2 py-0.5 bg-blue-500/10 text-blue-500 rounded text-xs font-medium">
-                  {menu.item_count} articles
+                  {menu.item_count} {mn.items}
                 </span>
               </div>
 
@@ -430,9 +433,9 @@ export default function MenusPage() {
 
               {(menu.valid_from || menu.valid_until) && (
                 <p className="text-xs text-muted-foreground mb-3">
-                  {menu.valid_from && `Du ${new Date(menu.valid_from).toLocaleDateString('fr-FR')}`}
+                  {menu.valid_from && `${mn.from} ${new Date(menu.valid_from).toLocaleDateString('fr-FR')}`}
                   {menu.valid_from && menu.valid_until && ' '}
-                  {menu.valid_until && `au ${new Date(menu.valid_until).toLocaleDateString('fr-FR')}`}
+                  {menu.valid_until && `${mn.until} ${new Date(menu.valid_until).toLocaleDateString('fr-FR')}`}
                 </p>
               )}
 
@@ -441,21 +444,21 @@ export default function MenusPage() {
                   onClick={() => { fetchMenuDetail(menu.id); setShowDetailModal(true); }}
                   className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-card hover:bg-primary/10 rounded-lg text-sm text-foreground transition-colors"
                 >
-                  <Eye className="w-4 h-4" /> Voir
+                  <Eye className="w-4 h-4" /> {mn.view}
                 </button>
                 {canWrite && (
                   <>
                     <button
                       onClick={() => setEditingMenu(menu)}
                       className="p-2 text-muted-foreground hover:text-foreground hover:bg-card rounded-lg"
-                      title="Modifier"
+                      title={mn.edit}
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDeleteMenu(menu.id)}
                       className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"
-                      title="Supprimer"
+                      title={mn.delete}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -472,7 +475,7 @@ export default function MenusPage() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-secondary border border-border rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <h2 className="text-lg font-semibold text-foreground">Nouveau Menu</h2>
+              <h2 className="text-lg font-semibold text-foreground">{mn.newMenu}</h2>
               <button onClick={() => setShowMenuModal(false)} className="p-2 text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
@@ -480,17 +483,17 @@ export default function MenusPage() {
             <div className="p-5 space-y-4 overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Nom *</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{mn.name} *</label>
                   <input
                     type="text"
                     value={newMenu.name}
                     onChange={e => setNewMenu({ ...newMenu, name: e.target.value })}
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
-                    placeholder="ex: Menu Déjeuner"
+                    placeholder={mn.namePlaceholder}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Nom français</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{mn.nameFr}</label>
                   <input
                     type="text"
                     value={newMenu.name_fr}
@@ -501,7 +504,7 @@ export default function MenusPage() {
               </div>
 
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Type de menu</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{mn.menuType}</label>
                 <select
                   value={newMenu.type}
                   onChange={e => setNewMenu({ ...newMenu, type: e.target.value as Menu['type'] })}
@@ -514,7 +517,7 @@ export default function MenusPage() {
               </div>
 
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Description</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{mn.description}</label>
                 <textarea
                   value={newMenu.description}
                   onChange={e => setNewMenu({ ...newMenu, description: e.target.value })}
@@ -525,7 +528,7 @@ export default function MenusPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Valide du</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{mn.validFrom}</label>
                   <input
                     type="date"
                     value={newMenu.valid_from}
@@ -534,7 +537,7 @@ export default function MenusPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Jusqu'au</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{mn.validUntil}</label>
                   <input
                     type="date"
                     value={newMenu.valid_until}
@@ -552,7 +555,7 @@ export default function MenusPage() {
                   onChange={e => setNewMenu({ ...newMenu, is_active: e.target.checked })}
                   className="w-4 h-4 rounded border-border"
                 />
-                <label htmlFor="is_active" className="text-sm text-foreground">Menu actif</label>
+                <label htmlFor="is_active" className="text-sm text-foreground">{mn.menuActive}</label>
               </div>
             </div>
             <div className="flex justify-end gap-3 px-5 py-4 border-t border-border">
@@ -560,13 +563,13 @@ export default function MenusPage() {
                 onClick={() => setShowMenuModal(false)}
                 className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm"
               >
-                Annuler
+                {mn.cancel}
               </button>
               <button
                 onClick={handleCreateMenu}
                 className="px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm font-medium"
               >
-                Créer
+                {mn.create}
               </button>
             </div>
           </div>
@@ -578,7 +581,7 @@ export default function MenusPage() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-secondary border border-border rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <h2 className="text-lg font-semibold text-foreground">Modifier Menu</h2>
+              <h2 className="text-lg font-semibold text-foreground">{mn.editMenu}</h2>
               <button onClick={() => setEditingMenu(null)} className="p-2 text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
@@ -586,7 +589,7 @@ export default function MenusPage() {
             <div className="p-5 space-y-4 overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Nom *</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{mn.name} *</label>
                   <input
                     type="text"
                     value={editingMenu.name}
@@ -595,7 +598,7 @@ export default function MenusPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Nom français</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{mn.nameFr}</label>
                   <input
                     type="text"
                     value={editingMenu.name_fr || ''}
@@ -606,7 +609,7 @@ export default function MenusPage() {
               </div>
 
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Type de menu</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{mn.menuType}</label>
                 <select
                   value={editingMenu.type}
                   onChange={e => setEditingMenu({ ...editingMenu, type: e.target.value as Menu['type'] })}
@@ -619,7 +622,7 @@ export default function MenusPage() {
               </div>
 
               <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Description</label>
+                <label className="block text-xs text-muted-foreground mb-1.5">{mn.description}</label>
                 <textarea
                   value={editingMenu.description || ''}
                   onChange={e => setEditingMenu({ ...editingMenu, description: e.target.value })}
@@ -630,7 +633,7 @@ export default function MenusPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Valide du</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{mn.validFrom}</label>
                   <input
                     type="date"
                     value={editingMenu.valid_from || ''}
@@ -639,7 +642,7 @@ export default function MenusPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-muted-foreground mb-1.5">Jusqu'au</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">{mn.validUntil}</label>
                   <input
                     type="date"
                     value={editingMenu.valid_until || ''}
@@ -657,7 +660,7 @@ export default function MenusPage() {
                   onChange={e => setEditingMenu({ ...editingMenu, is_active: e.target.checked })}
                   className="w-4 h-4 rounded border-border"
                 />
-                <label htmlFor="edit_is_active" className="text-sm text-foreground">Menu actif</label>
+                <label htmlFor="edit_is_active" className="text-sm text-foreground">{mn.menuActive}</label>
               </div>
             </div>
             <div className="flex justify-end gap-3 px-5 py-4 border-t border-border">
@@ -665,13 +668,13 @@ export default function MenusPage() {
                 onClick={() => setEditingMenu(null)}
                 className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm"
               >
-                Annuler
+                {mn.cancel}
               </button>
               <button
                 onClick={handleUpdateMenu}
                 className="px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm font-medium"
               >
-                Enregistrer
+                {mn.save}
               </button>
             </div>
           </div>
@@ -686,7 +689,7 @@ export default function MenusPage() {
               <div>
                 <h2 className="text-lg font-semibold text-foreground">{selectedMenu.name}</h2>
                 <p className="text-sm text-muted-foreground">
-                  {getTypeLabel(selectedMenu.type)} • {selectedMenu.items.length} articles
+                  {getTypeLabel(selectedMenu.type)} • {selectedMenu.items.length} {mn.items}
                 </p>
               </div>
               <button onClick={() => { setShowDetailModal(false); setSelectedMenu(null); }} className="p-2 text-muted-foreground hover:text-foreground">
@@ -696,20 +699,20 @@ export default function MenusPage() {
 
             <div className="flex-1 overflow-y-auto p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-medium text-foreground">Articles du menu</h3>
+                <h3 className="font-medium text-foreground">{mn.menuItems}</h3>
                 {canWrite && (
                   <button
                     onClick={() => setShowAddItemsModal(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-[#606338] text-white rounded-lg text-xs font-medium"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Ajouter
+                    <Plus className="w-3.5 h-3.5" /> {mn.add}
                   </button>
                 )}
               </div>
 
               {selectedMenu.items.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  Aucun article dans ce menu
+                  {mn.noItemsInMenu}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -760,7 +763,7 @@ export default function MenusPage() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
           <div className="bg-secondary border border-border rounded-2xl w-full max-w-lg shadow-2xl max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <h2 className="text-lg font-semibold text-foreground">Ajouter des articles</h2>
+              <h2 className="text-lg font-semibold text-foreground">{mn.addItems}</h2>
               <button
                 onClick={() => { setShowAddItemsModal(false); setSelectedItems([]); setItemSearchTerm(''); }}
                 className="p-2 text-muted-foreground hover:text-foreground"
@@ -774,7 +777,7 @@ export default function MenusPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Rechercher un article..."
+                  placeholder={mn.searchItem}
                   value={itemSearchTerm}
                   onChange={(e) => setItemSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 bg-card border border-border rounded-lg text-foreground text-sm"
@@ -782,7 +785,7 @@ export default function MenusPage() {
               </div>
               {selectedItems.length > 0 && (
                 <p className="mt-2 text-sm text-[#606338] font-medium">
-                  {selectedItems.length} article(s) sélectionné(s)
+                  {selectedItems.length} {mn.selectedItems}
                 </p>
               )}
             </div>
@@ -790,7 +793,7 @@ export default function MenusPage() {
             <div className="flex-1 overflow-y-auto p-4">
               {availableItems.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
-                  Aucun article disponible
+                  {mn.noAvailableItems}
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -835,14 +838,14 @@ export default function MenusPage() {
                 onClick={() => { setShowAddItemsModal(false); setSelectedItems([]); setItemSearchTerm(''); }}
                 className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-foreground text-sm"
               >
-                Annuler
+                {mn.cancel}
               </button>
               <button
                 onClick={handleAddItems}
                 disabled={selectedItems.length === 0}
                 className="px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm font-medium disabled:opacity-50"
               >
-                Ajouter ({selectedItems.length})
+                {mn.add} ({selectedItems.length})
               </button>
             </div>
           </div>

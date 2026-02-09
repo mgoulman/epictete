@@ -1,6 +1,7 @@
 import { AuthProvider } from '@/lib/auth/hooks';
 import { BackofficeShell } from '@/components/backoffice/layout/BackofficeShell';
 import { ThemeProvider } from '@/components/theme-provider';
+import { LanguageProvider } from '@/lib/i18n/context';
 import { PWAProvider } from '@/components/backoffice/PWAProvider';
 import type { Metadata, Viewport } from 'next';
 
@@ -49,11 +50,13 @@ export default function BackofficeLayout({
 }) {
   return (
     <ThemeProvider defaultTheme="system">
-      <AuthProvider>
-        <PWAProvider>
-          <BackofficeShell>{children}</BackofficeShell>
-        </PWAProvider>
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <PWAProvider>
+            <BackofficeShell>{children}</BackofficeShell>
+          </PWAProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }
