@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { usePermissions } from '@/lib/auth/hooks';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import {
@@ -50,6 +51,8 @@ interface RecentItem {
 
 export default function AdminDashboard() {
   const { hasPermission } = usePermissions();
+  const { t } = useTranslation();
+  const d = t.backoffice.dashboard;
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,10 +162,10 @@ export default function AdminDashboard() {
             <div className="w-12 h-12 rounded-xl bg-[#606338]/20 flex items-center justify-center">
               <UtensilsCrossed className="w-6 h-6 text-[#606338]" />
             </div>
-            <span className="text-sm text-[#606338]/80">{stats?.menuCategories} categories</span>
+            <span className="text-sm text-[#606338]/80">{stats?.menuCategories} {d.categories}</span>
           </div>
           <p className="text-4xl font-bold text-foreground">{stats?.menuItems || 0}</p>
-          <p className="text-muted-foreground mt-1">Menu Items</p>
+          <p className="text-muted-foreground mt-1">{d.menuItems}</p>
         </div>
 
         {/* Staff */}
@@ -171,10 +174,10 @@ export default function AdminDashboard() {
             <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center">
               <UserCog className="w-6 h-6 text-purple-500" />
             </div>
-            <span className="text-purple-500 text-sm">{stats?.activeStaff} active</span>
+            <span className="text-purple-500 text-sm">{stats?.activeStaff} {d.active}</span>
           </div>
           <p className="text-4xl font-bold text-foreground">{stats?.staffCount || 0}</p>
-          <p className="text-muted-foreground mt-1">Staff Members</p>
+          <p className="text-muted-foreground mt-1">{d.staffMembers}</p>
         </div>
 
         {/* Vendors Owed */}
@@ -184,13 +187,13 @@ export default function AdminDashboard() {
               <CreditCard className={`w-6 h-6 ${(stats?.totalOwedToVendors || 0) > 0 ? 'text-red-500' : 'text-green-500'}`} />
             </div>
             <span className={`text-sm ${(stats?.totalOwedToVendors || 0) > 0 ? 'text-red-400' : 'text-green-500'}`}>
-              {stats?.vendorCount} vendors
+              {stats?.vendorCount} {d.vendors}
             </span>
           </div>
           <p className={`text-3xl font-bold ${(stats?.totalOwedToVendors || 0) > 0 ? 'text-red-500' : 'text-foreground'}`}>
             {formatCurrency(stats?.totalOwedToVendors || 0)}
           </p>
-          <p className="text-muted-foreground mt-1">Owed to Vendors</p>
+          <p className="text-muted-foreground mt-1">{d.owedToVendors}</p>
         </div>
 
         {/* Team */}
@@ -199,10 +202,10 @@ export default function AdminDashboard() {
             <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
               <Users className="w-6 h-6 text-green-500" />
             </div>
-            <span className="text-green-500 text-sm">{stats?.activeUsers} active</span>
+            <span className="text-green-500 text-sm">{stats?.activeUsers} {d.active}</span>
           </div>
           <p className="text-4xl font-bold text-foreground">{stats?.users || 0}</p>
-          <p className="text-muted-foreground mt-1">System Users</p>
+          <p className="text-muted-foreground mt-1">{d.systemUsers}</p>
         </div>
       </div>
 
@@ -216,7 +219,7 @@ export default function AdminDashboard() {
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">{stats?.signatureItems || 0}</p>
-              <p className="text-xs text-muted-foreground">Signature Dishes</p>
+              <p className="text-xs text-muted-foreground">{d.signatureDishes}</p>
             </div>
           </div>
         </div>
@@ -231,7 +234,7 @@ export default function AdminDashboard() {
               <p className={`text-2xl font-bold ${(stats?.pendingTimeOff || 0) > 0 ? 'text-yellow-500' : 'text-foreground'}`}>
                 {stats?.pendingTimeOff || 0}
               </p>
-              <p className="text-xs text-muted-foreground">Pending Time Off</p>
+              <p className="text-xs text-muted-foreground">{d.pendingTimeOff}</p>
             </div>
           </div>
         </div>
@@ -244,7 +247,7 @@ export default function AdminDashboard() {
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">{stats?.inventoryItems || 0}</p>
-              <p className="text-xs text-muted-foreground">Inventory Items</p>
+              <p className="text-xs text-muted-foreground">{d.inventoryItems}</p>
             </div>
           </div>
         </div>
@@ -259,7 +262,7 @@ export default function AdminDashboard() {
               <p className={`text-2xl font-bold ${(stats?.lowStockItems || 0) > 0 ? 'text-red-500' : 'text-foreground'}`}>
                 {stats?.lowStockItems || 0}
               </p>
-              <p className="text-xs text-muted-foreground">Low Stock Items</p>
+              <p className="text-xs text-muted-foreground">{d.lowStockItems}</p>
             </div>
           </div>
         </div>
@@ -269,7 +272,7 @@ export default function AdminDashboard() {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Quick Actions */}
         <div className="lg:col-span-2 bg-secondary border border-border rounded-2xl p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-5">Quick Actions</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-5">{d.quickActions}</h2>
           <div className="grid sm:grid-cols-2 gap-4">
             {hasPermission('menu.write') && (
               <Link
@@ -280,8 +283,8 @@ export default function AdminDashboard() {
                   <Plus className="w-5 h-5 text-[#606338]" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-foreground">Add Menu Item</p>
-                  <p className="text-sm text-muted-foreground">Create a new dish</p>
+                  <p className="font-medium text-foreground">{d.addMenuItem}</p>
+                  <p className="text-sm text-muted-foreground">{d.createNewDish}</p>
                 </div>
                 <ArrowUpRight className="w-5 h-5 text-muted group-hover:text-[#606338] transition-colors" />
               </Link>
@@ -296,8 +299,8 @@ export default function AdminDashboard() {
                   <UserCog className="w-5 h-5 text-purple-500" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-foreground">Manage Personnel</p>
-                  <p className="text-sm text-muted-foreground">Staff & schedules</p>
+                  <p className="font-medium text-foreground">{d.managePersonnel}</p>
+                  <p className="text-sm text-muted-foreground">{d.staffSchedules}</p>
                 </div>
                 <ArrowUpRight className="w-5 h-5 text-muted group-hover:text-purple-500 transition-colors" />
               </Link>
@@ -312,8 +315,8 @@ export default function AdminDashboard() {
                   <CircleDollarSign className="w-5 h-5 text-green-500" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-foreground">Finance & Vendors</p>
-                  <p className="text-sm text-muted-foreground">Reports & payments</p>
+                  <p className="font-medium text-foreground">{d.financeVendors}</p>
+                  <p className="text-sm text-muted-foreground">{d.reportsPayments}</p>
                 </div>
                 <ArrowUpRight className="w-5 h-5 text-muted group-hover:text-green-500 transition-colors" />
               </Link>
@@ -327,8 +330,8 @@ export default function AdminDashboard() {
                 <Utensils className="w-5 h-5 text-[#7A7B4E]" />
               </div>
               <div className="flex-1">
-                <p className="font-medium text-foreground">View Full Menu</p>
-                <p className="text-sm text-muted-foreground">Browse all items</p>
+                <p className="font-medium text-foreground">{d.viewFullMenu}</p>
+                <p className="text-sm text-muted-foreground">{d.browseAllItems}</p>
               </div>
               <ArrowUpRight className="w-5 h-5 text-muted group-hover:text-[#7A7B4E] transition-colors" />
             </Link>
@@ -337,33 +340,33 @@ export default function AdminDashboard() {
 
         {/* Menu Status */}
         <div className="bg-secondary border border-border rounded-2xl p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-5">Menu Status</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-5">{d.menuStatus}</h2>
           <div className="space-y-3">
             <div className="flex items-center justify-between p-3 bg-card rounded-xl">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-muted-foreground">Available</span>
+                <span className="text-muted-foreground">{d.available}</span>
               </div>
               <span className="font-semibold text-foreground">{stats?.availableItems || 0}</span>
             </div>
             <div className="flex items-center justify-between p-3 bg-card rounded-xl">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-red-500" />
-                <span className="text-muted-foreground">Unavailable</span>
+                <span className="text-muted-foreground">{d.unavailable}</span>
               </div>
               <span className="font-semibold text-foreground">{(stats?.menuItems || 0) - (stats?.availableItems || 0)}</span>
             </div>
             <div className="flex items-center justify-between p-3 bg-card rounded-xl">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-yellow-500" />
-                <span className="text-muted-foreground">Signature</span>
+                <span className="text-muted-foreground">{d.signature}</span>
               </div>
               <span className="font-semibold text-foreground">{stats?.signatureItems || 0}</span>
             </div>
             <div className="flex items-center justify-between p-3 bg-card rounded-xl">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-[#606338]" />
-                <span className="text-muted-foreground">Categories</span>
+                <span className="text-muted-foreground">{d.categories}</span>
               </div>
               <span className="font-semibold text-foreground">{stats?.menuCategories || 0}</span>
             </div>
@@ -375,19 +378,19 @@ export default function AdminDashboard() {
       {recentItems.length > 0 && (
         <div className="bg-secondary border border-border rounded-2xl p-6">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-semibold text-foreground">Recently Updated Items</h2>
+            <h2 className="text-lg font-semibold text-foreground">{d.recentlyUpdated}</h2>
             <Link href="/admin/menu" className="text-sm text-[#606338] hover:text-[#7A7B4E] no-underline">
-              View all
+              {d.viewAll}
             </Link>
           </div>
           <div className="overflow-x-auto -mx-6 px-6">
             <table className="w-full min-w-[500px]">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left text-xs font-medium text-muted uppercase tracking-wider pb-3 pr-4">Item</th>
-                  <th className="text-left text-xs font-medium text-muted uppercase tracking-wider pb-3 pr-4">English</th>
-                  <th className="text-right text-xs font-medium text-muted uppercase tracking-wider pb-3 pr-4">Price</th>
-                  <th className="text-right text-xs font-medium text-muted uppercase tracking-wider pb-3">Updated</th>
+                  <th className="text-left text-xs font-medium text-muted uppercase tracking-wider pb-3 pr-4">{d.item}</th>
+                  <th className="text-left text-xs font-medium text-muted uppercase tracking-wider pb-3 pr-4">{d.english}</th>
+                  <th className="text-right text-xs font-medium text-muted uppercase tracking-wider pb-3 pr-4">{d.price}</th>
+                  <th className="text-right text-xs font-medium text-muted uppercase tracking-wider pb-3">{d.updated}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

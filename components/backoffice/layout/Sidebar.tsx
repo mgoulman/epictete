@@ -31,6 +31,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useAuth, usePermissions } from '@/lib/auth/hooks';
 import { usePWA } from '@/components/backoffice/PWAProvider';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 import { BACKOFFICE_NAV } from '@/lib/types/auth';
 import type { PermissionName, NavItem } from '@/lib/types/auth';
 
@@ -68,6 +69,10 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
   const { user, signOut } = useAuth();
   const { hasPermission, isAdmin } = usePermissions();
   const { isInstalled, canInstall, triggerInstall } = usePWA();
+  const { t } = useTranslation();
+
+  const navLabels = t.backoffice.nav as Record<string, string>;
+  const getNavLabel = (item: NavItem) => navLabels[item.key] || item.label;
 
   // Track expanded state for items with children
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
@@ -167,7 +172,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
             {!isCollapsed && (
               <div className="overflow-hidden">
                 <span className="text-[15px] font-semibold text-foreground block">Epictète</span>
-                <span className="text-[11px] text-muted-foreground block">Backoffice</span>
+                <span className="text-[11px] text-muted-foreground block">{t.backoffice.sidebar.backoffice}</span>
               </div>
             )}
           </Link>
@@ -230,7 +235,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                       `}
                     >
                       <Icon className="w-[18px] h-[18px] shrink-0" />
-                      <span className="text-[13px] font-medium flex-1 text-left">{item.label}</span>
+                      <span className="text-[13px] font-medium flex-1 text-left">{getNavLabel(item)}</span>
                       <ChevronDown
                         className={`w-4 h-4 shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
                       />
@@ -262,7 +267,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                               `}
                             >
                               <ChildIcon className="w-4 h-4 shrink-0" />
-                              <span className="text-[12px] font-medium">{child.label}</span>
+                              <span className="text-[12px] font-medium">{getNavLabel(child)}</span>
                             </Link>
                           );
                         })}
@@ -278,7 +283,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                   <Link
                     key={item.href}
                     href={item.children![0].href}
-                    title={item.label}
+                    title={getNavLabel(item)}
                     onClick={onMobileClose}
                     className={`
                       flex items-center gap-3 rounded-lg no-underline transition-all py-2.5 justify-center
@@ -298,7 +303,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                 <Link
                   key={item.href}
                   href={item.href}
-                  title={isCollapsed ? item.label : undefined}
+                  title={isCollapsed ? getNavLabel(item) : undefined}
                   onClick={onMobileClose}
                   className={`
                     flex items-center gap-3 rounded-lg no-underline transition-all
@@ -311,7 +316,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                 >
                   <Icon className="w-[18px] h-[18px] shrink-0" />
                   {!isCollapsed && (
-                    <span className="text-[13px] font-medium">{item.label}</span>
+                    <span className="text-[13px] font-medium">{getNavLabel(item)}</span>
                   )}
                 </Link>
               );
@@ -342,7 +347,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
             {canInstall && !isInstalled && (
               <button
                 onClick={triggerInstall}
-                title={isCollapsed ? 'Install App' : undefined}
+                title={isCollapsed ? t.backoffice.sidebar.installApp : undefined}
                 className={`
                   w-full flex items-center gap-3 rounded-lg transition-all mt-2
                   ${isCollapsed ? 'py-2.5 justify-center' : 'py-2.5 px-3'}
@@ -351,7 +356,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
               >
                 <Download className="w-[18px] h-[18px] shrink-0" />
                 {!isCollapsed && (
-                  <span className="text-[13px] font-medium">Install App</span>
+                  <span className="text-[13px] font-medium">{t.backoffice.sidebar.installApp}</span>
                 )}
               </button>
             )}
@@ -359,7 +364,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
             {/* Logout button */}
             <button
               onClick={handleSignOut}
-              title={isCollapsed ? 'Sign out' : undefined}
+              title={isCollapsed ? t.backoffice.sidebar.signOut : undefined}
               className={`
                 w-full flex items-center gap-3 rounded-lg transition-all mt-2
                 ${isCollapsed ? 'py-2.5 justify-center' : 'py-2.5 px-3'}
@@ -368,7 +373,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
             >
               <LogOut className="w-[18px] h-[18px] shrink-0" />
               {!isCollapsed && (
-                <span className="text-[13px] font-medium">Sign out</span>
+                <span className="text-[13px] font-medium">{t.backoffice.sidebar.signOut}</span>
               )}
             </button>
           </div>

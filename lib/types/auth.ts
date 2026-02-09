@@ -132,6 +132,7 @@ export const ROLE_PERMISSIONS: Record<RoleName, PermissionName[]> = {
 
 // Navigation items with required permissions
 export interface NavItem {
+  key: string;
   label: string;
   href: string;
   icon: string;
@@ -141,46 +142,50 @@ export interface NavItem {
 }
 
 export const BACKOFFICE_NAV: NavItem[] = [
-  { label: 'Dashboard', href: '/admin', icon: 'LayoutDashboard' },
+  { key: 'dashboard', label: 'Dashboard', href: '/admin', icon: 'LayoutDashboard' },
   {
+    key: 'menuManagement',
     label: 'Menu Management',
     href: '/admin/menu',
     icon: 'UtensilsCrossed',
     permission: 'menu.read',
     children: [
-      { label: 'Menu Items', href: '/admin/menu', icon: 'UtensilsCrossed' },
-      { label: 'Menus', href: '/admin/menus', icon: 'FileText' },
-      { label: 'Fiches Techniques', href: '/admin/recipes', icon: 'BookOpen' }
+      { key: 'menuItems', label: 'Menu Items', href: '/admin/menu', icon: 'UtensilsCrossed' },
+      { key: 'menus', label: 'Menus', href: '/admin/menus', icon: 'FileText' },
+      { key: 'recipes', label: 'Fiches Techniques', href: '/admin/recipes', icon: 'BookOpen' }
     ]
   },
   {
+    key: 'salle',
     label: 'Salle',
     href: '/admin/salle',
     icon: 'Armchair',
     permission: 'salle.read',
     children: [
-      { label: 'Plan de Salle', href: '/admin/salle', icon: 'Map', permission: 'salle.write' },
-      { label: 'Service', href: '/admin/salle/service', icon: 'ClipboardList' }
+      { key: 'floorPlan', label: 'Plan de Salle', href: '/admin/salle', icon: 'Map', permission: 'salle.write' },
+      { key: 'service', label: 'Service', href: '/admin/salle/service', icon: 'ClipboardList' }
     ]
   },
-  { label: 'Users', href: '/admin/users', icon: 'Users', permission: 'users.manage' },
-  { label: 'Personnel', href: '/admin/personnel', icon: 'UserCog', permission: 'users.manage' },
-  { label: 'Marketing', href: '/admin/marketing', icon: 'Megaphone', permission: 'marketing.read' },
-  { label: 'Docs', href: '/admin/docs', icon: 'FileText', permission: 'marketing.read' },
+  { key: 'users', label: 'Users', href: '/admin/users', icon: 'Users', permission: 'users.manage' },
+  { key: 'personnel', label: 'Personnel', href: '/admin/personnel', icon: 'UserCog', permission: 'users.manage' },
+  { key: 'transport', label: 'Transport', href: '/admin/transport', icon: 'Bus', permission: 'users.manage' },
+  { key: 'marketing', label: 'Marketing', href: '/admin/marketing', icon: 'Megaphone', permission: 'marketing.read' },
+  { key: 'docs', label: 'Docs', href: '/admin/docs', icon: 'FileText', permission: 'marketing.read' },
   {
+    key: 'finance',
     label: 'Finance',
     href: '/admin/finance',
     icon: 'DollarSign',
     permission: 'finance.read',
     defaultOpen: true,
     children: [
-      { label: 'Overview', href: '/admin/finance?tab=overview', icon: 'BarChart3' },
-      { label: 'Sales', href: '/admin/finance?tab=sales', icon: 'TrendingUp' },
-      { label: 'Inventory', href: '/admin/finance?tab=inventory', icon: 'Package' },
-      { label: 'Vendors', href: '/admin/finance?tab=vendors', icon: 'Users' },
-      { label: 'Import', href: '/admin/finance?tab=import', icon: 'Upload' }
+      { key: 'overview', label: 'Overview', href: '/admin/finance?tab=overview', icon: 'BarChart3' },
+      { key: 'sales', label: 'Sales', href: '/admin/finance?tab=sales', icon: 'TrendingUp' },
+      { key: 'inventory', label: 'Inventory', href: '/admin/finance?tab=inventory', icon: 'Package' },
+      { key: 'vendors', label: 'Vendors', href: '/admin/finance?tab=vendors', icon: 'Users' },
+      { key: 'import', label: 'Import', href: '/admin/finance?tab=import', icon: 'Upload' }
     ]
   },
-  { label: 'Audit Logs', href: '/admin/audit', icon: 'ScrollText', permission: 'audit.read' },
-  { label: 'Settings', href: '/admin/settings', icon: 'Settings', permission: 'settings.read' }
+  { key: 'auditLogs', label: 'Audit Logs', href: '/admin/audit', icon: 'ScrollText', permission: 'audit.read' },
+  { key: 'settings', label: 'Settings', href: '/admin/settings', icon: 'Settings', permission: 'settings.read' }
 ];

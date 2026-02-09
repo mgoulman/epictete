@@ -1,10 +1,27 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import { Instagram, Facebook, MapPin, Phone, Mail } from "lucide-react";
 import { siteConfig } from "@/config/site";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
+  const { t } = useTranslation();
+
+  const navLabels: Record<string, string> = {
+    home: t.nav.home,
+    menu: t.nav.menu,
+    about: t.nav.about,
+    reservation: t.nav.reservation,
+    contact: t.nav.contact,
+  };
+
+  const footerLinkLabels: Record<string, string> = {
+    legal: t.footer.legal,
+    privacy: t.footer.privacy,
+  };
 
   return (
     <footer className="bg-secondary border-t border-border">
@@ -27,8 +44,7 @@ export function Footer() {
               </span>
             </Link>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Une philosophie du goût. Découvrez une expérience gastronomique unique
-              inspirée de la sagesse stoïcienne.
+              {t.footer.philosophy}
             </p>
             {/* Social Links */}
             <div className="flex gap-4 pt-2">
@@ -56,16 +72,16 @@ export function Footer() {
           {/* Navigation */}
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-4">
-              Navigation
+              {t.footer.navigation}
             </h3>
             <ul className="space-y-3">
               {siteConfig.navigation.map((item) => (
-                <li key={item.name}>
+                <li key={item.key}>
                   <Link
                     href={item.href}
                     className="text-muted-foreground hover:text-accent transition-colors text-sm"
                   >
-                    {item.name}
+                    {navLabels[item.key] || item.name}
                   </Link>
                 </li>
               ))}
@@ -75,16 +91,16 @@ export function Footer() {
           {/* Hours */}
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-4">
-              Horaires
+              {t.footer.hours}
             </h3>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li>
-                <span className="text-foreground">Tous les jours:</span>
+                <span className="text-foreground">{t.footer.daily}</span>
                 <br />
                 {siteConfig.hours.daily}
               </li>
               <li>
-                <span className="text-accent">{siteConfig.hours.note}</span>
+                <span className="text-accent">{t.footer.serviceNote}</span>
               </li>
             </ul>
           </div>
@@ -126,16 +142,16 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="mt-12 pt-8 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-xs text-muted-foreground">
-            © {currentYear} {siteConfig.name}. Tous droits réservés.
+            &copy; {currentYear} {siteConfig.name}. {t.footer.allRights}
           </p>
           <div className="flex gap-6">
             {siteConfig.footerLinks.map((link) => (
               <Link
-                key={link.name}
+                key={link.key}
                 href={link.href}
                 className="text-xs text-muted-foreground hover:text-accent transition-colors"
               >
-                {link.name}
+                {footerLinkLabels[link.key] || link.name}
               </Link>
             ))}
           </div>

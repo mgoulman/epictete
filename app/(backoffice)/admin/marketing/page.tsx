@@ -9,8 +9,12 @@ import {
   FileText, Flame, Search, Image, GripVertical,
   Check, X, Loader2, Eye
 } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 export default function MarketingPage() {
+  const { t } = useTranslation();
+  const m = t.backoffice.marketing;
+
   const [supabase] = useState(() => createSupabaseBrowserClient());
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
@@ -66,7 +70,7 @@ export default function MarketingPage() {
       permission="marketing.read"
       fallback={
         <div className="flex items-center justify-center h-[50vh]">
-          <p className="text-muted-foreground">You do not have permission to access this page.</p>
+          <p className="text-muted-foreground">{t.backoffice.shared.noPermission}</p>
         </div>
       }
     >
@@ -74,8 +78,8 @@ export default function MarketingPage() {
         {/* Header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Marketing</h1>
-            <p className="text-muted-foreground mt-1 text-sm">Manage your landing page content</p>
+            <h1 className="text-2xl font-semibold text-foreground">{m.title}</h1>
+            <p className="text-muted-foreground mt-1 text-sm">{m.subtitle}</p>
           </div>
           <div className="flex gap-2">
             <Link
@@ -84,14 +88,14 @@ export default function MarketingPage() {
               className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border rounded-lg text-foreground text-sm font-medium no-underline hover:bg-secondary transition-colors"
             >
               <Eye className="w-4 h-4" />
-              Preview Site
+              {m.previewSite}
             </Link>
             <Link
               href="/admin/docs"
               className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium no-underline"
             >
               <FileText className="w-4 h-4" />
-              View Docs
+              {m.viewDocs}
             </Link>
           </div>
         </div>
@@ -104,8 +108,8 @@ export default function MarketingPage() {
                 <Flame className="w-5 h-5 text-orange-500" />
               </div>
               <div>
-                <h2 className="text-base font-semibold text-foreground">Featured Dishes</h2>
-                <p className="text-xs text-muted-foreground">Select which dishes appear on the landing page</p>
+                <h2 className="text-base font-semibold text-foreground">{m.featuredDishes}</h2>
+                <p className="text-xs text-muted-foreground">{m.featuredSubtitle}</p>
               </div>
             </div>
             <span className={`px-3 py-1 text-sm font-semibold rounded-full ${isAtLimit ? 'bg-red-500/10 text-red-500' : 'bg-orange-500/10 text-orange-500'}`}>
@@ -122,7 +126,7 @@ export default function MarketingPage() {
               {/* Currently Featured */}
               {featuredItems.length > 0 && (
                 <div className="px-5 py-4 border-b border-border bg-orange-500/[0.03]">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Currently on Landing Page</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">{m.currentlyOnLanding}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {featuredItems.map(item => (
                       <div key={item.id} className="flex items-center gap-3 p-3 bg-card border border-orange-500/20 rounded-xl group">
@@ -141,7 +145,7 @@ export default function MarketingPage() {
                           onClick={() => toggleFeatured(item)}
                           disabled={togglingId === item.id}
                           className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
-                          title="Remove from landing page"
+                          title={m.removeFromLanding}
                         >
                           {togglingId === item.id ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -157,7 +161,7 @@ export default function MarketingPage() {
 
               {/* All Items Picker */}
               <div className="px-5 py-4">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">All Menu Items</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">{m.allMenuItems}</p>
 
                 {/* Search + Category Filter */}
                 <div className="flex gap-3 items-center flex-wrap mb-4">
@@ -167,7 +171,7 @@ export default function MarketingPage() {
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search dishes..."
+                      placeholder={m.searchDishes}
                       className="w-full py-2.5 pl-10 pr-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/40"
                     />
                   </div>
@@ -182,7 +186,7 @@ export default function MarketingPage() {
                         : 'bg-card border-border text-muted-foreground hover:text-foreground'
                     }`}
                   >
-                    All
+                    {m.all}
                   </button>
                   {categories.map(cat => (
                     <button
@@ -241,7 +245,7 @@ export default function MarketingPage() {
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium text-foreground truncate">{item.name_fr}</p>
                           {!item.is_available && (
-                            <span className="px-1.5 py-0.5 bg-red-500/15 text-red-500 text-[10px] font-medium rounded">Unavailable</span>
+                            <span className="px-1.5 py-0.5 bg-red-500/15 text-red-500 text-[10px] font-medium rounded">{m.unavailable}</span>
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground truncate">{getCategoryIcon(item.category_id)} {getCategoryName(item.category_id)}</p>
@@ -254,7 +258,7 @@ export default function MarketingPage() {
 
                   {filteredItems.length === 0 && (
                     <div className="py-8 text-center">
-                      <p className="text-sm text-muted-foreground">No items match your search</p>
+                      <p className="text-sm text-muted-foreground">{m.noItemsMatch}</p>
                     </div>
                   )}
                 </div>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ChevronUp, ChevronDown, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface Column<T> {
   key: string;
@@ -28,12 +29,15 @@ export function DataTable<T extends object>({
   columns,
   keyField,
   searchable = true,
-  searchPlaceholder = 'Search...',
+  searchPlaceholder,
   pageSize = 10,
-  emptyMessage = 'No data found',
+  emptyMessage,
   onRowClick,
   actions
 }: DataTableProps<T>) {
+  const { t } = useTranslation();
+  const resolvedSearchPlaceholder = searchPlaceholder || t.backoffice.shared.search;
+  const resolvedEmptyMessage = emptyMessage || t.backoffice.shared.noDataFound;
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -86,7 +90,7 @@ export function DataTable<T extends object>({
                 setSearch(e.target.value);
                 setCurrentPage(1);
               }}
-              placeholder={searchPlaceholder}
+              placeholder={resolvedSearchPlaceholder}
               className="w-full pl-8 pr-3 py-1.5 bg-[var(--background)] border border-[var(--border)]
                        rounded-md text-sm text-[var(--foreground)] placeholder-[var(--muted)]
                        focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent
@@ -123,7 +127,7 @@ export function DataTable<T extends object>({
               ))}
               {actions && (
                 <th className="px-4 py-2.5 text-right text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">
-                  Actions
+                  {t.backoffice.shared.actions}
                 </th>
               )}
             </tr>
@@ -135,7 +139,7 @@ export function DataTable<T extends object>({
                   colSpan={columns.length + (actions ? 1 : 0)}
                   className="px-4 py-8 text-center text-sm text-[var(--muted)]"
                 >
-                  {emptyMessage}
+                  {resolvedEmptyMessage}
                 </td>
               </tr>
             ) : (

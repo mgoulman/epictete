@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Menu, X, Sun, Moon } from "lucide-react";
+import { Menu, X, Sun, Moon, Globe } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/theme-provider";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 
 interface HeaderProps {
   hideThemeToggle?: boolean;
@@ -16,6 +17,7 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const { locale, setLocale, t } = useTranslation();
 
   const toggleTheme = () => {
     if (theme === "system") {
@@ -23,6 +25,10 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
     } else {
       setTheme(theme === "dark" ? "light" : "dark");
     }
+  };
+
+  const toggleLocale = () => {
+    setLocale(locale === "fr" ? "en" : "fr");
   };
 
   const closeMobileMenu = useCallback(() => {
@@ -47,6 +53,14 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
       document.body.style.overflow = "";
     };
   }, [isMobileMenuOpen]);
+
+  const navLabels: Record<string, string> = {
+    home: t.nav.home,
+    menu: t.nav.menu,
+    about: t.nav.about,
+    reservation: t.nav.reservation,
+    contact: t.nav.contact,
+  };
 
   return (
     <header
@@ -85,29 +99,39 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
           <div className="hidden lg:flex items-center gap-6 xl:gap-8">
             {siteConfig.navigation.map((item) => (
               <Link
-                key={item.name}
+                key={item.key}
                 href={item.href}
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors relative group py-2"
               >
-                {item.name}
+                {navLabels[item.key] || item.name}
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-accent transition-all duration-300 group-hover:w-full" />
               </Link>
             ))}
           </div>
 
-          {/* Theme Toggle & CTA Button */}
-          <div className="hidden md:flex items-center gap-4">
+          {/* Theme Toggle, Language Toggle & CTA Button */}
+          <div className="hidden md:flex items-center gap-3">
+            {/* Language Switcher */}
+            <button
+              onClick={toggleLocale}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              aria-label={locale === "fr" ? "Switch to English" : "Passer en français"}
+            >
+              <Globe size={16} />
+              <span className="uppercase">{locale === "fr" ? "EN" : "FR"}</span>
+            </button>
+
             {!hideThemeToggle && (
               <button
                 onClick={toggleTheme}
                 className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                aria-label={resolvedTheme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}
+                aria-label={resolvedTheme === "dark" ? t.common.lightMode : t.common.darkMode}
               >
                 {resolvedTheme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
               </button>
             )}
             <Button size="sm" asChild>
-              <Link href="/reservation">Réserver</Link>
+              <Link href="/reservation">{t.common.reserve}</Link>
             </Button>
           </div>
 
@@ -115,7 +139,7 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
           <button
             className="lg:hidden p-2 -mr-2 text-foreground hover:text-accent active:scale-95 transition-all touch-manipulation"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            aria-label={isMobileMenuOpen ? "Fermer le menu" : "Ouvrir le menu"}
+            aria-label={isMobileMenuOpen ? t.common.closeMenu : t.common.openMenu}
             aria-expanded={isMobileMenuOpen}
             aria-controls="mobile-menu"
           >
@@ -147,26 +171,35 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
         <div className="px-6 py-6 space-y-4">
           {siteConfig.navigation.map((item) => (
             <Link
-              key={item.name}
+              key={item.key}
               href={item.href}
               className="block text-lg font-medium text-muted-foreground hover:text-foreground transition-colors py-2"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              {item.name}
+              {navLabels[item.key] || item.name}
             </Link>
           ))}
           <div className="pt-4 flex items-center gap-3">
+            {/* Mobile Language Switcher */}
+            <button
+              onClick={toggleLocale}
+              className="flex items-center gap-1.5 px-3 py-3 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              aria-label={locale === "fr" ? "Switch to English" : "Passer en français"}
+            >
+              <Globe size={18} />
+              <span className="uppercase">{locale === "fr" ? "EN" : "FR"}</span>
+            </button>
             {!hideThemeToggle && (
               <button
                 onClick={toggleTheme}
                 className="p-3 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                aria-label={resolvedTheme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}
+                aria-label={resolvedTheme === "dark" ? t.common.lightMode : t.common.darkMode}
               >
                 {resolvedTheme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
               </button>
             )}
             <Button className="flex-1" asChild>
-              <Link href="/reservation" onClick={() => setIsMobileMenuOpen(false)}>Réserver</Link>
+              <Link href="/reservation" onClick={() => setIsMobileMenuOpen(false)}>{t.common.reserve}</Link>
             </Button>
           </div>
         </div>

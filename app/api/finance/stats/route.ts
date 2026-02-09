@@ -8,24 +8,38 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
-    // Get overall stats
-    let query = supabase
-      .from('sales_items')
-      .select('selling_price, quantity, profit, category, sale_date, product_name');
+    // Fetch ALL sales items using pagination (Supabase defaults to 1000 row limit)
+    const pageSize = 1000;
+    let allItems: Array<{ selling_price: number; quantity: number; profit: number; category: string; sale_date: string; product_name: string }> = [];
+    let from = 0;
+    let hasMore = true;
 
-    if (startDate) {
-      query = query.gte('sale_date', startDate);
-    }
-    if (endDate) {
-      query = query.lte('sale_date', endDate);
+    while (hasMore) {
+      let query = supabase
+        .from('sales_items')
+        .select('selling_price, quantity, profit, category, sale_date, product_name')
+        .range(from, from + pageSize - 1);
+
+      if (startDate) {
+        query = query.gte('sale_date', startDate);
+      }
+      if (endDate) {
+        query = query.lte('sale_date', endDate);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Stats query error:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      allItems = allItems.concat(data || []);
+      hasMore = (data?.length || 0) === pageSize;
+      from += pageSize;
     }
 
-    const { data: items, error } = await query;
-
-    if (error) {
-      console.error('Stats query error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    const items = allItems;
 
     // Calculate stats
     let totalRevenue = 0;
@@ -34,7 +48,7 @@ export async function GET(request: NextRequest) {
     const categoryStats: Record<string, { revenue: number; count: number; profit: number }> = {};
     const dailyStats: Record<string, { revenue: number; count: number; profit: number }> = {};
 
-    for (const item of items || []) {
+    for (const item of items) {
       const revenue = (item.selling_price || 0) * (item.quantity || 1);
       const profit = (item.profit || 0) * (item.quantity || 1);
 
@@ -65,7 +79,7 @@ export async function GET(request: NextRequest) {
 
     // Get top products
     const productStats: Record<string, { revenue: number; count: number }> = {};
-    for (const item of items || []) {
+    for (const item of items) {
       const name = item.product_name || 'Unknown';
       if (!productStats[name]) {
         productStats[name] = { revenue: 0, count: 0 };
@@ -79,13 +93,22 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 10);
 
-    // Get categories list
-    const { data: categories } = await supabase
-      .from('sales_items')
-      .select('category')
-      .not('category', 'is', null);
+    // Get categories list (also paginated)
+    let allCategories: Array<{ category: string }> = [];
+    from = 0;
+    hasMore = true;
+    while (hasMore) {
+      const { data } = await supabase
+        .from('sales_items')
+        .select('category')
+        .not('category', 'is', null)
+        .range(from, from + pageSize - 1);
+      allCategories = allCategories.concat(data || []);
+      hasMore = (data?.length || 0) === pageSize;
+      from += pageSize;
+    }
 
-    const uniqueCategories = [...new Set((categories || []).map(c => c.category))].filter(Boolean);
+    const uniqueCategories = [...new Set(allCategories.map(c => c.category))].filter(Boolean);
 
     // Get recent imports
     const { data: imports } = await supabase

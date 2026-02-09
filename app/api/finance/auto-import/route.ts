@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update import batch with final stats
-    await supabase
+    const { error: updateError } = await supabase
       .from('sales_imports')
       .update({
         records_count: insertedCount,
@@ -143,6 +143,10 @@ export async function POST(request: NextRequest) {
         status: errors.length > 0 ? 'completed_with_errors' : 'completed'
       })
       .eq('id', importBatch.id);
+
+    if (updateError) {
+      console.error('Import batch update error:', updateError);
+    }
 
     return NextResponse.json({
       success: true,

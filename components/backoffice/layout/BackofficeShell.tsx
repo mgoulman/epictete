@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/hooks';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import Image from 'next/image';
@@ -17,6 +18,7 @@ export function BackofficeShell({ children }: BackofficeShellProps) {
   const [showSplash, setShowSplash] = useState(false);
   const [splashDone, setSplashDone] = useState(false);
   const { user, isLoading } = useAuth();
+  const { t } = useTranslation();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -102,7 +104,7 @@ export function BackofficeShell({ children }: BackofficeShellProps) {
           />
         </div>
         <div className="w-8 h-8 border-3 border-[#606338] border-t-transparent rounded-full animate-spin" />
-        <p className="mt-4 text-[#606338] text-sm font-medium">Chargement...</p>
+        <p className="mt-4 text-[#606338] text-sm font-medium">{t.backoffice.loading}</p>
       </div>
     );
   }

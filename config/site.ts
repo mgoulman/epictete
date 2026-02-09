@@ -41,16 +41,16 @@ export const siteConfig = {
   },
 
   navigation: [
-    { name: "Accueil", href: "/" },
-    { name: "Notre Carte", href: "/menu" },
-    { name: "À Propos", href: "/about" },
-    { name: "Réservation", href: "/reservation" },
-    { name: "Contact", href: "/contact" },
+    { key: "home", name: "Accueil", href: "/" },
+    { key: "menu", name: "Notre Carte", href: "/menu" },
+    { key: "about", name: "À Propos", href: "/about" },
+    { key: "reservation", name: "Réservation", href: "/reservation" },
+    { key: "contact", name: "Contact", href: "/contact" },
   ],
 
   footerLinks: [
-    { name: "Mentions légales", href: "/legal" },
-    { name: "Politique de confidentialité", href: "/privacy" },
+    { key: "legal", name: "Mentions légales", href: "/legal" },
+    { key: "privacy", name: "Politique de confidentialité", href: "/privacy" },
   ],
 } as const;
 

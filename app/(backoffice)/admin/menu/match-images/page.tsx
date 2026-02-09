@@ -6,6 +6,7 @@ import type { MenuItem, MenuCategory } from '@/lib/supabase';
 import { PermissionGate } from '@/components/backoffice/auth/PermissionGate';
 import { Upload, Loader2, ArrowLeft, Check, Search, X, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 const MAX_SIZE = 1600;
 const QUALITY = 0.85;
@@ -46,6 +47,8 @@ function compressImage(file: File): Promise<File> {
 }
 
 export default function MatchImagesPage() {
+  const { t } = useTranslation();
+  const mi = t.backoffice.matchImagesPage;
   const [supabase] = useState(() => createSupabaseBrowserClient());
   const [items, setItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
@@ -91,7 +94,7 @@ export default function MatchImagesPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      setError('Please select an image file');
+      setError(mi.selectImageFile);
       return;
     }
     setError(null);
@@ -181,7 +184,7 @@ export default function MatchImagesPage() {
   }
 
   return (
-    <PermissionGate permission="menu.write" fallback={<div className="flex items-center justify-center h-[50vh]"><p className="text-muted-foreground">No permission</p></div>}>
+    <PermissionGate permission="menu.write" fallback={<div className="flex items-center justify-center h-[50vh]"><p className="text-muted-foreground">{mi.noPermission}</p></div>}>
       <div className="flex flex-col gap-4 max-w-2xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-3">
@@ -189,9 +192,9 @@ export default function MatchImagesPage() {
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <h1 className="text-lg font-semibold text-foreground">Match Images</h1>
+            <h1 className="text-lg font-semibold text-foreground">{mi.title}</h1>
             <p className="text-xs text-muted-foreground">
-              {totalNeeding} dishes need images{matchedCount > 0 && <> &middot; {matchedCount} matched this session</>}
+              {totalNeeding} {mi.dishesNeedImages}{matchedCount > 0 && <> &middot; {matchedCount} {mi.matchedSession}</>}
             </p>
           </div>
         </div>
@@ -220,7 +223,7 @@ export default function MatchImagesPage() {
             <div className="w-14 h-14 rounded-full bg-green-500/10 flex items-center justify-center">
               <Check className="w-7 h-7 text-green-500" />
             </div>
-            <p className="text-foreground font-medium">Image saved!</p>
+            <p className="text-foreground font-medium">{mi.imageSaved}</p>
             <p className="text-sm text-muted-foreground">{successDish}</p>
           </div>
         )}
@@ -231,10 +234,10 @@ export default function MatchImagesPage() {
             <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center">
               <Check className="w-8 h-8 text-green-500" />
             </div>
-            <p className="text-foreground font-medium">All dishes have images!</p>
-            {matchedCount > 0 && <p className="text-sm text-muted-foreground">{matchedCount} matched this session</p>}
+            <p className="text-foreground font-medium">{mi.allHaveImages}</p>
+            {matchedCount > 0 && <p className="text-sm text-muted-foreground">{matchedCount} {mi.matchedSession}</p>}
             <Link href="/admin/menu" className="mt-2 px-5 py-2.5 border border-border rounded-lg text-sm text-foreground hover:bg-secondary transition-colors">
-              Back to Menu
+              {mi.backToMenu}
             </Link>
           </div>
         ) : !selectedFile ? (
@@ -244,8 +247,8 @@ export default function MatchImagesPage() {
             className="border-2 border-dashed rounded-xl p-10 flex flex-col items-center gap-3 cursor-pointer transition-all border-border hover:border-[#606338]/50 hover:bg-[#606338]/5"
           >
             <Upload className="w-10 h-10 text-muted" />
-            <p className="text-foreground font-medium">Select a dish photo</p>
-            <p className="text-xs text-muted-foreground">Tap to choose an image from your device</p>
+            <p className="text-foreground font-medium">{mi.selectDishPhoto}</p>
+            <p className="text-xs text-muted-foreground">{mi.tapToChoose}</p>
             <input ref={fileRef} type="file" accept="image/*" onChange={onFileChange} className="hidden" />
           </div>
         ) : (
@@ -254,7 +257,7 @@ export default function MatchImagesPage() {
             {/* Image preview */}
             <div className="flex flex-col items-center gap-3 p-4 bg-secondary border border-border rounded-xl">
               <div className="w-full max-w-sm aspect-square rounded-lg overflow-hidden border border-border">
-                <img src={previewUrl!} alt="Selected" className="w-full h-full object-cover" />
+                <img src={previewUrl!} alt={mi.selected} className="w-full h-full object-cover" />
               </div>
               <div className="flex items-center justify-between w-full">
                 <p className="text-sm text-muted-foreground truncate">{selectedFile.name}</p>
@@ -263,10 +266,10 @@ export default function MatchImagesPage() {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-card text-muted-foreground text-xs"
                 >
                   <X className="w-3.5 h-3.5" />
-                  Change
+                  {mi.change}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">Select a dish below to assign this image</p>
+              <p className="text-xs text-muted-foreground">{mi.selectDishBelow}</p>
             </div>
 
             {/* Search */}
@@ -276,7 +279,7 @@ export default function MatchImagesPage() {
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search dishes..."
+                placeholder={mi.searchDishes}
                 className="w-full pl-9 pr-4 py-2.5 bg-secondary border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[#606338]"
               />
             </div>
@@ -285,7 +288,7 @@ export default function MatchImagesPage() {
             {saving && (
               <div className="flex items-center justify-center gap-2 py-3">
                 <Loader2 className="w-4 h-4 text-[#606338] animate-spin" />
-                <p className="text-sm text-muted-foreground">Saving...</p>
+                <p className="text-sm text-muted-foreground">{mi.saving}</p>
               </div>
             )}
 
@@ -314,7 +317,7 @@ export default function MatchImagesPage() {
                 </div>
               ))}
               {grouped.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-8">No dishes found</p>
+                <p className="text-sm text-muted-foreground text-center py-8">{mi.noDishesFound}</p>
               )}
             </div>
           </>

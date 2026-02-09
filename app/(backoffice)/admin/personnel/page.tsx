@@ -3,9 +3,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Users, Calendar, Clock, DollarSign, Plus, Search, Edit2, Trash2, X, Check,
-  ChevronLeft, ChevronRight, UserPlus, Briefcase, Minus
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, UserPlus, Briefcase, Minus, Bus, Phone, Mail, MapPin, Download, XCircle
 } from 'lucide-react';
 import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared/SortHeader';
+import { useTranslation } from '@/lib/i18n/useTranslation';
+import jsPDF from 'jspdf';
 
 interface StaffType {
   id: string;
@@ -44,8 +46,32 @@ interface ComputedShift {
   staff_id: string;
   staff_name: string;
   staff_type: StaffType;
+  department: 'cuisine' | 'salle' | null;
+  transport_pickup: boolean;
+  transport_dropoff: boolean;
   start_time: string;
   end_time: string;
+  email: string | null;
+  phone: string | null;
+  date: string;
+  isOff: boolean;
+  timeOffId: string | null;
+}
+
+type ScheduleView = 'combined' | 'cuisine' | 'salle' | 'transport';
+
+// Transport trip (grouped by time)
+interface TransportTripGroup {
+  type: 'pickup' | 'dropoff';
+  time: string;
+  passengers: {
+    staff_id: string;
+    staff_name: string;
+    department: 'cuisine' | 'salle' | null;
+    staff_type: StaffType;
+    email: string | null;
+    phone: string | null;
+  }[];
 }
 
 // Normalizers for backward compatibility with old DB format
@@ -109,6 +135,9 @@ interface StaffMember {
   created_at: string;
   schedule_type: 'weekly' | 'monthly' | null;
   schedule_config: WeeklyScheduleConfig | MonthlyScheduleConfig | null;
+  department: 'cuisine' | 'salle' | null;
+  transport_pickup: boolean;
+  transport_dropoff: boolean;
 }
 
 interface TimeOff {
@@ -149,6 +178,8 @@ interface SalaryRecord {
 type TabType = 'staff' | 'schedule' | 'time-off' | 'salary';
 
 export default function PersonnelPage() {
+  const { t } = useTranslation();
+  const pn = t.backoffice.personnelPage;
   const [activeTab, setActiveTab] = useState<TabType>('staff');
   const [staffTypes, setStaffTypes] = useState<StaffType[]>([]);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
@@ -170,6 +201,18 @@ export default function PersonnelPage() {
     const diff = today.getDate() - day + (day === 0 ? -6 : 1);
     return new Date(today.setDate(diff));
   });
+
+  // Approved time-off for schedule view
+  const [approvedTimeOff, setApprovedTimeOff] = useState<TimeOff[]>([]);
+
+  // Weekly summary panel toggle
+  const [showWeeklySummary, setShowWeeklySummary] = useState(false);
+
+  // Schedule view filter
+  const [scheduleView, setScheduleView] = useState<ScheduleView>('combined');
+
+  // Selected shift for detail modal
+  const [selectedShift, setSelectedShift] = useState<ComputedShift | null>(null);
 
   // Salary month/year
   const [salaryMonth, setSalaryMonth] = useState(new Date().getMonth() + 1);
@@ -211,6 +254,16 @@ export default function PersonnelPage() {
     setSalaryRecords(data.salary || []);
   }, [salaryMonth, salaryYear]);
 
+  const fetchApprovedTimeOff = useCallback(async () => {
+    const weekEnd = new Date(currentWeekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    const startStr = currentWeekStart.toISOString().split('T')[0];
+    const endStr = weekEnd.toISOString().split('T')[0];
+    const res = await fetch(`/api/personnel?type=time-off&status=approved&startDate=${startStr}&endDate=${endStr}`);
+    const data = await res.json();
+    setApprovedTimeOff(data.timeOff || []);
+  }, [currentWeekStart]);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -218,24 +271,25 @@ export default function PersonnelPage() {
   useEffect(() => {
     if (activeTab === 'time-off') fetchTimeOff();
     if (activeTab === 'salary') fetchSalary();
-  }, [activeTab, fetchTimeOff, fetchSalary]);
+    if (activeTab === 'schedule') fetchApprovedTimeOff();
+  }, [activeTab, fetchTimeOff, fetchSalary, fetchApprovedTimeOff]);
 
   const handleDeleteStaff = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this staff member?')) return;
+    if (!confirm(pn.deleteStaffConfirm)) return;
 
     await fetch(`/api/personnel?type=staff&id=${id}`, { method: 'DELETE' });
     fetchData();
   };
 
   const handleDeleteTimeOff = async (id: string) => {
-    if (!confirm('Delete this time off request?')) return;
+    if (!confirm(pn.deleteTimeOff)) return;
 
     await fetch(`/api/personnel?type=time-off&id=${id}`, { method: 'DELETE' });
     fetchTimeOff();
   };
 
   const handleDeleteSalary = async (id: string) => {
-    if (!confirm('Delete this salary record?')) return;
+    if (!confirm(pn.deleteSalaryRecord)) return;
 
     await fetch(`/api/personnel?type=salary&id=${id}`, { method: 'DELETE' });
     fetchSalary();
@@ -248,6 +302,27 @@ export default function PersonnelPage() {
       body: JSON.stringify({ type: 'time-off', id, status })
     });
     fetchTimeOff();
+  };
+
+  const handleMarkDayOff = async (staffId: string, date: string) => {
+    await fetch('/api/personnel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'time-off',
+        staff_id: staffId,
+        start_date: date,
+        end_date: date,
+        time_off_type: 'day_off',
+        status: 'approved',
+      })
+    });
+    fetchApprovedTimeOff();
+  };
+
+  const handleRemoveDayOff = async (timeOffId: string) => {
+    await fetch(`/api/personnel?type=time-off&id=${timeOffId}`, { method: 'DELETE' });
+    fetchApprovedTimeOff();
   };
 
   const handleSalarySort = (field: string) => {
@@ -284,6 +359,14 @@ export default function PersonnelPage() {
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
+  // Helper: check if staff has approved time-off on a date
+  const isStaffOff = useCallback((staffId: string, dateStr: string): { off: boolean; timeOffId: string | null } => {
+    const record = approvedTimeOff.find(t =>
+      t.staff_id === staffId && t.start_date <= dateStr && t.end_date >= dateStr
+    );
+    return { off: !!record, timeOffId: record?.id || null };
+  }, [approvedTimeOff]);
+
   // Auto-compute schedules from staff configs
   const computedSchedules = useMemo(() => {
     const weekDays = getWeekDays();
@@ -299,6 +382,8 @@ export default function PersonnelPage() {
       for (const staff of staffMembers) {
         if (!staff.is_active || !staff.schedule_type || !staff.schedule_config) continue;
 
+        const offStatus = isStaffOff(staff.id, dateStr);
+
         if (staff.schedule_type === 'weekly') {
           const config = normalizeWeeklyConfig(staff.schedule_config as unknown as Record<string, unknown>);
           const dayConfig = config[dayName as keyof WeeklyScheduleConfig];
@@ -308,8 +393,16 @@ export default function PersonnelPage() {
                 staff_id: staff.id,
                 staff_name: `${staff.first_name} ${staff.last_name}`,
                 staff_type: staff.staff_type,
+                department: staff.department,
+                transport_pickup: staff.transport_pickup ?? false,
+                transport_dropoff: staff.transport_dropoff ?? false,
                 start_time: shift.start_time,
                 end_time: shift.end_time,
+                email: staff.email,
+                phone: staff.phone,
+                date: dateStr,
+                isOff: offStatus.off,
+                timeOffId: offStatus.timeOffId,
               });
             }
           }
@@ -321,8 +414,16 @@ export default function PersonnelPage() {
                 staff_id: staff.id,
                 staff_name: `${staff.first_name} ${staff.last_name}`,
                 staff_type: staff.staff_type,
+                department: staff.department,
+                transport_pickup: staff.transport_pickup ?? false,
+                transport_dropoff: staff.transport_dropoff ?? false,
                 start_time: shift.start_time,
                 end_time: shift.end_time,
+                email: staff.email,
+                phone: staff.phone,
+                date: dateStr,
+                isOff: offStatus.off,
+                timeOffId: offStatus.timeOffId,
               });
             }
           }
@@ -333,26 +434,301 @@ export default function PersonnelPage() {
     }
 
     return result;
-  }, [staffMembers, currentWeekStart]);
+  }, [staffMembers, currentWeekStart, isStaffOff]);
 
   const getSchedulesForDay = (date: Date): ComputedShift[] => {
     const dateStr = date.toISOString().split('T')[0];
-    return computedSchedules[dateStr] || [];
+    const allShifts = computedSchedules[dateStr] || [];
+
+    // Filter by view
+    if (scheduleView === 'cuisine') {
+      return allShifts.filter(s => s.department === 'cuisine');
+    }
+    if (scheduleView === 'salle') {
+      return allShifts.filter(s => s.department === 'salle');
+    }
+    if (scheduleView === 'transport') {
+      return allShifts.filter(s => s.transport_pickup || s.transport_dropoff);
+    }
+    return allShifts; // combined
+  };
+
+  // Compute transport trips for a day (grouped by time)
+  const getTransportTripsForDay = (date: Date): TransportTripGroup[] => {
+    const dateStr = date.toISOString().split('T')[0];
+    const allShifts = computedSchedules[dateStr] || [];
+
+    const pickupMap = new Map<string, TransportTripGroup['passengers']>();
+    const dropoffMap = new Map<string, TransportTripGroup['passengers']>();
+
+    for (const shift of allShifts) {
+      const passenger = {
+        staff_id: shift.staff_id,
+        staff_name: shift.staff_name,
+        department: shift.department,
+        staff_type: shift.staff_type,
+        email: shift.email,
+        phone: shift.phone,
+      };
+
+      // Pickup at start time
+      if (shift.transport_pickup) {
+        const time = shift.start_time.slice(0, 5);
+        if (!pickupMap.has(time)) pickupMap.set(time, []);
+        pickupMap.get(time)!.push(passenger);
+      }
+
+      // Dropoff at end time
+      if (shift.transport_dropoff) {
+        const time = shift.end_time.slice(0, 5);
+        if (!dropoffMap.has(time)) dropoffMap.set(time, []);
+        dropoffMap.get(time)!.push(passenger);
+      }
+    }
+
+    const trips: TransportTripGroup[] = [];
+
+    // Add pickup trips
+    for (const [time, passengers] of pickupMap) {
+      trips.push({ type: 'pickup', time, passengers });
+    }
+
+    // Add dropoff trips
+    for (const [time, passengers] of dropoffMap) {
+      trips.push({ type: 'dropoff', time, passengers });
+    }
+
+    // Sort by time
+    trips.sort((a, b) => a.time.localeCompare(b.time));
+
+    return trips;
+  };
+
+  // State for selected trip (for modal)
+  const [selectedTrip, setSelectedTrip] = useState<{ trip: TransportTripGroup; date: string } | null>(null);
+
+  // PDF export state
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Download schedule as PDF (built manually with jsPDF)
+  const downloadSchedulePDF = async () => {
+    setIsExporting(true);
+    try {
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const weekDays = getWeekDays();
+
+      // Title
+      pdf.setFontSize(20);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(96, 99, 56);
+      const title = pn.weeklySchedule;
+      pdf.text(title, pageWidth / 2, 15, { align: 'center' });
+
+      // Date range
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(80, 80, 80);
+      pdf.text(`${formatDate(currentWeekStart)} - ${formatDate(weekDays[6])}`, pageWidth / 2, 22, { align: 'center' });
+
+      // View label
+      pdf.setFontSize(11);
+      pdf.setTextColor(100, 100, 100);
+      const viewLabel = scheduleView === 'combined' ? pn.allStaff :
+        scheduleView === 'cuisine' ? pn.cuisineOnly :
+        scheduleView === 'salle' ? pn.salleOnly : pn.transportSchedule;
+      pdf.text(viewLabel, pageWidth / 2, 28, { align: 'center' });
+
+      let currentY = 35;
+
+      // For each day of the week
+      weekDays.forEach((day, dayIdx) => {
+        const isToday = day.toDateString() === new Date().toDateString();
+        const dayName = day.toLocaleDateString('en-US', { weekday: 'long' });
+        const dayDate = day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+        // Check if we need a new page
+        if (currentY > pageHeight - 40) {
+          pdf.addPage();
+          currentY = 15;
+        }
+
+        // Day header
+        if (isToday) {
+          pdf.setFillColor(96, 99, 56);
+          pdf.rect(margin, currentY, pageWidth - margin * 2, 8, 'F');
+          pdf.setTextColor(255, 255, 255);
+        } else {
+          pdf.setFillColor(240, 240, 240);
+          pdf.rect(margin, currentY, pageWidth - margin * 2, 8, 'F');
+          pdf.setTextColor(50, 50, 50);
+        }
+
+        pdf.setFontSize(11);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`${dayName}, ${dayDate}`, margin + 3, currentY + 5.5);
+        pdf.setFont('helvetica', 'normal');
+        currentY += 10;
+
+        if (scheduleView === 'transport') {
+          // Transport view - show trips with passengers
+          const trips = getTransportTripsForDay(day);
+
+          if (trips.length === 0) {
+            pdf.setFontSize(9);
+            pdf.setTextColor(150, 150, 150);
+            pdf.text(pn.noTransportScheduled, margin + 5, currentY + 4);
+            currentY += 8;
+          } else {
+            trips.forEach(trip => {
+              const isPickup = trip.type === 'pickup';
+              const boxHeight = 8 + trip.passengers.length * 5;
+
+              // Check for page break
+              if (currentY + boxHeight > pageHeight - 15) {
+                pdf.addPage();
+                currentY = 15;
+              }
+
+              // Trip box background
+              pdf.setFillColor(isPickup ? 220 : 255, isPickup ? 250 : 230, isPickup ? 220 : 230);
+              pdf.rect(margin, currentY, pageWidth - margin * 2, boxHeight, 'F');
+
+              // Left border
+              pdf.setFillColor(isPickup ? 34 : 220, isPickup ? 180 : 80, isPickup ? 34 : 80);
+              pdf.rect(margin, currentY, 3, boxHeight, 'F');
+
+              // Trip header
+              pdf.setFontSize(11);
+              pdf.setFont('helvetica', 'bold');
+              pdf.setTextColor(isPickup ? 34 : 180, isPickup ? 120 : 60, isPickup ? 34 : 60);
+              pdf.text(`${isPickup ? `↑ ${pn.pickup.toUpperCase()}` : `↓ ${pn.dropoff.toUpperCase()}`} ${trip.time}`, margin + 6, currentY + 6);
+
+              pdf.setFontSize(10);
+              pdf.setTextColor(80, 80, 80);
+              pdf.text(`${trip.passengers.length} ${trip.passengers.length > 1 ? pn.passengers : pn.passenger}`, pageWidth - margin - 5, currentY + 6, { align: 'right' });
+
+              // Passenger list
+              pdf.setFont('helvetica', 'normal');
+              pdf.setFontSize(10);
+              let passengerY = currentY + 12;
+
+              trip.passengers.forEach((p, pIdx) => {
+                pdf.setTextColor(60, 60, 60);
+                const deptLabel = p.department === 'cuisine' ? ` (${pn.cuisine})` : p.department === 'salle' ? ` (${pn.salle})` : '';
+                pdf.text(`• ${p.staff_name}${deptLabel}`, margin + 8, passengerY);
+                passengerY += 5;
+              });
+
+              currentY += boxHeight + 3;
+            });
+          }
+        } else {
+          // Shift view
+          const shifts = getSchedulesForDay(day);
+
+          if (shifts.length === 0) {
+            pdf.setFontSize(9);
+            pdf.setTextColor(150, 150, 150);
+            pdf.text(pn.noShiftsScheduled, margin + 5, currentY + 4);
+            currentY += 8;
+          } else {
+            shifts.forEach(shift => {
+              // Check for page break
+              if (currentY + 10 > pageHeight - 15) {
+                pdf.addPage();
+                currentY = 15;
+              }
+
+              // Get color from staff type
+              const color = shift.staff_type?.color || '#606338';
+              const r = parseInt(color.slice(1, 3), 16);
+              const g = parseInt(color.slice(3, 5), 16);
+              const b = parseInt(color.slice(5, 7), 16);
+
+              // Shift box background
+              pdf.setFillColor(r + (255 - r) * 0.85, g + (255 - g) * 0.85, b + (255 - b) * 0.85);
+              pdf.rect(margin, currentY, pageWidth - margin * 2, 9, 'F');
+
+              // Left border
+              pdf.setFillColor(r, g, b);
+              pdf.rect(margin, currentY, 3, 9, 'F');
+
+              // Staff name
+              pdf.setFontSize(11);
+              pdf.setFont('helvetica', 'bold');
+              pdf.setTextColor(40, 40, 40);
+              pdf.text(shift.staff_name, margin + 6, currentY + 6);
+
+              // Time
+              pdf.setFont('helvetica', 'normal');
+              pdf.setFontSize(10);
+              pdf.setTextColor(80, 80, 80);
+              pdf.text(`${shift.start_time.slice(0, 5)} - ${shift.end_time.slice(0, 5)}`, pageWidth - margin - 40, currentY + 6);
+
+              // Department badge
+              if (shift.department) {
+                const deptColor = shift.department === 'cuisine' ? [255, 165, 0] : [147, 51, 234];
+                pdf.setFillColor(deptColor[0], deptColor[1], deptColor[2]);
+                pdf.roundedRect(pageWidth - margin - 25, currentY + 2, 20, 5, 1, 1, 'F');
+                pdf.setFontSize(7);
+                pdf.setTextColor(255, 255, 255);
+                pdf.text(shift.department === 'cuisine' ? pn.cuisine : pn.salle, pageWidth - margin - 15, currentY + 5.5, { align: 'center' });
+              }
+
+              // Transport indicator
+              if (shift.transport_pickup || shift.transport_dropoff) {
+                pdf.setFontSize(8);
+                pdf.setTextColor(59, 130, 246);
+                const transportLabel = shift.transport_pickup && shift.transport_dropoff ? `↑↓ ${pn.transport}` :
+                  shift.transport_pickup ? `↑ ${pn.pickup}` : `↓ ${pn.dropoff}`;
+                pdf.text(transportLabel, margin + 80, currentY + 6);
+              }
+
+              currentY += 11;
+            });
+          }
+        }
+
+        currentY += 5; // Space between days
+      });
+
+      // Footer on last page
+      pdf.setFontSize(8);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text(`${pn.generatedOn} ${new Date().toLocaleDateString()}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+
+      // Download
+      const fileName = `schedule-${currentWeekStart.toISOString().split('T')[0]}-${scheduleView}.pdf`;
+      pdf.save(fileName);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert(pn.failedPdf);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const tabs = [
-    { id: 'staff' as TabType, label: 'Staff', icon: Users },
-    { id: 'schedule' as TabType, label: 'Schedule', icon: Calendar },
-    { id: 'time-off' as TabType, label: 'Time Off', icon: Clock },
-    { id: 'salary' as TabType, label: 'Salary', icon: DollarSign },
+    { id: 'staff' as TabType, label: pn.tabs.staff, icon: Users },
+    { id: 'schedule' as TabType, label: pn.tabs.schedule, icon: Calendar },
+    { id: 'time-off' as TabType, label: pn.tabs.timeOff, icon: Clock },
+    { id: 'salary' as TabType, label: pn.tabs.salary, icon: DollarSign },
   ];
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Personnel Management</h1>
-        <p className="text-muted-foreground mt-1">Manage staff, schedules, time off and payroll</p>
+        <h1 className="text-2xl font-bold text-foreground">{pn.title}</h1>
+        <p className="text-muted-foreground mt-1">{pn.subtitle}</p>
       </div>
 
       {/* Tabs */}
@@ -381,7 +757,7 @@ export default function PersonnelPage() {
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search staff..."
+                placeholder={pn.searchStaff}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 pr-4 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
@@ -392,12 +768,12 @@ export default function PersonnelPage() {
               className="flex items-center gap-2 px-4 py-2 bg-[#606338] text-white rounded-lg hover:bg-[#4d4f2e] transition-colors"
             >
               <UserPlus className="w-4 h-4" />
-              Add Staff
+              {pn.addStaff}
             </button>
           </div>
 
           {loading ? (
-            <div className="text-center py-12 text-muted-foreground">Loading...</div>
+            <div className="text-center py-12 text-muted-foreground">{pn.loading}</div>
           ) : (
             <div className="grid gap-4">
               {filteredStaff.map(staff => (
@@ -421,7 +797,7 @@ export default function PersonnelPage() {
                         {staff.schedule_type && (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-500 flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            {staff.schedule_type === 'weekly' ? 'Weekly' : 'Monthly'}
+                            {staff.schedule_type === 'weekly' ? pn.weekly : pn.monthly}
                           </span>
                         )}
                         {!staff.is_active && (
@@ -439,9 +815,7 @@ export default function PersonnelPage() {
                       <p className="text-foreground font-medium">
                         {staff.monthly_salary
                           ? `${staff.monthly_salary.toLocaleString()} DH/mo`
-                          : staff.hourly_rate
-                            ? `${staff.hourly_rate} DH/hr`
-                            : '-'
+                          : '-'
                         }
                       </p>
                       <p className="text-muted-foreground text-xs">
@@ -467,7 +841,7 @@ export default function PersonnelPage() {
               ))}
               {filteredStaff.length === 0 && (
                 <div className="text-center py-12 text-muted-foreground">
-                  No staff members found
+                  {pn.noStaffFound}
                 </div>
               )}
             </div>
@@ -478,7 +852,7 @@ export default function PersonnelPage() {
       {/* Schedule Tab */}
       {activeTab === 'schedule' && (
         <div>
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => navigateWeek(-1)}
@@ -496,46 +870,274 @@ export default function PersonnelPage() {
                 <ChevronRight className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-sm text-muted-foreground">Auto-computed from staff configs</p>
+            {/* View Filter & Download */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                {(['combined', 'cuisine', 'salle', 'transport'] as ScheduleView[]).map(view => (
+                  <button
+                    key={view}
+                    onClick={() => setScheduleView(view)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      scheduleView === view
+                        ? view === 'cuisine' ? 'bg-orange-500 text-white'
+                          : view === 'salle' ? 'bg-purple-500 text-white'
+                          : view === 'transport' ? 'bg-blue-500 text-white'
+                          : 'bg-[#606338] text-white'
+                        : 'bg-secondary text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {view === 'combined' ? pn.all : view === 'cuisine' ? pn.cuisine : view === 'salle' ? pn.salle : pn.transport}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={downloadSchedulePDF}
+                disabled={isExporting}
+                className="flex items-center gap-2 px-3 py-1.5 bg-[#606338] text-white rounded-lg hover:bg-[#4d4f2e] transition-colors disabled:opacity-50 text-sm font-medium"
+                title={pn.downloadPdf}
+              >
+                <Download className="w-4 h-4" />
+                {isExporting ? pn.exporting : pn.pdf}
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-7 gap-2">
-            {getWeekDays().map((day, idx) => (
-              <div key={idx} className="bg-card border border-border rounded-lg overflow-hidden">
-                <div className={`p-2 text-center text-sm font-medium border-b border-border ${
-                  day.toDateString() === new Date().toDateString() ? 'bg-[#606338] text-white' : 'bg-secondary'
-                }`}>
-                  {formatDate(day)}
-                </div>
-                <div className="p-2 min-h-[200px] space-y-2">
-                  {getSchedulesForDay(day).map((shift, shiftIdx) => (
-                    <div
-                      key={`${shift.staff_id}-${shiftIdx}`}
-                      className="p-2 rounded-lg text-xs"
-                      style={{ backgroundColor: `${shift.staff_type?.color || '#606338'}20` }}
-                    >
-                      <div className="font-medium text-foreground">
-                        {shift.staff_name}
-                      </div>
-                      <div className="text-muted-foreground">
-                        {shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}
-                      </div>
-                      <div className="mt-1">
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded text-white"
-                          style={{ backgroundColor: shift.staff_type?.color || '#606338' }}
-                        >
-                          {shift.staff_type?.name}
-                        </span>
-                      </div>
+          {/* Calendar Grid with Time on Y-axis */}
+          <div className="bg-card border border-border rounded-lg overflow-hidden">
+            {/* Header Row - Days */}
+            <div className="grid grid-cols-[70px_repeat(7,1fr)] border-b border-border sticky top-0 z-10">
+              <div className="p-3 bg-secondary text-sm text-muted-foreground text-center font-medium">{pn.time}</div>
+              {getWeekDays().map((day, idx) => {
+                const dateStr = day.toISOString().split('T')[0];
+                const dayShifts = computedSchedules[dateStr] || [];
+                const workingCount = new Set(dayShifts.filter(s => !s.isOff).map(s => s.staff_id)).size;
+                const offCount = new Set(dayShifts.filter(s => s.isOff).map(s => s.staff_id)).size;
+                return (
+                  <div
+                    key={idx}
+                    className={`p-3 text-center font-medium border-l border-border ${
+                      day.toDateString() === new Date().toDateString() ? 'bg-[#606338] text-white' : 'bg-secondary'
+                    }`}
+                  >
+                    <div className="text-sm">{day.toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                    <div className="text-lg font-bold">{day.getDate()}</div>
+                    <div className={`text-[10px] mt-0.5 ${day.toDateString() === new Date().toDateString() ? 'text-white/70' : 'text-muted-foreground'}`}>
+                      {workingCount} {pn.in}{offCount > 0 && <span className="text-red-400"> · {offCount} {pn.off}</span>}
                     </div>
-                  ))}
-                  {getSchedulesForDay(day).length === 0 && (
-                    <div className="text-xs text-muted-foreground text-center py-4">No shifts</div>
-                  )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Time Grid */}
+            <div className="max-h-[600px] overflow-y-auto">
+              {Array.from({ length: 17 }, (_, i) => i + 6).map(hour => (
+                <div key={hour} className="grid grid-cols-[70px_repeat(7,1fr)] border-b border-border/50 last:border-b-0">
+                  {/* Time Label */}
+                  <div className="py-2 px-2 text-sm text-muted-foreground text-right pr-3 bg-secondary/30 border-r border-border/50 font-medium">
+                    {hour.toString().padStart(2, '0')}:00
+                  </div>
+                  {/* Day Cells */}
+                  {getWeekDays().map((day, dayIdx) => {
+                    const dateStr = day.toISOString().split('T')[0];
+
+                    // For transport view, show trips
+                    if (scheduleView === 'transport') {
+                      const trips = getTransportTripsForDay(day);
+                      const tripsThisHour = trips.filter(trip => {
+                        const tripHour = parseInt(trip.time.split(':')[0]);
+                        return tripHour === hour;
+                      });
+
+                      return (
+                        <div
+                          key={dayIdx}
+                          className={`min-h-[48px] border-l border-border/50 p-1 ${
+                            day.toDateString() === new Date().toDateString() ? 'bg-[#606338]/5' : ''
+                          }`}
+                        >
+                          {tripsThisHour.map((trip, tripIdx) => (
+                            <div
+                              key={`${trip.type}-${trip.time}-${tripIdx}`}
+                              onClick={() => setSelectedTrip({ trip, date: dateStr })}
+                              className={`px-2 py-1.5 rounded text-sm cursor-pointer hover:ring-2 hover:ring-blue-500/50 transition-all mb-1 flex items-center gap-2 ${
+                                trip.type === 'pickup'
+                                  ? 'bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30'
+                                  : 'bg-red-500/20 text-red-700 dark:text-red-400 border border-red-500/30'
+                              }`}
+                            >
+                              <Bus className="w-4 h-4 flex-shrink-0" />
+                              <span className="font-semibold">{trip.time.slice(0, 5)}</span>
+                              <span className="text-muted-foreground">({trip.passengers.length})</span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+
+                    // For shift views, show shifts
+                    const shifts = getSchedulesForDay(day);
+                    const shiftsThisHour = shifts.filter(shift => {
+                      const startHour = parseInt(shift.start_time.split(':')[0]);
+                      return startHour === hour;
+                    });
+
+                    return (
+                      <div
+                        key={dayIdx}
+                        className={`min-h-[48px] border-l border-border/50 p-1 ${
+                          day.toDateString() === new Date().toDateString() ? 'bg-[#606338]/5' : ''
+                        }`}
+                      >
+                        {shiftsThisHour.map((shift, shiftIdx) => (
+                          <div
+                            key={`${shift.staff_id}-${shiftIdx}`}
+                            onClick={() => setSelectedShift(shift)}
+                            className={`px-2 py-1.5 rounded text-sm cursor-pointer hover:ring-2 hover:ring-[#606338]/50 transition-all mb-1 border-l-3 ${shift.isOff ? 'opacity-40' : ''}`}
+                            style={{
+                              backgroundColor: shift.isOff ? 'rgba(239,68,68,0.1)' : `${shift.staff_type?.color || '#606338'}20`,
+                              borderLeftColor: shift.isOff ? '#ef4444' : (shift.staff_type?.color || '#606338'),
+                              borderLeftWidth: '3px',
+                            }}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={`font-semibold text-foreground truncate ${shift.isOff ? 'line-through' : ''}`}>
+                                {shift.staff_name}
+                              </span>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                {shift.isOff && (
+                                  <span className="text-[10px] font-bold text-red-500 bg-red-500/20 px-1.5 py-0.5 rounded">{pn.offBadge}</span>
+                                )}
+                                {shift.department && !shift.isOff && (
+                                  <span className={`w-2.5 h-2.5 rounded-full ${
+                                    shift.department === 'cuisine' ? 'bg-orange-500' : 'bg-purple-500'
+                                  }`} />
+                                )}
+                                {(shift.transport_pickup || shift.transport_dropoff) && !shift.isOff && (
+                                  <Bus className="w-4 h-4 text-blue-500" />
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
                 </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Legend */}
+          <div className="mt-4 flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-orange-500" />
+              <span>{pn.cuisine}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-purple-500" />
+              <span>{pn.salle}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded bg-green-500/30 border border-green-500/50" />
+              <span>{pn.pickup}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded bg-red-500/30 border border-red-500/50" />
+              <span>{pn.dropoff}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Bus className="w-4 h-4 text-blue-500" />
+              <span>{pn.transport}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-red-500 bg-red-500/20 px-1.5 py-0.5 rounded">{pn.offBadge}</span>
+              <span>{pn.dayOff}</span>
+            </div>
+          </div>
+
+          {/* Weekly Summary Panel */}
+          <div className="mt-4">
+            <button
+              onClick={() => setShowWeeklySummary(!showWeeklySummary)}
+              className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg text-sm font-medium hover:bg-secondary transition-colors w-full justify-between"
+            >
+              <span>{pn.weeklySummary}</span>
+              {showWeeklySummary ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+            {showWeeklySummary && (
+              <div className="mt-2 bg-card border border-border rounded-lg overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-secondary">
+                    <tr>
+                      <th className="text-left p-2 font-medium text-muted-foreground sticky left-0 bg-secondary min-w-[150px]">{pn.staff}</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">{pn.type}</th>
+                      {getWeekDays().map((day, idx) => (
+                        <th key={idx} className="text-center p-2 font-medium text-muted-foreground min-w-[60px]">
+                          {day.toLocaleDateString('en-US', { weekday: 'short' })}
+                        </th>
+                      ))}
+                      <th className="text-center p-2 font-medium text-muted-foreground min-w-[70px]">{pn.hours}</th>
+                      <th className="text-center p-2 font-medium text-muted-foreground min-w-[60px]">{pn.offLabel}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const weekDays = getWeekDays();
+                      const allShifts = weekDays.flatMap(day => computedSchedules[day.toISOString().split('T')[0]] || []);
+                      const staffIds = [...new Set(allShifts.map(s => s.staff_id))];
+                      return staffIds.map(staffId => {
+                        const staffShifts = allShifts.filter(s => s.staff_id === staffId);
+                        const staffName = staffShifts[0]?.staff_name || '';
+                        const staffType = staffShifts[0]?.staff_type;
+                        let totalMinutes = 0;
+                        let offDays = 0;
+
+                        return (
+                          <tr key={staffId} className="border-t border-border">
+                            <td className="p-2 font-medium text-foreground sticky left-0 bg-card">{staffName}</td>
+                            <td className="p-2">
+                              <span
+                                className="text-xs px-2 py-0.5 rounded-full text-white"
+                                style={{ backgroundColor: staffType?.color || '#606338' }}
+                              >
+                                {staffType?.name}
+                              </span>
+                            </td>
+                            {weekDays.map((day, idx) => {
+                              const dateStr = day.toISOString().split('T')[0];
+                              const dayShifts = (computedSchedules[dateStr] || []).filter(s => s.staff_id === staffId);
+                              if (dayShifts.length === 0) return <td key={idx} className="text-center p-2 text-muted-foreground">-</td>;
+                              const isOff = dayShifts[0]?.isOff;
+                              if (isOff) {
+                                offDays++;
+                                return <td key={idx} className="text-center p-2 text-red-500 font-bold">{pn.offBadge}</td>;
+                              }
+                              const dayMinutes = dayShifts.reduce((sum, s) => {
+                                const sp = s.start_time.split(':').map(Number);
+                                const ep = s.end_time.split(':').map(Number);
+                                return sum + ((ep[0] * 60 + ep[1]) - (sp[0] * 60 + sp[1]));
+                              }, 0);
+                              totalMinutes += dayMinutes;
+                              const h = Math.floor(dayMinutes / 60);
+                              const m = dayMinutes % 60;
+                              return <td key={idx} className="text-center p-2 text-foreground">{h}h{m > 0 ? m : ''}</td>;
+                            })}
+                            <td className="text-center p-2 font-semibold text-foreground">{Math.floor(totalMinutes / 60)}h{totalMinutes % 60 > 0 ? totalMinutes % 60 : ''}</td>
+                            <td className="text-center p-2">
+                              {offDays > 0 ? <span className="text-red-500 font-bold">{offDays}</span> : <span className="text-muted-foreground">0</span>}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
               </div>
-            ))}
+            )}
           </div>
         </div>
       )}
@@ -549,7 +1151,7 @@ export default function PersonnelPage() {
               className="flex items-center gap-2 px-4 py-2 bg-[#606338] text-white rounded-lg hover:bg-[#4d4f2e] transition-colors"
             >
               <Plus className="w-4 h-4" />
-              Request Time Off
+              {pn.requestTimeOff}
             </button>
           </div>
 
@@ -587,14 +1189,14 @@ export default function PersonnelPage() {
                         <button
                           onClick={() => handleUpdateTimeOffStatus(record.id, 'approved')}
                           className="p-2 text-green-500 hover:bg-green-500/10 rounded-lg transition-colors"
-                          title="Approve"
+                          title={pn.approve}
                         >
                           <Check className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleUpdateTimeOffStatus(record.id, 'rejected')}
                           className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                          title="Reject"
+                          title={pn.reject}
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -615,7 +1217,7 @@ export default function PersonnelPage() {
             ))}
             {timeOffRecords.length === 0 && (
               <div className="text-center py-12 text-muted-foreground">
-                No time off requests
+                {pn.noTimeOffRequests}
               </div>
             )}
           </div>
@@ -654,7 +1256,7 @@ export default function PersonnelPage() {
               className="flex items-center gap-2 px-4 py-2 bg-[#606338] text-white rounded-lg hover:bg-[#4d4f2e] transition-colors"
             >
               <Briefcase className="w-4 h-4" />
-              Add Salary Record
+              {pn.addSalaryRecord}
             </button>
           </div>
 
@@ -662,14 +1264,14 @@ export default function PersonnelPage() {
             <table className="w-full">
               <thead className="bg-secondary">
                 <tr>
-                  <th className="text-left p-3"><SortHeader label="Employee" field="staff.first_name" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="left" className="text-sm font-medium text-muted-foreground" /></th>
-                  <th className="text-left p-3"><SortHeader label="Type" field="staff.staff_type.name" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="left" className="text-sm font-medium text-muted-foreground" /></th>
-                  <th className="text-right p-3"><SortHeader label="Base Salary" field="base_salary" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="right" className="text-sm font-medium text-muted-foreground" /></th>
-                  <th className="text-right p-3"><SortHeader label="Bonuses" field="bonuses" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="right" className="text-sm font-medium text-muted-foreground" /></th>
-                  <th className="text-right p-3"><SortHeader label="Deductions" field="deductions" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="right" className="text-sm font-medium text-muted-foreground" /></th>
-                  <th className="text-right p-3"><SortHeader label="Total" field="total" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="right" className="text-sm font-medium text-muted-foreground" /></th>
-                  <th className="text-center p-3"><SortHeader label="Status" field="paid_at" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="center" className="text-sm font-medium text-muted-foreground" /></th>
-                  <th className="text-right p-3 text-sm font-medium text-muted-foreground">Actions</th>
+                  <th className="text-left p-3"><SortHeader label={pn.employee} field="staff.first_name" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="left" className="text-sm font-medium text-muted-foreground" /></th>
+                  <th className="text-left p-3"><SortHeader label={pn.type} field="staff.staff_type.name" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="left" className="text-sm font-medium text-muted-foreground" /></th>
+                  <th className="text-right p-3"><SortHeader label={pn.baseSalary} field="base_salary" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="right" className="text-sm font-medium text-muted-foreground" /></th>
+                  <th className="text-right p-3"><SortHeader label={pn.bonuses} field="bonuses" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="right" className="text-sm font-medium text-muted-foreground" /></th>
+                  <th className="text-right p-3"><SortHeader label={pn.deductions} field="deductions" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="right" className="text-sm font-medium text-muted-foreground" /></th>
+                  <th className="text-right p-3"><SortHeader label={pn.total} field="total" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="right" className="text-sm font-medium text-muted-foreground" /></th>
+                  <th className="text-center p-3"><SortHeader label={pn.status} field="paid_at" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="center" className="text-sm font-medium text-muted-foreground" /></th>
+                  <th className="text-right p-3 text-sm font-medium text-muted-foreground">{pn.actions}</th>
                 </tr>
               </thead>
               <tbody>
@@ -696,7 +1298,7 @@ export default function PersonnelPage() {
                       <span className={`text-xs px-2 py-1 rounded-full ${
                         record.paid_at ? 'bg-green-500/20 text-green-500' : 'bg-yellow-500/20 text-yellow-500'
                       }`}>
-                        {record.paid_at ? 'Paid' : 'Pending'}
+                        {record.paid_at ? pn.paid : pn.pendingStatus}
                       </span>
                     </td>
                     <td className="p-3 text-right">
@@ -720,7 +1322,7 @@ export default function PersonnelPage() {
                 {salaryRecords.length === 0 && (
                   <tr>
                     <td colSpan={8} className="p-8 text-center text-muted-foreground">
-                      No salary records for this period
+                      {pn.noSalaryRecords}
                     </td>
                   </tr>
                 )}
@@ -730,7 +1332,7 @@ export default function PersonnelPage() {
 
           {salaryRecords.length > 0 && (
             <div className="mt-4 p-4 bg-card border border-border rounded-lg flex justify-between items-center">
-              <span className="text-muted-foreground">Total Payroll</span>
+              <span className="text-muted-foreground">{pn.totalPayroll}</span>
               <span className="text-xl font-bold text-foreground">
                 {salaryRecords.reduce((sum, r) => sum + r.total, 0).toLocaleString()} DH
               </span>
@@ -744,7 +1346,6 @@ export default function PersonnelPage() {
         <StaffModal
           staffTypes={staffTypes}
           editingStaff={editingItem as StaffMember | null}
-          staffMembers={staffMembers}
           onClose={() => { setShowStaffModal(false); setEditingItem(null); }}
           onSave={() => { setShowStaffModal(false); setEditingItem(null); fetchData(); }}
         />
@@ -768,6 +1369,33 @@ export default function PersonnelPage() {
           year={salaryYear}
           onClose={() => { setShowSalaryModal(false); setEditingItem(null); }}
           onSave={() => { setShowSalaryModal(false); setEditingItem(null); fetchSalary(); }}
+        />
+      )}
+
+      {/* Shift Detail Modal */}
+      {selectedShift && (
+        <ShiftDetailModal
+          shift={selectedShift}
+          onClose={() => setSelectedShift(null)}
+          onMarkDayOff={async () => {
+            await handleMarkDayOff(selectedShift.staff_id, selectedShift.date);
+            setSelectedShift(null);
+          }}
+          onRemoveDayOff={async () => {
+            if (selectedShift.timeOffId) {
+              await handleRemoveDayOff(selectedShift.timeOffId);
+              setSelectedShift(null);
+            }
+          }}
+        />
+      )}
+
+      {/* Transport Trip Modal */}
+      {selectedTrip && (
+        <TransportTripModal
+          trip={selectedTrip.trip}
+          date={selectedTrip.date}
+          onClose={() => setSelectedTrip(null)}
         />
       )}
     </div>
@@ -802,26 +1430,29 @@ const dayLabels: Record<keyof WeeklyScheduleConfig, string> = {
   sunday: 'Sunday',
 };
 
-interface ProfileOption {
-  id: string;
-  email: string | null;
-  full_name: string | null;
-}
-
 // Staff Modal Component
 function StaffModal({
   staffTypes,
   editingStaff,
-  staffMembers,
   onClose,
   onSave
 }: {
   staffTypes: StaffType[];
   editingStaff: StaffMember | null;
-  staffMembers: StaffMember[];
   onClose: () => void;
   onSave: () => void;
 }) {
+  const { t } = useTranslation();
+  const pn = t.backoffice.personnelPage;
+  const translatedDayLabels: Record<keyof WeeklyScheduleConfig, string> = {
+    monday: pn.monday,
+    tuesday: pn.tuesday,
+    wednesday: pn.wednesday,
+    thursday: pn.thursday,
+    friday: pn.friday,
+    saturday: pn.saturday,
+    sunday: pn.sunday,
+  };
   const [formData, setFormData] = useState({
     first_name: editingStaff?.first_name || '',
     last_name: editingStaff?.last_name || '',
@@ -829,37 +1460,13 @@ function StaffModal({
     phone: editingStaff?.phone || '',
     staff_type_id: editingStaff?.staff_type_id || staffTypes[0]?.id || '',
     hire_date: editingStaff?.hire_date || new Date().toISOString().split('T')[0],
-    hourly_rate: editingStaff?.hourly_rate || '',
     monthly_salary: editingStaff?.monthly_salary || '',
     is_active: editingStaff?.is_active ?? true,
     notes: editingStaff?.notes || '',
-    profile_id: (editingStaff as StaffMember & { profile_id?: string })?.profile_id || ''
+    department: editingStaff?.department || '',
+    transport_pickup: editingStaff?.transport_pickup ?? false,
+    transport_dropoff: editingStaff?.transport_dropoff ?? false
   });
-
-  const [availableProfiles, setAvailableProfiles] = useState<ProfileOption[]>([]);
-
-  useEffect(() => {
-    const fetchProfiles = async () => {
-      try {
-        const res = await fetch('/api/salle?type=available-profiles');
-        const data = await res.json();
-        const profiles: ProfileOption[] = data.profiles || [];
-        // Include the currently linked profile if editing
-        const currentProfileId = (editingStaff as StaffMember & { profile_id?: string })?.profile_id;
-        const linkedProfileIds = staffMembers
-          .filter(s => s.id !== editingStaff?.id)
-          .map(s => (s as StaffMember & { profile_id?: string }).profile_id)
-          .filter(Boolean);
-        const filtered = profiles.filter(p =>
-          !linkedProfileIds.includes(p.id) || p.id === currentProfileId
-        );
-        setAvailableProfiles(filtered);
-      } catch {
-        // Ignore fetch errors
-      }
-    };
-    fetchProfiles();
-  }, [editingStaff, staffMembers]);
 
   const [scheduleType, setScheduleType] = useState<'weekly' | 'monthly' | 'none'>(
     editingStaff?.schedule_type || 'none'
@@ -953,9 +1560,10 @@ function StaffModal({
     const payload = {
       type: 'staff',
       ...formData,
-      hourly_rate: formData.hourly_rate ? Number(formData.hourly_rate) : null,
       monthly_salary: formData.monthly_salary ? Number(formData.monthly_salary) : null,
-      profile_id: formData.profile_id || null,
+      department: formData.department || null,
+      transport_pickup: formData.transport_pickup,
+      transport_dropoff: formData.transport_dropoff,
       schedule_type: scheduleType === 'none' ? null : scheduleType,
       schedule_config: scheduleType === 'weekly'
         ? weeklySchedule
@@ -979,7 +1587,7 @@ function StaffModal({
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-card border border-border rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="p-4 border-b border-border flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{editingStaff ? 'Edit Staff' : 'Add Staff Member'}</h2>
+          <h2 className="text-lg font-semibold">{editingStaff ? pn.editStaff : pn.addStaffMember}</h2>
           <button onClick={onClose} className="p-2 hover:bg-secondary rounded-lg">
             <X className="w-4 h-4" />
           </button>
@@ -987,7 +1595,7 @@ function StaffModal({
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">First Name *</label>
+              <label className="block text-sm font-medium mb-1">{pn.firstName}</label>
               <input
                 type="text"
                 required
@@ -997,7 +1605,7 @@ function StaffModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Last Name *</label>
+              <label className="block text-sm font-medium mb-1">{pn.lastName}</label>
               <input
                 type="text"
                 required
@@ -1009,7 +1617,7 @@ function StaffModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Staff Type *</label>
+            <label className="block text-sm font-medium mb-1">{pn.staffType}</label>
             <select
               required
               value={formData.staff_type_id}
@@ -1024,7 +1632,7 @@ function StaffModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Email</label>
+              <label className="block text-sm font-medium mb-1">{pn.email}</label>
               <input
                 type="email"
                 value={formData.email}
@@ -1033,7 +1641,7 @@ function StaffModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Phone</label>
+              <label className="block text-sm font-medium mb-1">{pn.phone}</label>
               <input
                 type="tel"
                 value={formData.phone}
@@ -1044,7 +1652,7 @@ function StaffModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Hire Date *</label>
+            <label className="block text-sm font-medium mb-1">{pn.hireDate}</label>
             <input
               type="date"
               required
@@ -1054,31 +1662,19 @@ function StaffModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Hourly Rate (DH)</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.hourly_rate}
-                onChange={(e) => setFormData({ ...formData, hourly_rate: e.target.value })}
-                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Monthly Salary (DH)</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.monthly_salary}
-                onChange={(e) => setFormData({ ...formData, monthly_salary: e.target.value })}
-                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">{pn.monthlySalary}</label>
+            <input
+              type="number"
+              step="0.01"
+              value={formData.monthly_salary}
+              onChange={(e) => setFormData({ ...formData, monthly_salary: e.target.value })}
+              className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
+            />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Notes</label>
+            <label className="block text-sm font-medium mb-1">{pn.notes}</label>
             <textarea
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
@@ -1087,35 +1683,67 @@ function StaffModal({
             />
           </div>
 
-          {/* Link to Auth Profile */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Linked Auth Profile</label>
-            <select
-              value={formData.profile_id}
-              onChange={(e) => setFormData({ ...formData, profile_id: e.target.value })}
-              className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
-            >
-              <option value="">No linked profile</option>
-              {availableProfiles.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.full_name || p.email || p.id}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-muted-foreground mt-1">
-              Link to a user account so they can log in as this staff member (required for waiters)
-            </p>
+          {/* Department & Transport Section */}
+          <div className="border-t border-border pt-4 mt-4">
+            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <Briefcase className="w-4 h-4" />
+              {pn.deptTransport}
+            </h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">{pn.department}</label>
+                <select
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
+                >
+                  <option value="">{pn.notAssigned}</option>
+                  <option value="cuisine">{pn.cuisineKitchen}</option>
+                  <option value="salle">{pn.salleDining}</option>
+                </select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {pn.deptUsedFor}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="transport_pickup"
+                    checked={formData.transport_pickup}
+                    onChange={(e) => setFormData({ ...formData, transport_pickup: e.target.checked })}
+                    className="w-4 h-4 rounded border-border text-[#606338] focus:ring-[#606338]"
+                  />
+                  <label htmlFor="transport_pickup" className="text-sm">{pn.needsPickup}</label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="transport_dropoff"
+                    checked={formData.transport_dropoff}
+                    onChange={(e) => setFormData({ ...formData, transport_dropoff: e.target.checked })}
+                    className="w-4 h-4 rounded border-border text-[#606338] focus:ring-[#606338]"
+                  />
+                  <label htmlFor="transport_dropoff" className="text-sm">{pn.needsDropoff}</label>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {pn.transportNote}
+              </p>
+            </div>
           </div>
 
           {/* Schedule Configuration Section */}
           <div className="border-t border-border pt-4 mt-4">
             <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
               <Calendar className="w-4 h-4" />
-              Schedule Configuration
+              {pn.scheduleConfig}
             </h3>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Schedule Type</label>
+              <label className="block text-sm font-medium mb-2">{pn.scheduleType}</label>
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -1126,7 +1754,7 @@ function StaffModal({
                       : 'bg-secondary text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  No Schedule
+                  {pn.noSchedule}
                 </button>
                 <button
                   type="button"
@@ -1137,7 +1765,7 @@ function StaffModal({
                       : 'bg-secondary text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  Weekly (Days)
+                  {pn.weeklyDays}
                 </button>
                 <button
                   type="button"
@@ -1148,13 +1776,13 @@ function StaffModal({
                       : 'bg-secondary text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  Monthly
+                  {pn.monthlyType}
                 </button>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {scheduleType === 'weekly' && 'Configure specific working days and hours for each day of the week'}
-                {scheduleType === 'monthly' && 'Set default working hours and working days for the month'}
-                {scheduleType === 'none' && 'No default schedule - shifts will be assigned manually'}
+                {scheduleType === 'weekly' && pn.weeklyDesc}
+                {scheduleType === 'monthly' && pn.monthlyDesc}
+                {scheduleType === 'none' && pn.noScheduleDesc}
               </p>
             </div>
 
@@ -1172,7 +1800,7 @@ function StaffModal({
                         className="w-4 h-4 rounded border-border text-[#606338] focus:ring-[#606338]"
                       />
                       <label htmlFor={`day-${day}`} className="w-20 text-sm font-medium">
-                        {dayLabels[day]}
+                        {translatedDayLabels[day]}
                       </label>
                       {weeklySchedule[day].enabled && weeklySchedule[day].shifts.length < 2 && (
                         <button
@@ -1181,7 +1809,7 @@ function StaffModal({
                           className="ml-auto text-xs text-[#606338] hover:text-[#4d4f2e] flex items-center gap-1"
                         >
                           <Plus className="w-3 h-3" />
-                          Add shift
+                          {pn.addShift}
                         </button>
                       )}
                     </div>
@@ -1222,7 +1850,7 @@ function StaffModal({
               <div className="space-y-4 bg-secondary/50 p-3 rounded-lg">
                 {/* Working days checkboxes */}
                 <div>
-                  <label className="block text-xs font-medium mb-2">Working Days</label>
+                  <label className="block text-xs font-medium mb-2">{pn.workingDays}</label>
                   <div className="flex flex-wrap gap-2">
                     {dayNames.map((day) => (
                       <label
@@ -1239,7 +1867,7 @@ function StaffModal({
                           onChange={() => toggleMonthlyWorkingDay(day)}
                           className="sr-only"
                         />
-                        {dayLabels[day].slice(0, 3)}
+                        {translatedDayLabels[day].slice(0, 3)}
                       </label>
                     ))}
                   </div>
@@ -1248,7 +1876,7 @@ function StaffModal({
                 {/* Default shifts */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="block text-xs font-medium">Default Shifts</label>
+                    <label className="block text-xs font-medium">{pn.defaultShifts}</label>
                     {monthlySchedule.default_shifts.length < 2 && (
                       <button
                         type="button"
@@ -1256,7 +1884,7 @@ function StaffModal({
                         className="text-xs text-[#606338] hover:text-[#4d4f2e] flex items-center gap-1"
                       >
                         <Plus className="w-3 h-3" />
-                        Add shift
+                        {pn.addShift}
                       </button>
                     )}
                   </div>
@@ -1290,7 +1918,7 @@ function StaffModal({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium mb-1">Working Days per Month</label>
+                  <label className="block text-xs font-medium mb-1">{pn.workingDaysPerMonth}</label>
                   <input
                     type="number"
                     min="1"
@@ -1300,7 +1928,7 @@ function StaffModal({
                     className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Total expected working days in a month (used for salary calculations)
+                    {pn.workingDaysPerMonthDesc}
                   </p>
                 </div>
               </div>
@@ -1315,7 +1943,7 @@ function StaffModal({
               onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
               className="w-4 h-4 rounded border-border text-[#606338] focus:ring-[#606338]"
             />
-            <label htmlFor="is_active" className="text-sm">Active employee</label>
+            <label htmlFor="is_active" className="text-sm">{pn.activeEmployee}</label>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
@@ -1324,14 +1952,14 @@ function StaffModal({
               onClick={onClose}
               className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
             >
-              Cancel
+              {pn.cancel}
             </button>
             <button
               type="submit"
               disabled={saving}
               className="px-4 py-2 bg-[#606338] text-white rounded-lg hover:bg-[#4d4f2e] transition-colors disabled:opacity-50"
             >
-              {saving ? 'Saving...' : editingStaff ? 'Update' : 'Add Staff'}
+              {saving ? pn.saving : editingStaff ? pn.update : pn.addStaff}
             </button>
           </div>
         </form>
@@ -1350,6 +1978,8 @@ function TimeOffModal({
   onClose: () => void;
   onSave: () => void;
 }) {
+  const { t } = useTranslation();
+  const pn = t.backoffice.personnelPage;
   const [formData, setFormData] = useState({
     staff_id: staffMembers[0]?.id || '',
     start_date: new Date().toISOString().split('T')[0],
@@ -1377,14 +2007,14 @@ function TimeOffModal({
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-card border border-border rounded-xl w-full max-w-md">
         <div className="p-4 border-b border-border flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Request Time Off</h2>
+          <h2 className="text-lg font-semibold">{pn.requestTimeOff}</h2>
           <button onClick={onClose} className="p-2 hover:bg-secondary rounded-lg">
             <X className="w-4 h-4" />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Staff Member *</label>
+            <label className="block text-sm font-medium mb-1">{pn.staffMember}</label>
             <select
               required
               value={formData.staff_id}
@@ -1401,7 +2031,7 @@ function TimeOffModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Start Date *</label>
+              <label className="block text-sm font-medium mb-1">{pn.startDate}</label>
               <input
                 type="date"
                 required
@@ -1411,7 +2041,7 @@ function TimeOffModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">End Date *</label>
+              <label className="block text-sm font-medium mb-1">{pn.endDate}</label>
               <input
                 type="date"
                 required
@@ -1423,28 +2053,28 @@ function TimeOffModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Type *</label>
+            <label className="block text-sm font-medium mb-1">{pn.typeLabel}</label>
             <select
               required
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value })}
               className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
             >
-              <option value="vacation">Vacation</option>
-              <option value="sick">Sick Leave</option>
-              <option value="personal">Personal</option>
-              <option value="other">Other</option>
+              <option value="vacation">{pn.vacation}</option>
+              <option value="sick">{pn.sickLeave}</option>
+              <option value="personal">{pn.personal}</option>
+              <option value="other">{pn.other}</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Reason</label>
+            <label className="block text-sm font-medium mb-1">{pn.reason}</label>
             <textarea
               value={formData.reason}
               onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
               rows={3}
               className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
-              placeholder="Optional reason for the time off request..."
+              placeholder={pn.reasonPlaceholder}
             />
           </div>
 
@@ -1454,14 +2084,14 @@ function TimeOffModal({
               onClick={onClose}
               className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
             >
-              Cancel
+              {pn.cancel}
             </button>
             <button
               type="submit"
               disabled={saving}
               className="px-4 py-2 bg-[#606338] text-white rounded-lg hover:bg-[#4d4f2e] transition-colors disabled:opacity-50"
             >
-              {saving ? 'Saving...' : 'Submit Request'}
+              {saving ? pn.saving : pn.submitRequest}
             </button>
           </div>
         </form>
@@ -1486,6 +2116,8 @@ function SalaryModal({
   onClose: () => void;
   onSave: () => void;
 }) {
+  const { t } = useTranslation();
+  const pn = t.backoffice.personnelPage;
   const [formData, setFormData] = useState({
     staff_id: editingRecord?.staff_id || staffMembers[0]?.id || '',
     month: editingRecord?.month || month,
@@ -1538,14 +2170,14 @@ function SalaryModal({
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-card border border-border rounded-xl w-full max-w-md">
         <div className="p-4 border-b border-border flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{editingRecord ? 'Edit Salary Record' : 'Add Salary Record'}</h2>
+          <h2 className="text-lg font-semibold">{editingRecord ? pn.editSalaryRecord : pn.addSalaryRecord}</h2>
           <button onClick={onClose} className="p-2 hover:bg-secondary rounded-lg">
             <X className="w-4 h-4" />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Staff Member *</label>
+            <label className="block text-sm font-medium mb-1">{pn.staffMember}</label>
             <select
               required
               value={formData.staff_id}
@@ -1563,7 +2195,7 @@ function SalaryModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Month</label>
+              <label className="block text-sm font-medium mb-1">{pn.month}</label>
               <select
                 value={formData.month}
                 onChange={(e) => setFormData({ ...formData, month: Number(e.target.value) })}
@@ -1577,7 +2209,7 @@ function SalaryModal({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Year</label>
+              <label className="block text-sm font-medium mb-1">{pn.year}</label>
               <select
                 value={formData.year}
                 onChange={(e) => setFormData({ ...formData, year: Number(e.target.value) })}
@@ -1592,7 +2224,7 @@ function SalaryModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Base Salary (DH) *</label>
+            <label className="block text-sm font-medium mb-1">{pn.baseSalaryDH}</label>
             <input
               type="number"
               required
@@ -1605,7 +2237,7 @@ function SalaryModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Bonuses (DH)</label>
+              <label className="block text-sm font-medium mb-1">{pn.bonusesDH}</label>
               <input
                 type="number"
                 step="0.01"
@@ -1615,7 +2247,7 @@ function SalaryModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Deductions (DH)</label>
+              <label className="block text-sm font-medium mb-1">{pn.deductionsDH}</label>
               <input
                 type="number"
                 step="0.01"
@@ -1628,24 +2260,24 @@ function SalaryModal({
 
           <div className="p-3 bg-secondary rounded-lg">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Total</span>
+              <span className="text-sm text-muted-foreground">{pn.total}</span>
               <span className="text-lg font-bold text-foreground">{total.toLocaleString()} DH</span>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Paid Date</label>
+            <label className="block text-sm font-medium mb-1">{pn.paidDate}</label>
             <input
               type="date"
               value={formData.paid_at ? formData.paid_at.split('T')[0] : ''}
               onChange={(e) => setFormData({ ...formData, paid_at: e.target.value })}
               className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
             />
-            <p className="text-xs text-muted-foreground mt-1">Leave empty if not yet paid</p>
+            <p className="text-xs text-muted-foreground mt-1">{pn.leaveEmptyIfNotPaid}</p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Notes</label>
+            <label className="block text-sm font-medium mb-1">{pn.notes}</label>
             <textarea
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
@@ -1660,17 +2292,361 @@ function SalaryModal({
               onClick={onClose}
               className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
             >
-              Cancel
+              {pn.cancel}
             </button>
             <button
               type="submit"
               disabled={saving}
               className="px-4 py-2 bg-[#606338] text-white rounded-lg hover:bg-[#4d4f2e] transition-colors disabled:opacity-50"
             >
-              {saving ? 'Saving...' : editingRecord ? 'Update' : 'Add Record'}
+              {saving ? pn.saving : editingRecord ? pn.update : pn.addRecord}
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// Shift Detail Modal Component
+function ShiftDetailModal({
+  shift,
+  onClose,
+  onMarkDayOff,
+  onRemoveDayOff,
+}: {
+  shift: ComputedShift;
+  onClose: () => void;
+  onMarkDayOff: () => void;
+  onRemoveDayOff: () => void;
+}) {
+  const { t } = useTranslation();
+  const pn = t.backoffice.personnelPage;
+  const [toggling, setToggling] = useState(false);
+  // Calculate shift duration
+  const startParts = shift.start_time.split(':').map(Number);
+  const endParts = shift.end_time.split(':').map(Number);
+  const startMinutes = startParts[0] * 60 + startParts[1];
+  const endMinutes = endParts[0] * 60 + endParts[1];
+  const durationMinutes = endMinutes - startMinutes;
+  const hours = Math.floor(durationMinutes / 60);
+  const minutes = durationMinutes % 60;
+  const durationStr = minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+
+  // Format date
+  const dateObj = new Date(shift.date);
+  const formattedDate = dateObj.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md">
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <h2 className="text-lg font-semibold">{pn.shiftDetails}</h2>
+          <button onClick={onClose} className="p-2 hover:bg-secondary rounded-lg">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* Staff Info */}
+          <div className="flex items-center gap-3">
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold"
+              style={{ backgroundColor: shift.staff_type?.color || '#606338' }}
+            >
+              {shift.staff_name.split(' ').map(n => n[0]).join('')}
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground text-lg">{shift.staff_name}</h3>
+              <div className="flex items-center gap-2 mt-1">
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full text-white"
+                  style={{ backgroundColor: shift.staff_type?.color || '#606338' }}
+                >
+                  {shift.staff_type?.name}
+                </span>
+                {shift.department && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full text-white ${
+                    shift.department === 'cuisine' ? 'bg-orange-500' : 'bg-purple-500'
+                  }`}>
+                    {shift.department === 'cuisine' ? pn.cuisine : pn.salle}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Day Off Status */}
+          {shift.isOff && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 flex items-center gap-3">
+              <XCircle className="w-5 h-5 text-red-500" />
+              <div>
+                <p className="font-medium text-red-500">{pn.dayOffLabel}</p>
+                <p className="text-sm text-muted-foreground">{pn.dayOffMsg}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Date & Time */}
+          <div className="bg-secondary rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <Calendar className="w-5 h-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">{pn.dateLabel}</p>
+                <p className="font-medium text-foreground">{formattedDate}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Clock className="w-5 h-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">{pn.timeLabel}</p>
+                <p className="font-medium text-foreground">
+                  {shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}
+                  <span className="text-muted-foreground ml-2">({durationStr})</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Info */}
+          {(shift.email || shift.phone) && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-muted-foreground">{pn.contact}</h4>
+              {shift.phone && (
+                <a
+                  href={`tel:${shift.phone}`}
+                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary transition-colors"
+                >
+                  <Phone className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-foreground">{shift.phone}</span>
+                </a>
+              )}
+              {shift.email && (
+                <a
+                  href={`mailto:${shift.email}`}
+                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary transition-colors"
+                >
+                  <Mail className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-foreground">{shift.email}</span>
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* Transport Info */}
+          {(shift.transport_pickup || shift.transport_dropoff) && (
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Bus className="w-5 h-5 text-blue-500" />
+                <h4 className="font-medium text-blue-500">{pn.transportRequired}</h4>
+              </div>
+              <div className="space-y-1 text-sm">
+                {shift.transport_pickup && (
+                  <div className="flex items-center gap-2 text-foreground">
+                    <MapPin className="w-4 h-4 text-green-500" />
+                    <span>{pn.pickupAt} <strong>{shift.start_time.slice(0, 5)}</strong></span>
+                  </div>
+                )}
+                {shift.transport_dropoff && (
+                  <div className="flex items-center gap-2 text-foreground">
+                    <MapPin className="w-4 h-4 text-red-500" />
+                    <span>{pn.dropoffAt} <strong>{shift.end_time.slice(0, 5)}</strong></span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="p-4 border-t border-border space-y-2">
+          {shift.isOff ? (
+            <button
+              onClick={async () => { setToggling(true); await onRemoveDayOff(); setToggling(false); }}
+              disabled={toggling}
+              className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <Check className="w-4 h-4" />
+              {toggling ? pn.removing : pn.removeDayOff}
+            </button>
+          ) : (
+            <button
+              onClick={async () => { setToggling(true); await onMarkDayOff(); setToggling(false); }}
+              disabled={toggling}
+              className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <XCircle className="w-4 h-4" />
+              {toggling ? pn.marking : pn.markDayOff}
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-2 bg-secondary text-foreground rounded-lg hover:bg-secondary/80 transition-colors"
+          >
+            {pn.close}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Transport Trip Detail Modal Component
+function TransportTripModal({
+  trip,
+  date,
+  onClose
+}: {
+  trip: TransportTripGroup;
+  date: string;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const pn = t.backoffice.personnelPage;
+  // Format date
+  const dateObj = new Date(date);
+  const formattedDate = dateObj.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  const isPickup = trip.type === 'pickup';
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${isPickup ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
+              <Bus className={`w-5 h-5 ${isPickup ? 'text-green-500' : 'text-red-500'}`} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">
+                {isPickup ? pn.pickupTrip : pn.dropoffTrip}
+              </h2>
+              <p className="text-sm text-muted-foreground">{trip.time}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-secondary rounded-lg">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* Date & Time */}
+          <div className="bg-secondary rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <Calendar className="w-5 h-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">{pn.dateLabel}</p>
+                <p className="font-medium text-foreground">{formattedDate}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Clock className="w-5 h-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  {isPickup ? pn.pickupTime : pn.dropoffTime}
+                </p>
+                <p className="font-medium text-foreground">{trip.time}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Trip Type Badge */}
+          <div className={`p-3 rounded-lg flex items-center gap-3 ${
+            isPickup ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'
+          }`}>
+            <MapPin className={`w-5 h-5 ${isPickup ? 'text-green-500' : 'text-red-500'}`} />
+            <div>
+              <p className={`font-medium ${isPickup ? 'text-green-500' : 'text-red-500'}`}>
+                {isPickup ? pn.pickupTrip : pn.dropoffTrip}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {isPickup ? pn.pickupDesc : pn.dropoffDesc}
+              </p>
+            </div>
+          </div>
+
+          {/* Passengers List */}
+          <div>
+            <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              {pn.passengersLabel} ({trip.passengers.length})
+            </h4>
+            <div className="space-y-2">
+              {trip.passengers.map((passenger) => (
+                <div
+                  key={passenger.staff_id}
+                  className="bg-secondary rounded-lg p-3 flex items-start justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm"
+                      style={{ backgroundColor: passenger.staff_type?.color || '#606338' }}
+                    >
+                      {passenger.staff_name.split(' ').map(n => n[0]).join('')}
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">{passenger.staff_name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span
+                          className="text-xs px-2 py-0.5 rounded-full text-white"
+                          style={{ backgroundColor: passenger.staff_type?.color || '#606338' }}
+                        >
+                          {passenger.staff_type?.name}
+                        </span>
+                        {passenger.department && (
+                          <span className={`text-xs px-2 py-0.5 rounded-full text-white ${
+                            passenger.department === 'cuisine' ? 'bg-orange-500' : 'bg-purple-500'
+                          }`}>
+                            {passenger.department === 'cuisine' ? pn.cuisine : pn.salle}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Contact icons */}
+                  <div className="flex items-center gap-1">
+                    {passenger.phone && (
+                      <a
+                        href={`tel:${passenger.phone}`}
+                        className="p-2 hover:bg-card rounded-lg transition-colors"
+                        title={passenger.phone}
+                      >
+                        <Phone className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                      </a>
+                    )}
+                    {passenger.email && (
+                      <a
+                        href={`mailto:${passenger.email}`}
+                        className="p-2 hover:bg-card rounded-lg transition-colors"
+                        title={passenger.email}
+                      >
+                        <Mail className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-border">
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-2 bg-secondary text-foreground rounded-lg hover:bg-secondary/80 transition-colors"
+          >
+            {pn.close}
+          </button>
+        </div>
       </div>
     </div>
   );
