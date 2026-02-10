@@ -84,9 +84,9 @@ function GalleryImage({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 60 }}
+      initial={{ opacity: 0, y: 40 }}
       animate={isInView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.8, delay: index * 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
+      transition={{ duration: 0.6, delay: index * 0.08 }}
       className={`
         relative overflow-hidden rounded-2xl cursor-pointer group
         ${image.featured ? "sm:col-span-2 lg:col-span-2 lg:row-span-2" : ""}
@@ -96,95 +96,41 @@ function GalleryImage({
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onImageClick(image)}
     >
-      {/* Image container with parallax effect */}
-      <motion.div
-        className="absolute inset-0"
-        animate={{ scale: isHovered ? 1.05 : 1 }}
-        transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-      >
+      {/* Image container - scale on hover (desktop only via CSS) */}
+      <div className="absolute inset-0 transition-transform duration-500 ease-out group-hover:scale-105">
         <Image
           src={image.src}
           alt={image.alt}
           fill
           className={`
-            object-cover transition-all duration-700
+            object-cover transition-opacity duration-500
             ${isLoaded ? "opacity-100" : "opacity-0"}
           `}
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           onLoad={() => setIsLoaded(true)}
+          loading={image.featured ? undefined : "lazy"}
           priority={image.featured}
         />
-      </motion.div>
+      </div>
 
       {/* Loading skeleton */}
       {!isLoaded && (
         <div className="absolute inset-0 bg-card animate-pulse" />
       )}
 
-      {/* Gradient overlays */}
+      {/* Gradient overlay */}
       <div className="absolute inset-0 bg-linear-to-t from-primary/90 via-primary/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
 
-      {/* Gold accent glow on hover */}
-      <motion.div
-        className="absolute inset-0 pointer-events-none"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: isHovered ? 1 : 0 }}
-        transition={{ duration: 0.4 }}
-        style={{
-          background: "radial-gradient(ellipse at center, rgba(201, 169, 98, 0.15) 0%, transparent 70%)",
-        }}
-      />
-
-      {/* Border glow effect */}
-      <motion.div
-        className="absolute inset-0 rounded-2xl pointer-events-none"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: isHovered ? 1 : 0 }}
-        transition={{ duration: 0.3 }}
-        style={{
-          boxShadow: "inset 0 0 0 1px rgba(201, 169, 98, 0.3), 0 0 30px rgba(201, 169, 98, 0.1)",
-        }}
-      />
-
-      {/* Content overlay */}
+      {/* Content overlay - always visible on mobile, hover on desktop */}
       <div className="absolute inset-0 p-4 sm:p-6 flex flex-col justify-end">
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: isHovered ? 0 : 20, opacity: isHovered ? 1 : 0 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-        >
-          <p className="text-accent text-xs font-medium uppercase tracking-[0.2em] mb-2">
-            {image.title}
-          </p>
-        </motion.div>
-
-        <motion.h3
-          className="text-foreground font-heading text-xl md:text-2xl font-semibold"
-          animate={{ y: isHovered ? -8 : 0 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-        >
+        <h3 className="text-foreground font-heading text-xl md:text-2xl font-semibold transition-transform duration-300 group-hover:-translate-y-2">
           {image.title}
-        </motion.h3>
+        </h3>
 
-        <motion.p
-          className="text-muted-foreground text-sm mt-2 line-clamp-2"
-          initial={{ y: 10, opacity: 0 }}
-          animate={{ y: isHovered ? 0 : 10, opacity: isHovered ? 1 : 0 }}
-          transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" }}
-        >
+        <p className="text-muted-foreground text-sm mt-2 line-clamp-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
           {image.description}
-        </motion.p>
+        </p>
       </div>
-
-      {/* Corner accent */}
-      <motion.div
-        className="absolute top-4 right-4 w-8 h-8"
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: isHovered ? 1 : 0, scale: isHovered ? 1 : 0.8 }}
-        transition={{ duration: 0.3 }}
-      >
-        <div className="w-full h-full border-t-2 border-r-2 border-accent/50 rounded-tr-lg" />
-      </motion.div>
     </motion.div>
   );
 }
@@ -203,7 +149,7 @@ function Lightbox({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-primary/95 backdrop-blur-md p-4 md:p-8"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-primary/98 sm:bg-primary/95 sm:backdrop-blur-md p-4 md:p-8"
       onClick={onClose}
     >
       <motion.button

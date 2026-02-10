@@ -32,24 +32,11 @@ export default function ReservationPage() {
         </div>
       </section>
 
-      {/* Quick Call CTA - Mobile Priority */}
-      <section className="bg-card py-6 sm:py-8 lg:hidden border-b border-border">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6">
-          <a
-            href={`tel:${siteConfig.contact.phone.replace(/\s/g, "")}`}
-            className="flex items-center justify-center gap-2 w-full py-4 bg-accent text-white rounded-xl font-medium"
-          >
-            <Phone size={18} />
-            Appeler: {siteConfig.contact.phone}
-          </a>
-        </div>
-      </section>
-
       {/* Reservation Form & Info */}
       <Section className="bg-primary">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-          {/* Info Cards - Shows first on mobile */}
-          <div className="order-1 lg:order-2 space-y-6">
+          {/* Info Cards - Shows after form on mobile */}
+          <div className="order-2 lg:order-2 space-y-6">
             <div>
               <h2 className="text-xl sm:text-2xl font-heading font-semibold text-foreground mb-4 sm:mb-6">
                 Informations pratiques
@@ -145,8 +132,8 @@ export default function ReservationPage() {
             </div>
           </div>
 
-          {/* Form */}
-          <div className="order-2 lg:order-1">
+          {/* Form - Shows first on mobile */}
+          <div className="order-1 lg:order-1">
             <ReservationForm />
           </div>
         </div>
