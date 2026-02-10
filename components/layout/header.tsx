@@ -137,7 +137,11 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
 
           {/* Mobile Menu Button */}
           <button
-            className="lg:hidden p-2 -mr-2 text-foreground hover:text-accent active:scale-95 transition-all touch-manipulation"
+            className={`lg:hidden p-2 -mr-2 active:scale-95 transition-all touch-manipulation rounded-full ${
+              isScrolled
+                ? "text-foreground hover:text-accent"
+                : "text-white bg-black/30 hover:bg-black/40"
+            }`}
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             aria-label={isMobileMenuOpen ? t.common.closeMenu : t.common.openMenu}
             aria-expanded={isMobileMenuOpen}

@@ -800,6 +800,12 @@ export default function PersonnelPage() {
                             {staff.schedule_type === 'weekly' ? pn.weekly : pn.monthly}
                           </span>
                         )}
+                        {(staff.transport_pickup || staff.transport_dropoff) && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-600 dark:text-green-400 flex items-center gap-1">
+                            <Bus className="w-3 h-3" />
+                            {pn.transportBeneficiary}
+                          </span>
+                        )}
                         {!staff.is_active && (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-500">Inactive</span>
                         )}
@@ -1707,28 +1713,79 @@ function StaffModal({
                 </p>
               </div>
 
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="transport_pickup"
-                    checked={formData.transport_pickup}
-                    onChange={(e) => setFormData({ ...formData, transport_pickup: e.target.checked })}
-                    className="w-4 h-4 rounded border-border text-[#606338] focus:ring-[#606338]"
-                  />
-                  <label htmlFor="transport_pickup" className="text-sm">{pn.needsPickup}</label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="transport_dropoff"
-                    checked={formData.transport_dropoff}
-                    onChange={(e) => setFormData({ ...formData, transport_dropoff: e.target.checked })}
-                    className="w-4 h-4 rounded border-border text-[#606338] focus:ring-[#606338]"
-                  />
-                  <label htmlFor="transport_dropoff" className="text-sm">{pn.needsDropoff}</label>
+              {/* Transport Beneficiary Toggle */}
+              <div
+                className={`rounded-lg border p-3 transition-colors cursor-pointer ${
+                  formData.transport_pickup || formData.transport_dropoff
+                    ? 'bg-green-500/10 border-green-500/30'
+                    : 'bg-secondary border-border'
+                }`}
+                onClick={() => {
+                  const isCurrentlyBeneficiary = formData.transport_pickup || formData.transport_dropoff;
+                  if (isCurrentlyBeneficiary) {
+                    setFormData({ ...formData, transport_pickup: false, transport_dropoff: false });
+                  } else {
+                    setFormData({ ...formData, transport_pickup: true, transport_dropoff: true });
+                  }
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${
+                      formData.transport_pickup || formData.transport_dropoff
+                        ? 'bg-green-500/20'
+                        : 'bg-muted'
+                    }`}>
+                      <Bus className={`w-5 h-5 ${
+                        formData.transport_pickup || formData.transport_dropoff
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-muted-foreground'
+                      }`} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{pn.transportBeneficiary}</p>
+                      <p className="text-xs text-muted-foreground">{pn.transportBeneficiaryDesc}</p>
+                    </div>
+                  </div>
+                  <div className={`w-10 h-6 rounded-full transition-colors relative ${
+                    formData.transport_pickup || formData.transport_dropoff
+                      ? 'bg-green-500'
+                      : 'bg-muted-foreground/30'
+                  }`}>
+                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                      formData.transport_pickup || formData.transport_dropoff
+                        ? 'translate-x-5'
+                        : 'translate-x-1'
+                    }`} />
+                  </div>
                 </div>
               </div>
+
+              {/* Pickup / Dropoff options - shown when beneficiary */}
+              {(formData.transport_pickup || formData.transport_dropoff) && (
+                <div className="flex items-center gap-6 ml-1">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="transport_pickup"
+                      checked={formData.transport_pickup}
+                      onChange={(e) => setFormData({ ...formData, transport_pickup: e.target.checked })}
+                      className="w-4 h-4 rounded border-border text-[#606338] focus:ring-[#606338]"
+                    />
+                    <label htmlFor="transport_pickup" className="text-sm">{pn.needsPickup}</label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="transport_dropoff"
+                      checked={formData.transport_dropoff}
+                      onChange={(e) => setFormData({ ...formData, transport_dropoff: e.target.checked })}
+                      className="w-4 h-4 rounded border-border text-[#606338] focus:ring-[#606338]"
+                    />
+                    <label htmlFor="transport_dropoff" className="text-sm">{pn.needsDropoff}</label>
+                  </div>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">
                 {pn.transportNote}
               </p>
