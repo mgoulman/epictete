@@ -1,7 +1,7 @@
 ## Overview
 Epictete
 Next.js 16 app for Epictete Restaurant containing:
-moka
+adib maachi bel adaab 
 - `/` – main-domain placeholder (“Website coming soon”).
 - `/menu` – full-screen PDF viewer for `public/menu.pdf`, with fallback download link.
 
