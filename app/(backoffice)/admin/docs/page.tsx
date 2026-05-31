@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Search, ChevronRight, ArrowLeft, Send } from "lucide-react";
 import { PermissionGate } from "@/components/backoffice/auth/PermissionGate";
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 type Language = "en" | "fr";
 
@@ -24,6 +25,8 @@ const DOCS = [
 const CATEGORIES = ["All", "Overview", "Brand", "Restaurant", "Audience", "Marketing", "Operations"];
 
 export default function DocsPage() {
+  const { t } = useTranslation();
+  const dc = t.backoffice.docs;
   const [selectedDoc, setSelectedDoc] = useState<typeof DOCS[0] | null>(null);
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
@@ -60,13 +63,13 @@ export default function DocsPage() {
         const data = await res.json();
         setContent(data.content);
       } else {
-        setContent("Failed to load document.");
+        setContent(dc.failedToLoad);
       }
     } catch {
-      setContent("Error loading document.");
+      setContent(dc.errorLoading);
     }
     setLoading(false);
-  }, [lang]);
+  }, [lang, dc.failedToLoad, dc.errorLoading]);
 
   const goBack = () => {
     setSelectedDoc(null);
@@ -76,13 +79,13 @@ export default function DocsPage() {
   // Document list view
   if (!selectedDoc) {
     return (
-      <PermissionGate permission="marketing.read" fallback={<div className="text-center py-12 text-muted-foreground">No permission</div>}>
+      <PermissionGate permission="marketing.read" fallback={<div className="text-center py-12 text-muted-foreground">{dc.noPermission}</div>}>
         <div className="flex flex-col gap-6">
           {/* Header */}
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h1 className="text-2xl font-semibold text-foreground">Documentation</h1>
-              <p className="text-sm text-muted-foreground mt-1">Brand guidelines, strategy docs, and reference materials</p>
+              <h1 className="text-2xl font-semibold text-foreground">{dc.title}</h1>
+              <p className="text-sm text-muted-foreground mt-1">{dc.subtitle}</p>
             </div>
             <button
               onClick={() => { const n = lang === "en" ? "fr" : "en"; setLang(n); localStorage.setItem("admin_lang", n); }}
@@ -98,10 +101,10 @@ export default function DocsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search documents..."
+                placeholder={dc.searchDocs}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full py-2.5 pl-10 pr-3 bg-secondary border border-border rounded-lg text-sm text-foreground outline-none focus:border-amber-600/40"
+                className="w-full py-2.5 pl-10 pr-3 bg-secondary border border-border rounded-lg text-sm text-foreground outline-none focus:border-[#606338]/40"
               />
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -111,7 +114,7 @@ export default function DocsPage() {
                   onClick={() => setCategory(cat)}
                   className={`px-3.5 py-1.5 text-[13px] rounded-lg border-none cursor-pointer transition-all ${
                     category === cat
-                      ? 'bg-amber-600 text-white'
+                      ? 'bg-[#606338] text-white'
                       : 'bg-secondary text-muted-foreground hover:text-foreground'
                   }`}
                 >
@@ -127,7 +130,7 @@ export default function DocsPage() {
               <button
                 key={doc.id}
                 onClick={() => loadDoc(doc)}
-                className="flex items-center gap-3 p-4 bg-secondary border border-border rounded-xl cursor-pointer text-left transition-all hover:border-amber-600/30 hover:bg-card group"
+                className="flex items-center gap-3 p-4 bg-secondary border border-border rounded-xl cursor-pointer text-left transition-all hover:border-[#606338]/30 hover:bg-card group"
               >
                 <span className="text-2xl">{doc.icon}</span>
                 <div className="flex-1 min-w-0">
@@ -141,7 +144,7 @@ export default function DocsPage() {
 
           {filteredDocs.length === 0 && (
             <div className="text-center py-12 text-muted-foreground">
-              No documents found
+              {dc.noDocsFound}
             </div>
           )}
         </div>
@@ -151,7 +154,7 @@ export default function DocsPage() {
 
   // Document detail view
   return (
-    <PermissionGate permission="marketing.read" fallback={<div className="text-center py-12 text-muted-foreground">No permission</div>}>
+    <PermissionGate permission="marketing.read" fallback={<div className="text-center py-12 text-muted-foreground">{dc.noPermission}</div>}>
       <div className="flex flex-col gap-4">
         {/* Back button & title */}
         <div className="flex items-center gap-4">
@@ -174,7 +177,7 @@ export default function DocsPage() {
         <div className="bg-secondary border border-border rounded-xl p-6 min-h-[60vh]">
           {loading ? (
             <div className="flex items-center justify-center py-20">
-              <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-[#606338] border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
             <MarkdownRenderer content={content} />
@@ -187,13 +190,13 @@ export default function DocsPage() {
             onClick={goBack}
             className="flex items-center gap-2 px-4 py-2 bg-transparent border-none text-muted-foreground text-sm cursor-pointer hover:text-foreground transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" /> Back to list
+            <ArrowLeft className="w-4 h-4" /> {dc.backToList}
           </button>
           <button
             onClick={() => window.open(`mailto:youssef@epictete.ma?subject=[Docs] Feedback: ${selectedDoc.name}`, "_blank")}
             className="flex items-center gap-2 px-4 py-2 bg-transparent border-none text-muted-foreground text-sm cursor-pointer hover:text-foreground transition-colors"
           >
-            <Send className="w-4 h-4" /> Send Feedback
+            <Send className="w-4 h-4" /> {dc.sendFeedback}
           </button>
         </div>
       </div>
@@ -213,7 +216,7 @@ function MarkdownRenderer({ content }: { content: string }) {
     text = text.replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-foreground">$1</strong>');
     text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
     text = text.replace(/`([^`]+)`/g, '<code class="bg-card px-1.5 py-0.5 rounded text-[13px]">$1</code>');
-    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-amber-600 no-underline hover:underline" target="_blank">$1</a>');
+    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-[#606338] no-underline hover:underline" target="_blank">$1</a>');
     return <span dangerouslySetInnerHTML={{ __html: text }} />;
   };
 
@@ -279,13 +282,13 @@ function MarkdownRenderer({ content }: { content: string }) {
     } else if (line.startsWith("#### ")) {
       elements.push(<h4 key={i} className="font-medium text-foreground mt-3 mb-1">{line.slice(5)}</h4>);
     } else if (line.startsWith("> ")) {
-      elements.push(<blockquote key={i} className="border-l-2 border-amber-600 pl-4 my-3 text-muted-foreground italic">{processInline(line.slice(2))}</blockquote>);
+      elements.push(<blockquote key={i} className="border-l-2 border-[#606338] pl-4 my-3 text-muted-foreground italic">{processInline(line.slice(2))}</blockquote>);
     } else if (line.match(/^[-*] /)) {
-      elements.push(<div key={i} className="flex gap-2 mt-1 ml-2"><span className="text-amber-600">•</span><span className="text-muted-foreground">{processInline(line.slice(2))}</span></div>);
+      elements.push(<div key={i} className="flex gap-2 mt-1 ml-2"><span className="text-[#606338]">•</span><span className="text-muted-foreground">{processInline(line.slice(2))}</span></div>);
     } else if (line.match(/^\d+\. /)) {
       const match = line.match(/^(\d+)\. (.+)/);
       if (match) {
-        elements.push(<div key={i} className="flex gap-2 mt-1 ml-2"><span className="text-amber-600 font-medium w-5">{match[1]}.</span><span className="text-muted-foreground">{processInline(match[2])}</span></div>);
+        elements.push(<div key={i} className="flex gap-2 mt-1 ml-2"><span className="text-[#606338] font-medium w-5">{match[1]}.</span><span className="text-muted-foreground">{processInline(match[2])}</span></div>);
       }
     } else if (line.match(/^---+$/)) {
       elements.push(<hr key={i} className="my-6 border-none border-t border-border" />);

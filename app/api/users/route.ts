@@ -51,87 +51,41 @@ export async function POST(request: Request) {
 
     const supabase = await createSupabaseServerClient();
 
-    // Create user in Supabase Auth
-    // Note: In production, you might want to use admin API for this
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { full_name }
-    });
+    // Create user in local database
+    const { query } = await import('@/lib/db');
+    const { rows: newUsers } = await query(
+      "INSERT INTO users (email, password_hash) VALUES ($1, crypt($2, gen_salt('bf'))) RETURNING id, email",
+      [email, password]
+    );
 
-    if (authError) {
-      // Fallback to regular signup if admin API is not available
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name }
-        }
-      });
-
-      if (signUpError) {
-        return NextResponse.json({ error: signUpError.message }, { status: 400 });
-      }
-
-      if (signUpData.user) {
-        // Update profile with role
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ role_id, full_name, is_active })
-          .eq('id', signUpData.user.id);
-
-        if (profileError) {
-          console.error('Profile update error:', profileError);
-        }
-
-        // Create audit log
-        const meta = getRequestMeta(request);
-        await createAuditLog({
-          userId: currentUser.id,
-          userEmail: currentUser.email,
-          action: 'create',
-          resourceType: 'user',
-          resourceId: signUpData.user.id,
-          newValues: { email, full_name, role_id, is_active },
-          ...meta
-        });
-
-        return NextResponse.json({
-          success: true,
-          user: { id: signUpData.user.id, email }
-        });
-      }
-    } else if (authData.user) {
-      // Update profile with role
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ role_id, full_name, is_active })
-        .eq('id', authData.user.id);
-
-      if (profileError) {
-        console.error('Profile update error:', profileError);
-      }
-
-      // Create audit log
-      const meta = getRequestMeta(request);
-      await createAuditLog({
-        userId: currentUser.id,
-        userEmail: currentUser.email,
-        action: 'create',
-        resourceType: 'user',
-        resourceId: authData.user.id,
-        newValues: { email, full_name, role_id, is_active },
-        ...meta
-      });
-
-      return NextResponse.json({
-        success: true,
-        user: { id: authData.user.id, email }
-      });
+    if (newUsers.length === 0) {
+      return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
     }
 
-    return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
+    const newUser = newUsers[0] as { id: string; email: string };
+
+    // Create profile
+    await supabase.from('profiles').insert({
+      id: newUser.id,
+      email: newUser.email,
+      full_name: full_name || null,
+      role_id: role_id || null,
+      is_active,
+    });
+
+    // Create audit log
+    const meta = getRequestMeta(request);
+    await createAuditLog({
+      userId: currentUser.id,
+      userEmail: currentUser.email,
+      action: 'create',
+      resourceType: 'user',
+      resourceId: newUser.id,
+      newValues: { email, full_name, role_id, is_active },
+      ...meta
+    });
+
+    return NextResponse.json({ success: true, user: { id: newUser.id, email } });
   } catch (err) {
     console.error('Create user error:', err);
     if (err instanceof Error) {

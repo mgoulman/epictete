@@ -10,6 +10,7 @@ export const siteConfig = {
     email: "contact@epictetelerestaurant.ma",
     phone: "06 70 69 93 93",
     phoneSecondary: "05 22 06 63 54",
+    whatsapp: "+212670699393", // For reservations
     address: "COMMUNE OULED SALEH, lot 62E3, Lotissement AL KHAIR, Bouskoura 27184, Casablanca",
     addressShort: "Bouskoura Sud, Casablanca",
     addressFull: "COMMUNE OULED SALEH, lot 62E3 lotissement AL KHAIR OULED SALEH, casablanca 27184",
@@ -26,9 +27,9 @@ export const siteConfig = {
   },
 
   hours: {
-    daily: "10:00 - 22:00",
-    weekdays: "10:00 - 22:00",
-    weekends: "10:00 - 22:00",
+    daily: "07:00 - 22:00",
+    weekdays: "07:00 - 22:00",
+    weekends: "07:00 - 22:00",
     closed: null, // Open 7 days/week
     note: "Service continu, 7j/7",
   },
@@ -40,15 +41,16 @@ export const siteConfig = {
   },
 
   navigation: [
-    { name: "Accueil", href: "/" },
-    { name: "Notre Carte", href: "/menu" },
-    { name: "À Propos", href: "/about" },
-    { name: "Contact", href: "/contact" },
+    { key: "home", name: "Accueil", href: "/" },
+    { key: "menu", name: "Notre Carte", href: "/menu" },
+    { key: "about", name: "À Propos", href: "/about" },
+    { key: "reservation", name: "Réservation", href: "/reservation" },
+    { key: "contact", name: "Contact", href: "/contact" },
   ],
 
   footerLinks: [
-    { name: "Mentions légales", href: "/legal" },
-    { name: "Politique de confidentialité", href: "/privacy" },
+    { key: "legal", name: "Mentions légales", href: "/legal" },
+    { key: "privacy", name: "Politique de confidentialité", href: "/privacy" },
   ],
 } as const;
 

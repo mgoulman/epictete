@@ -3,28 +3,48 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LogOut, Settings, Menu, Search, Bell, ChevronRight, Home } from 'lucide-react';
+import { LogOut, Settings, Menu, Search, Bell, ChevronRight, Home, Download, Globe } from 'lucide-react';
 import { useAuth } from '@/lib/auth/hooks';
+import { usePWA } from '@/components/backoffice/PWAProvider';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface HeaderProps {
   sidebarCollapsed: boolean;
   onMobileMenuClick: () => void;
 }
 
-const PAGE_TITLES: Record<string, { title: string; description: string }> = {
-  '/admin': { title: 'Dashboard', description: 'Overview of your restaurant operations' },
-  '/admin/menu': { title: 'Menu Management', description: 'Manage dishes, categories and pricing' },
-  '/admin/users': { title: 'Team Members', description: 'Manage user accounts and permissions' },
-  '/admin/marketing': { title: 'Marketing', description: 'Campaigns and promotional content' },
-  '/admin/finance': { title: 'Finance', description: 'Financial reports and analytics' },
-  '/admin/audit': { title: 'Audit Logs', description: 'System activity and changes' },
-  '/admin/settings': { title: 'Settings', description: 'System configuration' },
-  '/admin/docs': { title: 'Documents', description: 'Marketing and reference materials' }
+type PageTitles = Record<string, { title: string; description: string }>;
+
+const PAGE_KEYS: Record<string, string> = {
+  '/admin': 'dashboard',
+  '/admin/menu': 'menu',
+  '/admin/users': 'users',
+  '/admin/marketing': 'marketing',
+  '/admin/finance': 'finance',
+  '/admin/audit': 'audit',
+  '/admin/settings': 'settings',
+  '/admin/docs': 'docs',
+  '/admin/personnel': 'personnel',
+  '/admin/transport': 'transport',
+  '/admin/salle': 'salle',
+  '/admin/recipes': 'recipes',
+  '/admin/menus': 'menus',
 };
 
-function getBreadcrumbs(pathname: string): { label: string; href: string }[] {
+function getPageTitles(t: ReturnType<typeof useTranslation>['t']): PageTitles {
+  const pages = t.backoffice.header.pages as Record<string, { title: string; description: string }>;
+  const result: PageTitles = {};
+  for (const [path, key] of Object.entries(PAGE_KEYS)) {
+    if (pages[key]) {
+      result[path] = pages[key];
+    }
+  }
+  return result;
+}
+
+function getBreadcrumbs(pathname: string, pageTitles: PageTitles, homeLabel: string): { label: string; href: string }[] {
   const crumbs: { label: string; href: string }[] = [
-    { label: 'Home', href: '/admin' }
+    { label: homeLabel, href: '/admin' }
   ];
 
   if (pathname === '/admin') return crumbs;
@@ -35,7 +55,7 @@ function getBreadcrumbs(pathname: string): { label: string; href: string }[] {
   for (let i = 1; i < segments.length; i++) {
     path += '/' + segments[i];
     const fullPath = '/admin' + (i > 1 ? path : '/' + segments[i]);
-    const pageInfo = PAGE_TITLES[fullPath];
+    const pageInfo = pageTitles[fullPath];
     crumbs.push({
       label: pageInfo?.title || segments[i].charAt(0).toUpperCase() + segments[i].slice(1),
       href: fullPath
@@ -54,9 +74,12 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+  const { isInstalled, canInstall, triggerInstall } = usePWA();
+  const { t, locale, setLocale } = useTranslation();
 
-  const pageInfo = PAGE_TITLES[pathname] || { title: 'Page', description: '' };
-  const breadcrumbs = getBreadcrumbs(pathname);
+  const pageTitles = getPageTitles(t);
+  const pageInfo = pageTitles[pathname] || { title: 'Page', description: '' };
+  const breadcrumbs = getBreadcrumbs(pathname, pageTitles, t.backoffice.header.home);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -105,7 +128,7 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
                 ) : (
                   <Link
                     href={crumb.href}
-                    className="text-[11px] text-muted no-underline flex items-center gap-1 hover:text-amber-600"
+                    className="text-[11px] text-muted no-underline flex items-center gap-1 hover:text-[#606338]"
                   >
                     {index === 0 && <Home className="w-2.5 h-2.5" />}
                     {crumb.label}
@@ -125,10 +148,10 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
       {/* Center section: Search */}
       <div className="hidden md:flex flex-[0_1_400px] lg:flex-[0_1_400px]">
         <div className="relative w-full">
-          <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${isSearchFocused ? 'text-amber-600' : 'text-muted'}`} />
+          <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${isSearchFocused ? 'text-[#606338]' : 'text-muted'}`} />
           <input
             type="text"
-            placeholder="Search..."
+            placeholder={t.backoffice.header.search}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => setIsSearchFocused(true)}
@@ -136,7 +159,7 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
             className={`
               w-full py-2.5 pl-10 pr-12 rounded-lg text-[13px] text-foreground outline-none transition-all bg-card
               ${isSearchFocused
-                ? 'border border-amber-600/40'
+                ? 'border border-[#606338]/40'
                 : 'border border-border'
               }
             `}
@@ -149,10 +172,31 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
 
       {/* Right section: Notifications + Profile */}
       <div className="flex items-center gap-2 shrink-0">
+        {/* Install App */}
+        {canInstall && !isInstalled && (
+          <button
+            onClick={triggerInstall}
+            className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#606338] text-white text-sm font-medium hover:bg-[#4d4f2e] transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">{t.backoffice.header.install}</span>
+          </button>
+        )}
+
+        {/* Language Toggle */}
+        <button
+          onClick={() => setLocale(locale === 'fr' ? 'en' : 'fr')}
+          className="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg border border-border bg-transparent text-muted-foreground hover:bg-card hover:border-muted hover:text-foreground transition-all"
+          title={t.backoffice.shared.language}
+        >
+          <Globe className="w-4 h-4" />
+          <span className="text-xs font-semibold uppercase">{locale}</span>
+        </button>
+
         {/* Notifications */}
         <button className="hidden md:flex relative items-center justify-center w-10 h-10 rounded-lg border border-border bg-transparent text-muted-foreground hover:bg-card hover:border-muted hover:text-foreground transition-all">
           <Bell className="w-[18px] h-[18px]" />
-          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-600" />
+          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#606338]" />
         </button>
 
         {/* Profile dropdown */}
@@ -167,7 +211,7 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
               }
             `}
           >
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-600 to-amber-700 flex items-center justify-center text-white text-[13px] font-semibold">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#606338] to-[#4d4f2e] flex items-center justify-center text-white text-[13px] font-semibold">
               {user?.full_name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
             </div>
             <div className="hidden md:block text-left">
@@ -190,7 +234,7 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
                 <p className="text-xs text-muted-foreground mt-1 m-0">
                   {user?.email}
                 </p>
-                <span className="inline-block mt-2 px-2 py-1 text-[11px] rounded-md bg-amber-600/10 text-amber-600 capitalize font-medium">
+                <span className="inline-block mt-2 px-2 py-1 text-[11px] rounded-md bg-[#606338]/10 text-[#606338] capitalize font-medium">
                   {user?.role}
                 </span>
               </div>
@@ -205,7 +249,7 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
                   className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-transparent hover:bg-secondary transition-colors text-left"
                 >
                   <Settings className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-[13px] text-foreground">Settings</span>
+                  <span className="text-[13px] text-foreground">{t.backoffice.nav.settings}</span>
                 </button>
 
                 <button
@@ -213,7 +257,7 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
                   className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-transparent hover:bg-red-500/10 transition-colors text-left"
                 >
                   <LogOut className="w-4 h-4 text-red-500" />
-                  <span className="text-[13px] text-red-500">Sign out</span>
+                  <span className="text-[13px] text-red-500">{t.backoffice.sidebar.signOut}</span>
                 </button>
               </div>
             </div>

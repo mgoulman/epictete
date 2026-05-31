@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -22,11 +23,14 @@ export function ConfirmDialog({
   onConfirm,
   title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   variant = 'default',
   isLoading = false
 }: ConfirmDialogProps) {
+  const { t } = useTranslation();
+  const resolvedConfirmLabel = confirmLabel || t.backoffice.shared.confirm;
+  const resolvedCancelLabel = cancelLabel || t.backoffice.shared.cancel;
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -83,7 +87,7 @@ export function ConfirmDialog({
           <button
             onClick={onClose}
             className="p-1 rounded-md hover:bg-[var(--secondary)] transition-colors duration-100"
-            aria-label="Close dialog"
+            aria-label={t.backoffice.shared.closeDialog}
           >
             <X className="w-4 h-4 text-[var(--muted)]" />
           </button>
@@ -102,7 +106,7 @@ export function ConfirmDialog({
             onClick={onClose}
             disabled={isLoading}
           >
-            {cancelLabel}
+            {resolvedCancelLabel}
           </Button>
           <Button
             variant={variant === 'danger' ? 'danger' : 'primary'}
@@ -128,10 +132,10 @@ export function ConfirmDialog({
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                   />
                 </svg>
-                Processing...
+                {t.backoffice.shared.processing}
               </span>
             ) : (
-              confirmLabel
+              resolvedConfirmLabel
             )}
           </Button>
         </div>

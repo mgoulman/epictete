@@ -5,24 +5,27 @@ import { Save, User, Bell, Shield, Palette, Sun, Moon, Monitor } from 'lucide-re
 import { useAuth } from '@/lib/auth/hooks';
 import { PermissionGate, AdminOnly } from '@/components/backoffice/auth/PermissionGate';
 import { useTheme } from '@/components/theme-provider';
+import { useTranslation } from '@/lib/i18n/useTranslation';
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
+  const { t } = useTranslation();
+  const s = t.backoffice.settings;
 
   const tabs = [
-    { id: 'profile', label: 'Profile', icon: User },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'appearance', label: 'Appearance', icon: Palette },
-    { id: 'security', label: 'Security', icon: Shield, adminOnly: true }
+    { id: 'profile', label: s.tabs.profile, icon: User },
+    { id: 'notifications', label: s.tabs.notifications, icon: Bell },
+    { id: 'appearance', label: s.tabs.appearance, icon: Palette },
+    { id: 'security', label: s.tabs.security, icon: Shield, adminOnly: true }
   ];
 
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
-        <p className="text-muted-foreground mt-1 text-sm">Manage your account and system preferences</p>
+        <h1 className="text-2xl font-semibold text-foreground">{s.title}</h1>
+        <p className="text-muted-foreground mt-1 text-sm">{s.subtitle}</p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
@@ -84,7 +87,7 @@ function TabButton({
       onClick={onClick}
       className={`w-full flex items-center gap-3 py-2.5 px-3 rounded-lg border-none cursor-pointer transition-all mb-1 ${
         isActive
-          ? 'bg-amber-600 text-white'
+          ? 'bg-[#606338] text-white'
           : 'bg-transparent text-muted-foreground hover:bg-card hover:text-foreground'
       }`}
     >
@@ -97,6 +100,8 @@ function TabButton({
 function ProfileSettings({ user }: { user: import('@/lib/types/auth').AuthUser | null }) {
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [isSaving, setIsSaving] = useState(false);
+  const { t } = useTranslation();
+  const p = t.backoffice.settings.profile;
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -107,50 +112,50 @@ function ProfileSettings({ user }: { user: import('@/lib/types/auth').AuthUser |
   return (
     <div className="bg-secondary border border-border rounded-xl p-6">
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-foreground">Profile Settings</h2>
-        <p className="text-[13px] text-muted-foreground mt-1">Update your personal information</p>
+        <h2 className="text-lg font-semibold text-foreground">{p.title}</h2>
+        <p className="text-[13px] text-muted-foreground mt-1">{p.subtitle}</p>
       </div>
 
       <div className="flex flex-col gap-5">
         {/* Avatar */}
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-600 to-amber-700 flex items-center justify-center text-white text-2xl font-semibold">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#606338] to-[#4d4f2e] flex items-center justify-center text-white text-2xl font-semibold">
             {user?.full_name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
           </div>
           <div>
             <button disabled className="px-4 py-2 bg-card border border-border rounded-lg text-muted text-[13px] cursor-not-allowed">
-              Change Avatar
+              {p.changeAvatar}
             </button>
-            <p className="text-xs text-muted mt-1">JPG, PNG. Max 2MB.</p>
+            <p className="text-xs text-muted mt-1">{p.avatarNote}</p>
           </div>
         </div>
 
         {/* Full Name */}
         <div>
-          <label className="block text-[13px] font-medium text-foreground mb-1.5">Full Name</label>
+          <label className="block text-[13px] font-medium text-foreground mb-1.5">{p.fullName}</label>
           <input
             type="text"
             value={fullName}
             onChange={e => setFullName(e.target.value)}
-            className="w-full py-2.5 px-3.5 bg-background border border-border rounded-lg text-foreground text-sm outline-none focus:border-amber-600/40"
+            className="w-full py-2.5 px-3.5 bg-background border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/40"
           />
         </div>
 
         {/* Email (readonly) */}
         <div>
-          <label className="block text-[13px] font-medium text-foreground mb-1.5">Email</label>
+          <label className="block text-[13px] font-medium text-foreground mb-1.5">{p.email}</label>
           <input
             type="email"
             value={user?.email || ''}
             disabled
             className="w-full py-2.5 px-3.5 bg-background border border-border rounded-lg text-muted text-sm cursor-not-allowed"
           />
-          <p className="text-xs text-muted mt-1">Email cannot be changed</p>
+          <p className="text-xs text-muted mt-1">{p.emailNote}</p>
         </div>
 
         {/* Role (readonly) */}
         <div>
-          <label className="block text-[13px] font-medium text-foreground mb-1.5">Role</label>
+          <label className="block text-[13px] font-medium text-foreground mb-1.5">{p.role}</label>
           <div className="py-2.5 px-3.5 bg-background border border-border rounded-lg">
             <span className="capitalize text-foreground">{user?.role}</span>
           </div>
@@ -161,10 +166,10 @@ function ProfileSettings({ user }: { user: import('@/lib/types/auth').AuthUser |
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-amber-600 to-amber-700 border-none rounded-lg text-white text-sm font-medium cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] border-none rounded-lg text-white text-sm font-medium cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
         >
           <Save className="w-4 h-4" />
-          {isSaving ? 'Saving...' : 'Save Changes'}
+          {isSaving ? p.saving : p.saveChanges}
         </button>
       </div>
     </div>
@@ -172,27 +177,30 @@ function ProfileSettings({ user }: { user: import('@/lib/types/auth').AuthUser |
 }
 
 function NotificationSettings() {
+  const { t } = useTranslation();
+  const n = t.backoffice.settings.notifications;
+
   return (
     <div className="bg-secondary border border-border rounded-xl p-6">
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-foreground">Notification Settings</h2>
-        <p className="text-[13px] text-muted-foreground mt-1">Configure how you receive notifications</p>
+        <h2 className="text-lg font-semibold text-foreground">{n.title}</h2>
+        <p className="text-[13px] text-muted-foreground mt-1">{n.subtitle}</p>
       </div>
 
       <div className="flex flex-col gap-3">
         <NotificationToggle
-          label="Email Notifications"
-          description="Receive email updates for important events"
+          label={n.emailNotifications}
+          description={n.emailNotificationsDesc}
           defaultChecked={true}
         />
         <NotificationToggle
-          label="System Alerts"
-          description="Get notified about system status changes"
+          label={n.systemAlerts}
+          description={n.systemAlertsDesc}
           defaultChecked={true}
         />
         <NotificationToggle
-          label="Marketing Updates"
-          description="Receive updates about new features"
+          label={n.marketingUpdates}
+          description={n.marketingUpdatesDesc}
           defaultChecked={false}
         />
       </div>
@@ -220,7 +228,7 @@ function NotificationToggle({
       <button
         onClick={() => setChecked(!checked)}
         className={`relative w-12 h-6 rounded-full border-none cursor-pointer transition-colors ${
-          checked ? 'bg-amber-600' : 'bg-border'
+          checked ? 'bg-[#606338]' : 'bg-border'
         }`}
       >
         <span
@@ -235,23 +243,25 @@ function NotificationToggle({
 
 function AppearanceSettings() {
   const { theme, setTheme } = useTheme();
+  const { t } = useTranslation();
+  const a = t.backoffice.settings.appearance;
 
   const themeOptions = [
-    { id: 'light', label: 'Light', icon: Sun },
-    { id: 'dark', label: 'Dark', icon: Moon },
-    { id: 'system', label: 'System', icon: Monitor }
+    { id: 'light', label: a.light, icon: Sun },
+    { id: 'dark', label: a.dark, icon: Moon },
+    { id: 'system', label: a.system, icon: Monitor }
   ] as const;
 
   return (
     <div className="bg-secondary border border-border rounded-xl p-6">
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-foreground">Appearance Settings</h2>
-        <p className="text-[13px] text-muted-foreground mt-1">Customize the look and feel</p>
+        <h2 className="text-lg font-semibold text-foreground">{a.title}</h2>
+        <p className="text-[13px] text-muted-foreground mt-1">{a.subtitle}</p>
       </div>
 
       <div className="flex flex-col gap-5">
         <div>
-          <label className="block text-[13px] font-medium text-foreground mb-3">Theme</label>
+          <label className="block text-[13px] font-medium text-foreground mb-3">{a.theme}</label>
           <div className="grid grid-cols-3 gap-3">
             {themeOptions.map(option => {
               const Icon = option.icon;
@@ -262,12 +272,12 @@ function AppearanceSettings() {
                   onClick={() => setTheme(option.id)}
                   className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 cursor-pointer transition-all ${
                     isActive
-                      ? 'border-amber-600 bg-amber-600/10'
-                      : 'border-border bg-card hover:border-amber-600/30'
+                      ? 'border-[#606338] bg-[#606338]/10'
+                      : 'border-border bg-card hover:border-[#606338]/30'
                   }`}
                 >
-                  <Icon className={`w-6 h-6 ${isActive ? 'text-amber-600' : 'text-muted-foreground'}`} />
-                  <span className={`text-sm font-medium ${isActive ? 'text-amber-600' : 'text-foreground'}`}>
+                  <Icon className={`w-6 h-6 ${isActive ? 'text-[#606338]' : 'text-muted-foreground'}`} />
+                  <span className={`text-sm font-medium ${isActive ? 'text-[#606338]' : 'text-foreground'}`}>
                     {option.label}
                   </span>
                 </button>
@@ -277,8 +287,8 @@ function AppearanceSettings() {
         </div>
 
         <div>
-          <label className="block text-[13px] font-medium text-foreground mb-2">Sidebar Position</label>
-          <p className="text-[13px] text-muted-foreground">Sidebar preferences are saved automatically.</p>
+          <label className="block text-[13px] font-medium text-foreground mb-2">{a.sidebarPosition}</label>
+          <p className="text-[13px] text-muted-foreground">{a.sidebarNote}</p>
         </div>
       </div>
     </div>
@@ -286,36 +296,39 @@ function AppearanceSettings() {
 }
 
 function SecuritySettings() {
+  const { t } = useTranslation();
+  const sec = t.backoffice.settings.security;
+
   return (
     <div className="bg-secondary border border-border rounded-xl p-6">
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-foreground">Security Settings</h2>
-        <p className="text-[13px] text-muted-foreground mt-1">Admin-only security configurations</p>
+        <h2 className="text-lg font-semibold text-foreground">{sec.title}</h2>
+        <p className="text-[13px] text-muted-foreground mt-1">{sec.subtitle}</p>
       </div>
 
       <div className="flex flex-col gap-5">
         <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
           <p className="text-[13px] text-yellow-500">
-            These settings affect all users. Changes should be made carefully.
+            {sec.warning}
           </p>
         </div>
 
         <div>
-          <label className="block text-[13px] font-medium text-foreground mb-2">Session Timeout</label>
+          <label className="block text-[13px] font-medium text-foreground mb-2">{sec.sessionTimeout}</label>
           <select className="w-full py-2.5 px-3.5 bg-background border border-border rounded-lg text-foreground text-sm">
-            <option value="30">30 minutes</option>
-            <option value="60">1 hour</option>
-            <option value="120">2 hours</option>
-            <option value="480">8 hours</option>
+            <option value="30">{sec.minutes30}</option>
+            <option value="60">{sec.hour1}</option>
+            <option value="120">{sec.hours2}</option>
+            <option value="480">{sec.hours8}</option>
           </select>
         </div>
 
         <div>
-          <label className="block text-[13px] font-medium text-foreground mb-2">Password Requirements</label>
+          <label className="block text-[13px] font-medium text-foreground mb-2">{sec.passwordRequirements}</label>
           <div className="p-4 bg-card rounded-lg text-[13px] text-muted space-y-2">
-            <p>Minimum 8 characters</p>
-            <p>At least one uppercase letter</p>
-            <p>At least one number</p>
+            <p>{sec.minChars}</p>
+            <p>{sec.uppercase}</p>
+            <p>{sec.oneNumber}</p>
           </div>
         </div>
       </div>

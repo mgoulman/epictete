@@ -1,6 +1,6 @@
 // Auth Types for RBAC System
 
-export type RoleName = 'admin' | 'finance' | 'marketing' | 'regular';
+export type RoleName = 'admin' | 'finance' | 'marketing' | 'regular' | 'waiter';
 
 export type PermissionName =
   | 'menu.read'
@@ -16,10 +16,13 @@ export type PermissionName =
   | 'finance.write'
   | 'audit.read'
   | 'settings.read'
-  | 'settings.write';
+  | 'settings.write'
+  | 'salle.read'
+  | 'salle.write'
+  | 'salle.serve';
 
-export type ResourceType = 'menu' | 'users' | 'marketing' | 'finance' | 'audit' | 'settings';
-export type ActionType = 'read' | 'write' | 'delete' | 'manage';
+export type ResourceType = 'menu' | 'users' | 'marketing' | 'finance' | 'audit' | 'settings' | 'salle';
+export type ActionType = 'read' | 'write' | 'delete' | 'manage' | 'serve';
 
 export interface Role {
   id: string;
@@ -110,7 +113,8 @@ export const ROLE_PERMISSIONS: Record<RoleName, PermissionName[]> = {
     'marketing.read', 'marketing.write',
     'finance.read', 'finance.write',
     'audit.read',
-    'settings.read', 'settings.write'
+    'settings.read', 'settings.write',
+    'salle.read', 'salle.write', 'salle.serve'
   ],
   finance: [
     'finance.read', 'finance.write'
@@ -120,25 +124,83 @@ export const ROLE_PERMISSIONS: Record<RoleName, PermissionName[]> = {
   ],
   regular: [
     'menu.read'
+  ],
+  waiter: [
+    'salle.read', 'salle.serve'
   ]
 };
 
 // Navigation items with required permissions
 export interface NavItem {
+  key: string;
   label: string;
   href: string;
   icon: string;
   permission?: PermissionName;
   children?: NavItem[];
+  defaultOpen?: boolean;
 }
 
 export const BACKOFFICE_NAV: NavItem[] = [
-  { label: 'Dashboard', href: '/admin', icon: 'LayoutDashboard' },
-  { label: 'Menu Management', href: '/admin/menu', icon: 'UtensilsCrossed', permission: 'menu.read' },
-  { label: 'Users', href: '/admin/users', icon: 'Users', permission: 'users.manage' },
-  { label: 'Marketing', href: '/admin/marketing', icon: 'Megaphone', permission: 'marketing.read' },
-  { label: 'Docs', href: '/admin/docs', icon: 'FileText', permission: 'marketing.read' },
-  { label: 'Finance', href: '/admin/finance', icon: 'DollarSign', permission: 'finance.read' },
-  { label: 'Audit Logs', href: '/admin/audit', icon: 'ScrollText', permission: 'audit.read' },
-  { label: 'Settings', href: '/admin/settings', icon: 'Settings', permission: 'settings.read' }
+  { key: 'dashboard', label: 'Dashboard', href: '/admin', icon: 'LayoutDashboard' },
+  {
+    key: 'menuManagement',
+    label: 'Menu Management',
+    href: '/admin/menu',
+    icon: 'UtensilsCrossed',
+    permission: 'menu.read',
+    children: [
+      { key: 'menuItems', label: 'Menu Items', href: '/admin/menu', icon: 'UtensilsCrossed' },
+      { key: 'menus', label: 'Menus', href: '/admin/menus', icon: 'FileText' },
+      { key: 'recipes', label: 'Fiches Techniques', href: '/admin/recipes', icon: 'BookOpen' }
+    ]
+  },
+  {
+    key: 'salle',
+    label: 'Salle',
+    href: '/admin/salle',
+    icon: 'Armchair',
+    permission: 'salle.read',
+    children: [
+      { key: 'floorPlan', label: 'Plan de Salle', href: '/admin/salle', icon: 'Map', permission: 'salle.write' },
+      { key: 'service', label: 'Service', href: '/admin/salle/service', icon: 'ClipboardList' }
+    ]
+  },
+  { key: 'users', label: 'Users', href: '/admin/users', icon: 'Users', permission: 'users.manage' },
+  { key: 'personnel', label: 'Personnel', href: '/admin/personnel', icon: 'UserCog', permission: 'users.manage' },
+  { key: 'transport', label: 'Transport', href: '/admin/transport', icon: 'Bus', permission: 'users.manage' },
+  { key: 'marketing', label: 'Marketing', href: '/admin/marketing', icon: 'Megaphone', permission: 'marketing.read' },
+  { key: 'docs', label: 'Docs', href: '/admin/docs', icon: 'FileText', permission: 'marketing.read' },
+  {
+    key: 'finance',
+    label: 'Finance',
+    href: '/admin/finance',
+    icon: 'DollarSign',
+    permission: 'finance.read',
+    defaultOpen: true,
+    children: [
+      { key: 'overview', label: 'Overview', href: '/admin/finance?tab=overview', icon: 'BarChart3' },
+      { key: 'sales', label: 'Sales', href: '/admin/finance?tab=sales', icon: 'TrendingUp' },
+      { key: 'dailyPurchases', label: 'Achats & Stock', href: '/admin/inventory', icon: 'ShoppingCart' },
+      { key: 'inventory', label: 'Inventory', href: '/admin/finance?tab=inventory', icon: 'Package' },
+      { key: 'vendors', label: 'Vendors', href: '/admin/finance?tab=vendors', icon: 'Users' },
+      { key: 'import', label: 'Import', href: '/admin/finance?tab=import', icon: 'Upload' }
+    ]
+  },
+  {
+    key: 'reports',
+    label: 'Reports',
+    href: '/admin/reports',
+    icon: 'ClipboardList',
+    permission: 'finance.read',
+    children: [
+      { key: 'dailyEntry', label: 'Saisie Journalière', href: '/admin/reports?tab=daily', icon: 'Calendar' },
+      { key: 'suiviJournalier', label: 'Suivi Journalier', href: '/admin/reports?tab=suivi', icon: 'Table' },
+      { key: 'recapMensuel', label: 'Récap Mensuel', href: '/admin/reports?tab=recap', icon: 'BarChart3' },
+      { key: 'expenses', label: 'Dépenses', href: '/admin/reports?tab=expenses', icon: 'Receipt' },
+      { key: 'stockMovements', label: 'Mouvements Stock', href: '/admin/reports?tab=movements', icon: 'ArrowUpDown' }
+    ]
+  },
+  { key: 'auditLogs', label: 'Audit Logs', href: '/admin/audit', icon: 'ScrollText', permission: 'audit.read' },
+  { key: 'settings', label: 'Settings', href: '/admin/settings', icon: 'Settings', permission: 'settings.read' }
 ];

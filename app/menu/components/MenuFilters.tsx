@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { TAG_INFO, MenuTag } from "@/lib/menu-types";
+import { MenuTag } from "@/lib/menu-types";
+import { Leaf, Fish, Flame, Milk, Beef, Heart, X } from "lucide-react";
 
 interface MenuFiltersProps {
   activeTags: MenuTag[];
@@ -9,35 +10,38 @@ interface MenuFiltersProps {
   onClearFilters: () => void;
 }
 
-const FILTER_TAGS: MenuTag[] = ['vegetarian', 'seafood', 'truffle', 'spicy', 'cheese', 'meat', 'healthy'];
+// Elegant filter definitions with Lucide icons
+const FILTERS: { tag: MenuTag; label: string; icon: React.ReactNode }[] = [
+  { tag: 'vegetarian', label: 'Végétarien', icon: <Leaf className="w-3.5 h-3.5" /> },
+  { tag: 'seafood', label: 'Fruits de mer', icon: <Fish className="w-3.5 h-3.5" /> },
+  { tag: 'spicy', label: 'Épicé', icon: <Flame className="w-3.5 h-3.5" /> },
+  { tag: 'cheese', label: 'Fromage', icon: <Milk className="w-3.5 h-3.5" /> },
+  { tag: 'meat', label: 'Viande', icon: <Beef className="w-3.5 h-3.5" /> },
+  { tag: 'healthy', label: 'Santé', icon: <Heart className="w-3.5 h-3.5" /> },
+];
 
 export function MenuFilters({ activeTags, onTagToggle, onClearFilters }: MenuFiltersProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-sm text-muted-foreground mr-1">Filtres:</span>
-      
-      {FILTER_TAGS.map((tag) => {
-        const tagInfo = TAG_INFO[tag];
+    <div className="flex flex-wrap items-center justify-center gap-2">
+      {FILTERS.map(({ tag, label, icon }) => {
         const isActive = activeTags.includes(tag);
         
         return (
-          <motion.button
+          <button
             key={tag}
             onClick={() => onTagToggle(tag)}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
             className={`
-              inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm
-              border transition-all duration-200
+              inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium uppercase tracking-wide
+              border rounded transition-all duration-200
               ${isActive 
                 ? "bg-accent text-accent-foreground border-accent" 
-                : "bg-card text-muted-foreground border-border hover:border-accent/50 hover:text-foreground"
+                : "bg-transparent text-muted-foreground border-border/60 hover:border-accent/50 hover:text-foreground"
               }
             `}
           >
-            <span>{tagInfo.icon}</span>
-            <span>{tagInfo.labelFr}</span>
-          </motion.button>
+            {icon}
+            <span>{label}</span>
+          </button>
         );
       })}
 
@@ -46,9 +50,10 @@ export function MenuFilters({ activeTags, onTagToggle, onClearFilters }: MenuFil
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           onClick={onClearFilters}
-          className="text-sm text-muted-foreground hover:text-accent transition-colors underline ml-2"
+          className="inline-flex items-center gap-1 px-2 py-1.5 text-xs text-muted-foreground hover:text-accent transition-colors"
         >
-          Effacer tout
+          <X className="w-3 h-3" />
+          <span>Effacer</span>
         </motion.button>
       )}
     </div>

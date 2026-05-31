@@ -2,56 +2,100 @@
 
 import { motion } from "framer-motion";
 import { useInView } from "framer-motion";
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Flame } from "lucide-react";
 import { Section, SectionHeader } from "@/components/layout/section";
 import { Card, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
+import { createSupabaseBrowserClient } from "@/lib/auth/supabase-browser";
+import { useTranslation } from "@/lib/i18n/useTranslation";
+import { useSiteContent } from "@/lib/hooks/useSiteContent";
 
-const dishes = [
+interface FeaturedDish {
+  id: string;
+  name: string;
+  name_fr: string;
+  description: string | null;
+  image_url: string | null;
+  is_signature: boolean;
+  category: {
+    name_fr: string;
+  } | null;
+}
+
+const fallbackDishes: FeaturedDish[] = [
   {
-    id: 1,
-    name: "Tajine d'Agneau",
-    description: "Agneau confit aux épices, pruneaux et amandes, servi avec couscous aux sept légumes.",
-    price: "280 MAD",
-    image: "https://images.unsplash.com/photo-1511690656952-34342bb7c2f2?w=600&q=80",
+    id: "1",
+    name: "Pizza Napoletana",
+    name_fr: "Pizza Napoletana",
+    description: "Pizza authentique cuite au feu de bois, mozzarella di bufala, tomates San Marzano, basilic frais.",
+    category: { name_fr: "Pizza" },
+    image_url: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&q=80",
+    is_signature: true,
   },
   {
-    id: 2,
-    name: "Pastilla Royale",
-    description: "Feuilleté croustillant au pigeon, amandes caramélisées et cannelle.",
-    price: "320 MAD",
-    image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80",
+    id: "2",
+    name: "Tagliatelle al Pesto",
+    name_fr: "Tagliatelle al Pesto",
+    description: "Pâtes fraîches maison, pesto de basilic bio de notre ferme, pignons de pin torréfiés.",
+    category: { name_fr: "Pasta" },
+    image_url: "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=600&q=80",
+    is_signature: false,
   },
   {
-    id: 3,
-    name: "Couscous Royal",
-    description: "Couscous fin garni d'agneau, poulet et merguez, légumes de saison.",
-    price: "350 MAD",
-    image: "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=600&q=80",
+    id: "3",
+    name: "Filetto di Manzo",
+    name_fr: "Filetto di Manzo",
+    description: "Filet de bœuf premium grillé, réduction balsamique, légumes de saison rôtis.",
+    category: { name_fr: "Viande" },
+    image_url: "https://images.unsplash.com/photo-1558030006-450675393462?w=600&q=80",
+    is_signature: false,
   },
   {
-    id: 4,
-    name: "Méditation Sucrée",
-    description: "Assortiment de pâtisseries marocaines, thé à la menthe et miel d'argan.",
-    price: "150 MAD",
-    image: "https://images.unsplash.com/photo-1551024506-0bccd828d307?w=600&q=80",
+    id: "4",
+    name: "Tiramisu",
+    name_fr: "Tiramisu",
+    description: "Dessert italien classique, mascarpone onctueux, café espresso, cacao amer.",
+    category: { name_fr: "Dessert" },
+    image_url: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=600&q=80",
+    is_signature: false,
   },
 ];
 
 export function FeaturedDishesSection() {
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-100px" });
+  const isInView = useInView(ref, { once: true, margin: "-50px" });
+  const [dishes, setDishes] = useState<FeaturedDish[]>(fallbackDishes);
+  const { t } = useTranslation();
+  const { getSectionText } = useSiteContent();
+  const s = (key: string, fallback: string) => getSectionText('featuredDishes', key, fallback);
+
+  useEffect(() => {
+    async function fetchFeatured() {
+      const supabase = createSupabaseBrowserClient();
+      const { data } = await supabase
+        .from("menu_items")
+        .select("id, name, name_fr, description, image_url, is_signature, category:menu_categories(name_fr)")
+        .eq("is_featured", true)
+        .eq("is_available", true)
+        .order("sort_order")
+        .limit(4);
+      if (data && data.length > 0) {
+        setDishes(data as unknown as FeaturedDish[]);
+      }
+    }
+    fetchFeatured();
+  }, []);
 
   return (
     <Section id="menu-preview" className="bg-primary">
       <SectionHeader
-        eyebrow="Notre Carte"
-        title="Créations Signatures"
-        description="Découvrez nos plats emblématiques, préparés avec passion et les meilleurs ingrédients du terroir."
+        eyebrow={s('eyebrow', t.featuredDishes.eyebrow)}
+        title={s('title', t.featuredDishes.title)}
+        description={s('description', t.featuredDishes.description)}
       />
 
-      <div ref={ref} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div ref={ref} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {dishes.map((dish, index) => (
           <motion.div
             key={dish.id}
@@ -59,22 +103,30 @@ export function FeaturedDishesSection() {
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6, delay: index * 0.1 }}
           >
-            <Card className="group h-full">
-              <div className="relative aspect-[4/3] overflow-hidden">
-                <div
-                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                  style={{ backgroundImage: `url(${dish.image})` }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent" />
-                <div className="absolute bottom-4 right-4">
-                  <span className="px-3 py-1 bg-accent text-accent-foreground text-sm font-medium rounded-full">
-                    {dish.price}
+            <Card className="group h-full overflow-hidden">
+              <div className="relative aspect-4/3 overflow-hidden">
+                {dish.image_url ? (
+                  <img
+                    src={dish.image_url}
+                    alt={`${dish.name_fr} - ${dish.description || ""}`}
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-secondary flex items-center justify-center">
+                    <span className="text-4xl">{dish.category?.name_fr === "Pizza" ? "🍕" : "🍽️"}</span>
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-linear-to-t from-primary/80 via-primary/20 to-transparent" />
+                <div className="absolute top-3 left-3 sm:top-4 sm:left-4">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-secondary/90 backdrop-blur-sm text-xs font-medium text-foreground rounded-full">
+                    {dish.is_signature && <Flame size={12} className="text-accent" />}
+                    {dish.category?.name_fr || "Menu"}
                   </span>
                 </div>
               </div>
-              <CardContent>
-                <CardTitle>{dish.name}</CardTitle>
-                <CardDescription>{dish.description}</CardDescription>
+              <CardContent className="p-4 sm:p-5">
+                <CardTitle className="text-base sm:text-lg">{dish.name_fr}</CardTitle>
+                <CardDescription className="text-sm line-clamp-2 mt-1.5">{dish.description}</CardDescription>
               </CardContent>
             </Card>
           </motion.div>
@@ -82,16 +134,16 @@ export function FeaturedDishesSection() {
       </div>
 
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={isInView ? { opacity: 1 } : {}}
+        initial={{ opacity: 0, y: 20 }}
+        animate={isInView ? { opacity: 1, y: 0 } : {}}
         transition={{ duration: 0.6, delay: 0.5 }}
-        className="mt-12 text-center"
+        className="mt-8 sm:mt-12 text-center"
       >
         <Link
           href="/menu"
-          className="inline-flex items-center gap-2 text-accent hover:text-accent-hover transition-colors group"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-secondary hover:bg-card text-foreground rounded-xl transition-all group touch-manipulation"
         >
-          <span className="font-medium">Voir la carte complète</span>
+          <span className="font-medium">{t.featuredDishes.viewFullMenu}</span>
           <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
         </Link>
       </motion.div>

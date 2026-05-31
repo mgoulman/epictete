@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* Hide number input spinners globally */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 /* Enable class-based dark mode for Tailwind */
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -9,8 +19,8 @@
   --font-body: var(--font-inter);
 
   /* Custom shadows */
-  --shadow-glow: 0 0 20px rgb(201 169 98 / 0.3);
-  --shadow-glow-sm: 0 0 10px rgb(201 169 98 / 0.2);
+  --shadow-glow: 0 0 20px rgb(96 99 56 / 0.3);
+  --shadow-glow-sm: 0 0 10px rgb(96 99 56 / 0.2);
 
   /* Animation */
   --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
@@ -18,37 +28,49 @@
   --duration-normal: 300ms;
   --duration-slow: 500ms;
 
-  /* Accent colors (shared between themes) */
-  --color-accent: #c9a962;
-  --color-accent-hover: #d4af37;
-  --color-accent-foreground: #0a0a0a;
-  --color-ring: #c9a962;
+  /* Epictete Brand Colors - Olive Green */
+  --color-olive-50: #f7f7f0;
+  --color-olive-100: #ede9d9;
+  --color-olive-200: #ddd8b5;
+  --color-olive-300: #c8c089;
+  --color-olive-400: #b5ab64;
+  --color-olive-500: #9d9451;
+  --color-olive-600: #606338;
+  --color-olive-700: #4d4f2e;
+  --color-olive-800: #40412a;
+  --color-olive-900: #383827;
 
-  /* Light theme colors (default) */
-  --color-primary: #fafafa;
-  --color-primary-foreground: #0a0a0a;
-  --color-secondary: #f5f5f5;
-  --color-secondary-foreground: #171717;
-  --color-muted: #a3a3a3;
-  --color-muted-foreground: #525252;
-  --color-background: #ffffff;
-  --color-foreground: #0a0a0a;
-  --color-card: #f9f9f9;
-  --color-card-foreground: #0a0a0a;
-  --color-border: #e5e5e5;
+  /* Accent colors (Epictete Olive Green) */
+  --color-accent: #606338;
+  --color-accent-hover: #4d4f2e;
+  --color-accent-foreground: #faf9f5;
+  --color-ring: #606338;
 
-  /* Dark theme colors */
-  --color-primary-dark: #0a0a0a;
-  --color-primary-foreground-dark: #fafafa;
-  --color-secondary-dark: #1a1a1a;
-  --color-secondary-foreground-dark: #e5e5e5;
-  --color-muted-dark: #737373;
-  --color-muted-foreground-dark: #a3a3a3;
-  --color-background-dark: #0a0a0a;
-  --color-foreground-dark: #fafafa;
-  --color-card-dark: #141414;
-  --color-card-foreground-dark: #fafafa;
-  --color-border-dark: #262626;
+  /* Light theme colors (warm cream palette) */
+  --color-primary: #faf9f5;
+  --color-primary-foreground: #1a1a18;
+  --color-secondary: #f5f3ed;
+  --color-secondary-foreground: #2d2d28;
+  --color-muted: #a8a89a;
+  --color-muted-foreground: #5c5c52;
+  --color-background: #fdfcf9;
+  --color-foreground: #1a1a18;
+  --color-card: #f9f8f4;
+  --color-card-foreground: #1a1a18;
+  --color-border: #e8e6de;
+
+  /* Dark theme colors (deep olive/charcoal) */
+  --color-primary-dark: #141413;
+  --color-primary-foreground-dark: #faf9f5;
+  --color-secondary-dark: #1e1e1c;
+  --color-secondary-foreground-dark: #e5e4dc;
+  --color-muted-dark: #6b6b5f;
+  --color-muted-foreground-dark: #a8a89a;
+  --color-background-dark: #0f0f0e;
+  --color-foreground-dark: #faf9f5;
+  --color-card-dark: #1a1a18;
+  --color-card-foreground-dark: #faf9f5;
+  --color-border-dark: #2d2d28;
 }
 
 /* Apply theme colors based on class */
@@ -77,6 +99,8 @@
 /* Base styles */
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -85,11 +109,13 @@ body {
   font-family: var(--font-body), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 /* Heading font */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading), serif;
+  text-wrap: balance;
 }
 
 /* Selection color */
@@ -104,28 +130,113 @@ h1, h2, h3, h4, h5, h6 {
   outline-offset: 2px;
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* Touch manipulation for better mobile UX */
+.touch-manipulation {
+  touch-action: manipulation;
 }
 
-::-webkit-scrollbar-track {
-  background: var(--color-primary);
+/* Safe area insets for notched devices */
+.safe-area-inset-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
-::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 4px;
+.safe-area-inset-top {
+  padding-top: env(safe-area-inset-top, 0);
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-muted);
+/* Prevent iOS zoom on input focus */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Smooth scroll with reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Hide scrollbar on mobile for cleaner look */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    display: none;
+  }
+  
+  * {
+    scrollbar-width: none;
+  }
+}
+
+/* Desktop scrollbar styling */
+@media (min-width: 769px) {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-primary);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-muted);
+  }
+}
+
+/* Responsive breakpoint utilities */
+@media (min-width: 480px) {
+  .xs\:block { display: block; }
+  .xs\:hidden { display: none; }
+}
+
+/* Image rendering optimization */
+img {
+  content-visibility: auto;
+}
+
+/* Prevent layout shift from images */
+img, video {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Better link tap targets on mobile */
+@media (max-width: 768px) {
+  a, button {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 /* ========================================
    BACKOFFICE-SPECIFIC STYLES
    ======================================== */
+
+/* Splash screen loader animation */
+.splash-loader-bar {
+  width: 100%;
+  height: 100%;
+  background: rgba(96, 99, 56, 0.6);
+  animation: splash-slide 1s ease-in-out infinite;
+}
+
+@keyframes splash-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
 
 /* Backoffice uses sans-serif headings */
 .backoffice h1,
@@ -139,8 +250,9 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.025em;
 }
 
-/* Backoffice accent color override - subtle blue */
+/* Backoffice accent color - Epictete olive green */
 .backoffice {
-  --color-accent: #5c6ac4;
-  --color-accent-hover: #4959bd;
+  --color-accent: #606338;
+  --color-accent-hover: #4d4f2e;
+  --color-accent-foreground: #faf9f5;
 }
