@@ -27,9 +27,9 @@ export const siteConfig = {
   },
 
   hours: {
-    daily: "10:00 - 22:00",
-    weekdays: "10:00 - 22:00",
-    weekends: "10:00 - 22:00",
+    daily: "07:00 - 22:00",
+    weekdays: "07:00 - 22:00",
+    weekends: "07:00 - 22:00",
     closed: null, // Open 7 days/week
     note: "Service continu, 7j/7",
   },

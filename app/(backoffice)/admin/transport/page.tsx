@@ -206,7 +206,7 @@ export default function TransportPage() {
 
   // Week navigation
   const getWeekDays = () => {
-    const days = [];
+    const days: Date[] = [];
     for (let i = 0; i < 7; i++) {
       const day = new Date(currentWeekStart);
       day.setDate(day.getDate() + i);

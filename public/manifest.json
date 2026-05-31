@@ -2,7 +2,7 @@
   "name": "Epictete Restaurant",
   "short_name": "Epictete",
   "description": "Restaurant gastronomique italien et méditerranéen à Bouskoura, Casablanca. Pizza au feu de bois, pâtes fraîches maison, produits bio de notre ferme.",
-  "start_url": "/",
+  "start_url": "/login",
   "display": "standalone",
   "background_color": "#0a0a0a",
   "theme_color": "#c9a962",

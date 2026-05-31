@@ -11,12 +11,11 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('inventory_items')
-      .select('*, vendor:vendors(id, name)')
-      .order('category', { ascending: true })
+      .select('*, vendor:vendors(id, name), inventory_category:inventory_categories(id, name)')
       .order('name', { ascending: true });
 
     if (category) {
-      query = query.eq('category', category);
+      query = query.eq('category_id', category);
     }
     if (search) {
       query = query.ilike('name', `%${search}%`);
@@ -32,17 +31,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Get categories for filter
+    // Get categories from inventory_categories table
     const { data: categories } = await supabase
-      .from('inventory_items')
-      .select('category')
-      .not('category', 'is', null);
-
-    const uniqueCategories = Array.from(new Set((categories || []).map(c => c.category))).filter(Boolean);
+      .from('inventory_categories')
+      .select('id, name')
+      .order('name');
 
     return NextResponse.json({
       items: data || [],
-      categories: uniqueCategories
+      categories: categories || []
     });
   } catch (error) {
     console.error('Inventory error:', error);
@@ -72,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     const item = {
       name: body.name,
-      category: body.category || null,
+      category_id: body.category_id || null,
       quantity: body.quantity || 0,
       unit: body.unit || 'pieces',
       minimum_stock: body.minimum_stock || 0,
@@ -89,7 +86,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from('inventory_items')
       .insert(item)
-      .select('*, vendor:vendors(id, name)')
+      .select('*, vendor:vendors(id, name), inventory_category:inventory_categories(id, name)')
       .single();
 
     if (error) {
@@ -134,7 +131,7 @@ export async function PATCH(request: NextRequest) {
       .from('inventory_items')
       .update(updates)
       .eq('id', id)
-      .select('*, vendor:vendors(id, name)')
+      .select('*, vendor:vendors(id, name), inventory_category:inventory_categories(id, name)')
       .single();
 
     if (error) {

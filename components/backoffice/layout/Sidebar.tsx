@@ -26,7 +26,13 @@ import {
   Download,
   Armchair,
   Map,
-  ClipboardList
+  ClipboardList,
+  Calendar,
+  Table,
+  Receipt,
+  ArrowUpDown,
+  Bus,
+  ShoppingCart
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth, usePermissions } from '@/lib/auth/hooks';
@@ -52,7 +58,13 @@ const iconMap: Record<string, React.ElementType> = {
   Upload,
   Armchair,
   Map,
-  ClipboardList
+  ClipboardList,
+  Calendar,
+  Table,
+  Receipt,
+  ArrowUpDown,
+  Bus,
+  ShoppingCart
 };
 
 interface SidebarProps {

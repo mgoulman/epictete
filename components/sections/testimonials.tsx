@@ -5,47 +5,60 @@ import { useInView } from "framer-motion";
 import { useRef } from "react";
 import { Star, Quote, Instagram } from "lucide-react";
 import { Section, SectionHeader } from "@/components/layout/section";
-
-const testimonials = [
-  {
-    id: 1,
-    name: "Yasmine K.",
-    role: "Client régulier",
-    content:
-      "Les pizzas au feu de bois sont incroyables ! Le cadre est magnifique et le service impeccable. Un vrai bijou à Bouskoura.",
-    rating: 5,
-    source: "Google",
-  },
-  {
-    id: 2,
-    name: "Mehdi A.",
-    role: "Food Lover",
-    content:
-      "Une découverte exceptionnelle. Les pâtes fraîches maison sont un délice et l'ambiance Art Déco est sublime. Je recommande vivement !",
-    rating: 5,
-    source: "Instagram",
-  },
-  {
-    id: 3,
-    name: "Sarah L.",
-    role: "Famille",
-    content:
-      "Parfait pour un déjeuner en famille. Les produits sont frais, bio de leur propre ferme. Les enfants ont adoré les pizzas !",
-    rating: 5,
-    source: "TripAdvisor",
-  },
-];
+import { useTranslation } from "@/lib/i18n/useTranslation";
+import { useSiteContent } from "@/lib/hooks/useSiteContent";
 
 export function TestimonialsSection() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
+  const { t } = useTranslation();
+  const { getSectionText, getTestimonials } = useSiteContent();
+  const s = (key: string, fallback: string) => getSectionText('testimonials', key, fallback);
+
+  const dbReviews = getTestimonials();
+
+  const testimonials = dbReviews && dbReviews.length > 0
+    ? dbReviews.map((review, i) => ({
+        id: i + 1,
+        name: review.name || `Reviewer ${i + 1}`,
+        role: review.role || '',
+        content: review.content || '',
+        rating: review.rating || 5,
+        source: review.source || 'Google',
+      }))
+    : [
+        {
+          id: 1,
+          name: "Yasmine K.",
+          role: t.testimonials.review1Role,
+          content: t.testimonials.review1,
+          rating: 5,
+          source: "Google",
+        },
+        {
+          id: 2,
+          name: "Mehdi A.",
+          role: t.testimonials.review2Role,
+          content: t.testimonials.review2,
+          rating: 5,
+          source: "Instagram",
+        },
+        {
+          id: 3,
+          name: "Sarah L.",
+          role: t.testimonials.review3Role,
+          content: t.testimonials.review3,
+          rating: 5,
+          source: "TripAdvisor",
+        },
+      ];
 
   return (
     <Section className="bg-secondary">
       <SectionHeader
-        eyebrow="Témoignages"
-        title="Ce qu'ils en disent"
-        description="L'avis de nos clients qui ont vécu l'expérience Epictete."
+        eyebrow={s('eyebrow', t.testimonials.eyebrow)}
+        title={s('title', t.testimonials.title)}
+        description={s('description', t.testimonials.description)}
       />
 
       <div ref={ref} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5 md:gap-8">
@@ -64,7 +77,7 @@ export function TestimonialsSection() {
                 <Star key={i} className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-accent text-accent" />
               ))}
               <span className="ml-2 text-xs text-muted-foreground">
-                via {testimonial.source}
+                {t.testimonials.via} {testimonial.source}
               </span>
             </div>
 
@@ -101,7 +114,7 @@ export function TestimonialsSection() {
           className="inline-flex items-center gap-2 text-muted-foreground hover:text-accent transition-colors group"
         >
           <Instagram size={18} />
-          <span className="text-sm">Suivez-nous sur Instagram @epictete.restaurant</span>
+          <span className="text-sm">{s('followInstagram', t.testimonials.followInstagram)}</span>
         </a>
       </motion.div>
     </Section>

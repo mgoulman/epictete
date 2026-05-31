@@ -8,11 +8,14 @@ import { MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
 import { useTranslation } from "@/lib/i18n/useTranslation";
+import { useSiteContent } from "@/lib/hooks/useSiteContent";
 
 export function CTASection() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
   const { t } = useTranslation();
+  const { getSectionText } = useSiteContent();
+  const s = (key: string, fallback: string) => getSectionText('cta', key, fallback);
 
   return (
     <section className="relative py-16 sm:py-24 md:py-32 overflow-hidden">
@@ -29,7 +32,7 @@ export function CTASection() {
           transition={{ duration: 0.8 }}
         >
           <p className="text-accent text-xs sm:text-sm font-medium uppercase tracking-[0.2em] sm:tracking-[0.3em] mb-3 sm:mb-4">
-            {t.cta.eyebrow}
+            {s('eyebrow', t.cta.eyebrow)}
           </p>
         </motion.div>
 
@@ -39,9 +42,9 @@ export function CTASection() {
           transition={{ duration: 0.8, delay: 0.1 }}
           className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-heading font-semibold text-foreground leading-tight"
         >
-          {t.cta.title}
+          {s('title', t.cta.title)}
           <br />
-          <span className="text-accent">{t.cta.titleAccent}</span>
+          <span className="text-accent">{s('titleAccent', t.cta.titleAccent)}</span>
         </motion.h2>
 
         <motion.p
@@ -50,7 +53,7 @@ export function CTASection() {
           transition={{ duration: 0.8, delay: 0.2 }}
           className="mt-4 sm:mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto"
         >
-          {t.cta.description}
+          {s('description', t.cta.description)}
         </motion.p>
 
         <motion.div

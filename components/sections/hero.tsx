@@ -7,9 +7,12 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
 import { useTranslation } from "@/lib/i18n/useTranslation";
+import { useSiteContent } from "@/lib/hooks/useSiteContent";
 
 export function HeroSection() {
   const { t } = useTranslation();
+  const { getSectionText } = useSiteContent();
+  const s = (key: string, fallback: string) => getSectionText('hero', key, fallback);
 
   const scrollToNext = () => {
     const nextSection = document.getElementById("philosophy");
@@ -45,7 +48,7 @@ export function HeroSection() {
           transition={{ duration: 0.6, delay: 0.1 }}
         >
           <p className="text-accent text-xs sm:text-sm md:text-base font-medium uppercase tracking-[0.2em] sm:tracking-[0.3em] mb-4 sm:mb-6">
-            {t.hero.welcome}
+            {s('welcome', t.hero.welcome)}
           </p>
         </motion.div>
 
@@ -55,9 +58,9 @@ export function HeroSection() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-heading font-semibold text-foreground leading-[1.1] sm:leading-tight"
         >
-          {t.hero.tagline}
+          {s('tagline', t.hero.tagline)}
           <br />
-          <span className="text-accent">{t.hero.taglineAccent}</span>
+          <span className="text-accent">{s('taglineAccent', t.hero.taglineAccent)}</span>
         </motion.h1>
 
         <motion.p
@@ -66,7 +69,7 @@ export function HeroSection() {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="mt-5 sm:mt-8 text-sm sm:text-base md:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed"
         >
-          {t.hero.description}
+          {s('description', t.hero.description)}
         </motion.p>
 
         {/* Quick Info Pills - Mobile */}

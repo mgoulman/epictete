@@ -8,6 +8,8 @@ import { ArrowRight, Flame } from "lucide-react";
 import { Section, SectionHeader } from "@/components/layout/section";
 import { Card, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
 import { createSupabaseBrowserClient } from "@/lib/auth/supabase-browser";
+import { useTranslation } from "@/lib/i18n/useTranslation";
+import { useSiteContent } from "@/lib/hooks/useSiteContent";
 
 interface FeaturedDish {
   id: string;
@@ -64,6 +66,9 @@ export function FeaturedDishesSection() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
   const [dishes, setDishes] = useState<FeaturedDish[]>(fallbackDishes);
+  const { t } = useTranslation();
+  const { getSectionText } = useSiteContent();
+  const s = (key: string, fallback: string) => getSectionText('featuredDishes', key, fallback);
 
   useEffect(() => {
     async function fetchFeatured() {
@@ -85,9 +90,9 @@ export function FeaturedDishesSection() {
   return (
     <Section id="menu-preview" className="bg-primary">
       <SectionHeader
-        eyebrow="Notre Carte"
-        title="Créations Signatures"
-        description="Cuisine italienne gastronomique avec des ingrédients frais de notre ferme biologique."
+        eyebrow={s('eyebrow', t.featuredDishes.eyebrow)}
+        title={s('title', t.featuredDishes.title)}
+        description={s('description', t.featuredDishes.description)}
       />
 
       <div ref={ref} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
@@ -138,7 +143,7 @@ export function FeaturedDishesSection() {
           href="/menu"
           className="inline-flex items-center gap-2 px-6 py-3 bg-secondary hover:bg-card text-foreground rounded-xl transition-all group touch-manipulation"
         >
-          <span className="font-medium">Voir la carte complète</span>
+          <span className="font-medium">{t.featuredDishes.viewFullMenu}</span>
           <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
         </Link>
       </motion.div>

@@ -210,7 +210,7 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: 'positions array required' }, { status: 400 });
       }
 
-      const results = [];
+      const results: Array<{ id: string; error: string }> = [];
       for (const pos of positions) {
         const updates: Record<string, number> = { x: pos.x, y: pos.y };
         if (pos.width !== undefined) updates.width = pos.width;

@@ -6,27 +6,30 @@ import { useRef } from "react";
 import { Leaf, Flame, Heart } from "lucide-react";
 import { Section } from "@/components/layout/section";
 import { useTranslation } from "@/lib/i18n/useTranslation";
+import { useSiteContent } from "@/lib/hooks/useSiteContent";
 
 export function PhilosophySection() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
   const { t } = useTranslation();
+  const { getSectionText } = useSiteContent();
+  const s = (key: string, fallback: string) => getSectionText('philosophy', key, fallback);
 
   const features = [
     {
       icon: Leaf,
-      title: t.philosophy.organic,
-      description: t.philosophy.organicDesc,
+      title: s('organic', t.philosophy.organic),
+      description: s('organicDesc', t.philosophy.organicDesc),
     },
     {
       icon: Flame,
-      title: t.philosophy.woodFired,
-      description: t.philosophy.woodFiredDesc,
+      title: s('woodFired', t.philosophy.woodFired),
+      description: s('woodFiredDesc', t.philosophy.woodFiredDesc),
     },
     {
       icon: Heart,
-      title: t.philosophy.homemade,
-      description: t.philosophy.homemadeDesc,
+      title: s('homemade', t.philosophy.homemade),
+      description: s('homemadeDesc', t.philosophy.homemadeDesc),
     },
   ];
 
@@ -51,9 +54,9 @@ export function PhilosophySection() {
             transition={{ duration: 0.8, delay: 0.1 }}
             className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-heading font-semibold text-foreground"
           >
-            {t.philosophy.title}
+            {s('title', t.philosophy.title)}
             <br className="hidden sm:block" />
-            <span className="text-accent">{t.philosophy.titleAccent}</span>
+            <span className="text-accent">{s('titleAccent', t.philosophy.titleAccent)}</span>
           </motion.h2>
 
           <motion.p
@@ -62,7 +65,7 @@ export function PhilosophySection() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="mt-4 sm:mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed"
           >
-            {t.philosophy.description}
+            {s('description', t.philosophy.description)}
           </motion.p>
         </div>
 
@@ -101,9 +104,9 @@ export function PhilosophySection() {
           className="flex flex-wrap justify-center gap-6 sm:gap-8 md:gap-12"
         >
           {[
-            { number: "2025", label: t.philosophy.opening },
-            { number: "7j/7", label: t.philosophy.atYourService },
-            { number: "100%", label: t.philosophy.passion },
+            { number: s('stat1Number', "2025"), label: s('stat1Label', t.philosophy.opening) },
+            { number: s('stat2Number', "7j/7"), label: s('stat2Label', t.philosophy.atYourService) },
+            { number: s('stat3Number', "100%"), label: s('stat3Label', t.philosophy.passion) },
           ].map((stat, index) => (
             <div key={index} className="text-center min-w-[80px]">
               <div className="text-2xl sm:text-3xl md:text-4xl font-heading text-accent font-semibold">

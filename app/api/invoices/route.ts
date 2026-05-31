@@ -1,31 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
+import { query } from '@/lib/db';
 
 // GET - List invoices for a vendor
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
     const vendorId = searchParams.get('vendorId');
 
-    let query = supabase
-      .from('vendor_invoices')
-      .select(`
-        *,
-        vendor:vendors(id, name),
-        items:vendor_invoice_items(*),
-        transaction:vendor_transactions(id, type, amount, date)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (vendorId) {
-      query = query.eq('vendor_id', vendorId);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    return NextResponse.json({ invoices: data || [] });
+    // Raw SQL — supabase-compat builder can't disambiguate FK col for
+    // vendor_transaction_id (named differently from the table singular)
+    const where = vendorId ? 'WHERE vi.vendor_id = $1' : '';
+    const params = vendorId ? [vendorId] : [];
+    const sql = `
+      SELECT
+        vi.*,
+        CASE WHEN v.id IS NOT NULL
+          THEN jsonb_build_object('id', v.id, 'name', v.name) END AS vendor,
+        COALESCE((
+          SELECT jsonb_agg(row_to_json(it))
+            FROM vendor_invoice_items it WHERE it.invoice_id = vi.id
+        ), '[]'::jsonb) AS items,
+        CASE WHEN vt.id IS NOT NULL
+          THEN jsonb_build_object('id', vt.id, 'type', vt.type, 'amount', vt.amount, 'date', vt.date) END AS transaction
+      FROM vendor_invoices vi
+      LEFT JOIN vendors v ON v.id = vi.vendor_id
+      LEFT JOIN vendor_transactions vt ON vt.id = vi.vendor_transaction_id
+      ${where}
+      ORDER BY vi.created_at DESC
+    `;
+    const { rows } = await query(sql, params);
+    return NextResponse.json({ invoices: rows });
   } catch (error) {
     console.error('Invoices GET error:', error);
     return NextResponse.json({ error: 'Failed to fetch invoices' }, { status: 500 });

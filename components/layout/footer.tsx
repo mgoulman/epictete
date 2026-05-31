@@ -108,7 +108,7 @@ export function Footer() {
           {/* Contact */}
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-4">
-              Contact
+              {t.common.contact}
             </h3>
             <ul className="space-y-3">
               <li>

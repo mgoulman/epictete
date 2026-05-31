@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Users, Calendar, Clock, DollarSign, Plus, Search, Edit2, Trash2, X, Check,
-  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, UserPlus, Briefcase, Minus, Bus, Phone, Mail, MapPin, Download, XCircle
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, UserPlus, Briefcase, Bus, Phone, Mail, MapPin, Download, XCircle
 } from 'lucide-react';
 import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared/SortHeader';
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import ScheduleBoard from '@/components/backoffice/personnel/ScheduleBoard';
 import jsPDF from 'jspdf';
 
 interface StaffType {
@@ -34,12 +35,6 @@ interface WeeklyScheduleConfig {
   friday: DaySchedule;
   saturday: DaySchedule;
   sunday: DaySchedule;
-}
-
-interface MonthlyScheduleConfig {
-  default_shifts: Shift[];
-  days_per_month: number;
-  working_days: string[];
 }
 
 interface ComputedShift {
@@ -98,27 +93,6 @@ function normalizeWeeklyConfig(raw: Record<string, unknown>): WeeklyScheduleConf
   return result as unknown as WeeklyScheduleConfig;
 }
 
-function normalizeMonthlyConfig(raw: Record<string, unknown>): MonthlyScheduleConfig {
-  const days_per_month = (raw.days_per_month as number) || 22;
-  // New format
-  if (Array.isArray(raw.default_shifts)) {
-    return {
-      default_shifts: raw.default_shifts as Shift[],
-      days_per_month,
-      working_days: Array.isArray(raw.working_days) ? raw.working_days as string[] : ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-    };
-  }
-  // Old format: {default_start_time, default_end_time, days_per_month}
-  return {
-    default_shifts: [{
-      start_time: (raw.default_start_time as string) || '09:00',
-      end_time: (raw.default_end_time as string) || '17:00',
-    }],
-    days_per_month,
-    working_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-  };
-}
-
 interface StaffMember {
   id: string;
   first_name: string;
@@ -133,8 +107,8 @@ interface StaffMember {
   is_active: boolean;
   notes: string | null;
   created_at: string;
-  schedule_type: 'weekly' | 'monthly' | null;
-  schedule_config: WeeklyScheduleConfig | MonthlyScheduleConfig | null;
+  schedule_type: 'weekly' | null;
+  schedule_config: WeeklyScheduleConfig | null;
   department: 'cuisine' | 'salle' | null;
   transport_pickup: boolean;
   transport_dropoff: boolean;
@@ -325,6 +299,22 @@ export default function PersonnelPage() {
     fetchApprovedTimeOff();
   };
 
+  // Update staff schedule config from ScheduleBoard (DnD)
+  const handleUpdateStaffSchedule = useCallback(async (staffId: string, newConfig: WeeklyScheduleConfig) => {
+    // Optimistic update
+    setStaffMembers(prev => prev.map(s =>
+      s.id === staffId
+        ? { ...s, schedule_type: 'weekly' as const, schedule_config: newConfig }
+        : s
+    ));
+    // Persist
+    await fetch('/api/personnel', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'staff', id: staffId, schedule_type: 'weekly', schedule_config: newConfig }),
+    });
+  }, []);
+
   const handleSalarySort = (field: string) => {
     if (salarySort === field) {
       setSalarySortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
@@ -340,7 +330,7 @@ export default function PersonnelPage() {
   );
 
   const getWeekDays = () => {
-    const days = [];
+    const days: Date[] = [];
     for (let i = 0; i < 7; i++) {
       const day = new Date(currentWeekStart);
       day.setDate(day.getDate() + i);
@@ -389,27 +379,6 @@ export default function PersonnelPage() {
           const dayConfig = config[dayName as keyof WeeklyScheduleConfig];
           if (dayConfig?.enabled) {
             for (const shift of dayConfig.shifts) {
-              shifts.push({
-                staff_id: staff.id,
-                staff_name: `${staff.first_name} ${staff.last_name}`,
-                staff_type: staff.staff_type,
-                department: staff.department,
-                transport_pickup: staff.transport_pickup ?? false,
-                transport_dropoff: staff.transport_dropoff ?? false,
-                start_time: shift.start_time,
-                end_time: shift.end_time,
-                email: staff.email,
-                phone: staff.phone,
-                date: dateStr,
-                isOff: offStatus.off,
-                timeOffId: offStatus.timeOffId,
-              });
-            }
-          }
-        } else if (staff.schedule_type === 'monthly') {
-          const config = normalizeMonthlyConfig(staff.schedule_config as unknown as Record<string, unknown>);
-          if (config.working_days.includes(dayName)) {
-            for (const shift of config.default_shifts) {
               shifts.push({
                 staff_id: staff.id,
                 staff_name: `${staff.first_name} ${staff.last_name}`,
@@ -794,13 +763,7 @@ export default function PersonnelPage() {
                         >
                           {staff.staff_type?.name}
                         </span>
-                        {staff.schedule_type && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-500 flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {staff.schedule_type === 'weekly' ? pn.weekly : pn.monthly}
-                          </span>
-                        )}
-                        {(staff.transport_pickup || staff.transport_dropoff) && (
+{(staff.transport_pickup || staff.transport_dropoff) && (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-600 dark:text-green-400 flex items-center gap-1">
                             <Bus className="w-3 h-3" />
                             {pn.transportBeneficiary}
@@ -908,162 +871,14 @@ export default function PersonnelPage() {
             </div>
           </div>
 
-          {/* Calendar Grid with Time on Y-axis */}
-          <div className="bg-card border border-border rounded-lg overflow-hidden">
-            {/* Header Row - Days */}
-            <div className="grid grid-cols-[70px_repeat(7,1fr)] border-b border-border sticky top-0 z-10">
-              <div className="p-3 bg-secondary text-sm text-muted-foreground text-center font-medium">{pn.time}</div>
-              {getWeekDays().map((day, idx) => {
-                const dateStr = day.toISOString().split('T')[0];
-                const dayShifts = computedSchedules[dateStr] || [];
-                const workingCount = new Set(dayShifts.filter(s => !s.isOff).map(s => s.staff_id)).size;
-                const offCount = new Set(dayShifts.filter(s => s.isOff).map(s => s.staff_id)).size;
-                return (
-                  <div
-                    key={idx}
-                    className={`p-3 text-center font-medium border-l border-border ${
-                      day.toDateString() === new Date().toDateString() ? 'bg-[#606338] text-white' : 'bg-secondary'
-                    }`}
-                  >
-                    <div className="text-sm">{day.toLocaleDateString('en-US', { weekday: 'short' })}</div>
-                    <div className="text-lg font-bold">{day.getDate()}</div>
-                    <div className={`text-[10px] mt-0.5 ${day.toDateString() === new Date().toDateString() ? 'text-white/70' : 'text-muted-foreground'}`}>
-                      {workingCount} {pn.in}{offCount > 0 && <span className="text-red-400"> · {offCount} {pn.off}</span>}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Time Grid */}
-            <div className="max-h-[600px] overflow-y-auto">
-              {Array.from({ length: 17 }, (_, i) => i + 6).map(hour => (
-                <div key={hour} className="grid grid-cols-[70px_repeat(7,1fr)] border-b border-border/50 last:border-b-0">
-                  {/* Time Label */}
-                  <div className="py-2 px-2 text-sm text-muted-foreground text-right pr-3 bg-secondary/30 border-r border-border/50 font-medium">
-                    {hour.toString().padStart(2, '0')}:00
-                  </div>
-                  {/* Day Cells */}
-                  {getWeekDays().map((day, dayIdx) => {
-                    const dateStr = day.toISOString().split('T')[0];
-
-                    // For transport view, show trips
-                    if (scheduleView === 'transport') {
-                      const trips = getTransportTripsForDay(day);
-                      const tripsThisHour = trips.filter(trip => {
-                        const tripHour = parseInt(trip.time.split(':')[0]);
-                        return tripHour === hour;
-                      });
-
-                      return (
-                        <div
-                          key={dayIdx}
-                          className={`min-h-[48px] border-l border-border/50 p-1 ${
-                            day.toDateString() === new Date().toDateString() ? 'bg-[#606338]/5' : ''
-                          }`}
-                        >
-                          {tripsThisHour.map((trip, tripIdx) => (
-                            <div
-                              key={`${trip.type}-${trip.time}-${tripIdx}`}
-                              onClick={() => setSelectedTrip({ trip, date: dateStr })}
-                              className={`px-2 py-1.5 rounded text-sm cursor-pointer hover:ring-2 hover:ring-blue-500/50 transition-all mb-1 flex items-center gap-2 ${
-                                trip.type === 'pickup'
-                                  ? 'bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30'
-                                  : 'bg-red-500/20 text-red-700 dark:text-red-400 border border-red-500/30'
-                              }`}
-                            >
-                              <Bus className="w-4 h-4 flex-shrink-0" />
-                              <span className="font-semibold">{trip.time.slice(0, 5)}</span>
-                              <span className="text-muted-foreground">({trip.passengers.length})</span>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    }
-
-                    // For shift views, show shifts
-                    const shifts = getSchedulesForDay(day);
-                    const shiftsThisHour = shifts.filter(shift => {
-                      const startHour = parseInt(shift.start_time.split(':')[0]);
-                      return startHour === hour;
-                    });
-
-                    return (
-                      <div
-                        key={dayIdx}
-                        className={`min-h-[48px] border-l border-border/50 p-1 ${
-                          day.toDateString() === new Date().toDateString() ? 'bg-[#606338]/5' : ''
-                        }`}
-                      >
-                        {shiftsThisHour.map((shift, shiftIdx) => (
-                          <div
-                            key={`${shift.staff_id}-${shiftIdx}`}
-                            onClick={() => setSelectedShift(shift)}
-                            className={`px-2 py-1.5 rounded text-sm cursor-pointer hover:ring-2 hover:ring-[#606338]/50 transition-all mb-1 border-l-3 ${shift.isOff ? 'opacity-40' : ''}`}
-                            style={{
-                              backgroundColor: shift.isOff ? 'rgba(239,68,68,0.1)' : `${shift.staff_type?.color || '#606338'}20`,
-                              borderLeftColor: shift.isOff ? '#ef4444' : (shift.staff_type?.color || '#606338'),
-                              borderLeftWidth: '3px',
-                            }}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className={`font-semibold text-foreground truncate ${shift.isOff ? 'line-through' : ''}`}>
-                                {shift.staff_name}
-                              </span>
-                              <div className="flex items-center gap-1 flex-shrink-0">
-                                {shift.isOff && (
-                                  <span className="text-[10px] font-bold text-red-500 bg-red-500/20 px-1.5 py-0.5 rounded">{pn.offBadge}</span>
-                                )}
-                                {shift.department && !shift.isOff && (
-                                  <span className={`w-2.5 h-2.5 rounded-full ${
-                                    shift.department === 'cuisine' ? 'bg-orange-500' : 'bg-purple-500'
-                                  }`} />
-                                )}
-                                {(shift.transport_pickup || shift.transport_dropoff) && !shift.isOff && (
-                                  <Bus className="w-4 h-4 text-blue-500" />
-                                )}
-                              </div>
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-0.5">
-                              {shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Legend */}
-          <div className="mt-4 flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-orange-500" />
-              <span>{pn.cuisine}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-purple-500" />
-              <span>{pn.salle}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded bg-green-500/30 border border-green-500/50" />
-              <span>{pn.pickup}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded bg-red-500/30 border border-red-500/50" />
-              <span>{pn.dropoff}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Bus className="w-4 h-4 text-blue-500" />
-              <span>{pn.transport}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-red-500 bg-red-500/20 px-1.5 py-0.5 rounded">{pn.offBadge}</span>
-              <span>{pn.dayOff}</span>
-            </div>
-          </div>
+          {/* Drag-and-Drop Schedule Board */}
+          <ScheduleBoard
+            staffMembers={staffMembers}
+            weekDays={getWeekDays()}
+            approvedTimeOff={approvedTimeOff}
+            scheduleView={scheduleView}
+            onUpdateStaffSchedule={handleUpdateStaffSchedule}
+          />
 
           {/* Weekly Summary Panel */}
           <div className="mt-4">
@@ -1408,33 +1223,6 @@ export default function PersonnelPage() {
   );
 }
 
-// Default schedule configurations
-const getDefaultWeeklySchedule = (): WeeklyScheduleConfig => ({
-  monday: { enabled: true, shifts: [{ start_time: '09:00', end_time: '17:00' }] },
-  tuesday: { enabled: true, shifts: [{ start_time: '09:00', end_time: '17:00' }] },
-  wednesday: { enabled: true, shifts: [{ start_time: '09:00', end_time: '17:00' }] },
-  thursday: { enabled: true, shifts: [{ start_time: '09:00', end_time: '17:00' }] },
-  friday: { enabled: true, shifts: [{ start_time: '09:00', end_time: '17:00' }] },
-  saturday: { enabled: false, shifts: [{ start_time: '09:00', end_time: '17:00' }] },
-  sunday: { enabled: false, shifts: [{ start_time: '09:00', end_time: '17:00' }] },
-});
-
-const getDefaultMonthlySchedule = (): MonthlyScheduleConfig => ({
-  default_shifts: [{ start_time: '09:00', end_time: '17:00' }],
-  days_per_month: 22,
-  working_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-});
-
-const dayNames: (keyof WeeklyScheduleConfig)[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-const dayLabels: Record<keyof WeeklyScheduleConfig, string> = {
-  monday: 'Monday',
-  tuesday: 'Tuesday',
-  wednesday: 'Wednesday',
-  thursday: 'Thursday',
-  friday: 'Friday',
-  saturday: 'Saturday',
-  sunday: 'Sunday',
-};
 
 // Staff Modal Component
 function StaffModal({
@@ -1450,15 +1238,6 @@ function StaffModal({
 }) {
   const { t } = useTranslation();
   const pn = t.backoffice.personnelPage;
-  const translatedDayLabels: Record<keyof WeeklyScheduleConfig, string> = {
-    monday: pn.monday,
-    tuesday: pn.tuesday,
-    wednesday: pn.wednesday,
-    thursday: pn.thursday,
-    friday: pn.friday,
-    saturday: pn.saturday,
-    sunday: pn.sunday,
-  };
   const [formData, setFormData] = useState({
     first_name: editingStaff?.first_name || '',
     last_name: editingStaff?.last_name || '',
@@ -1474,90 +1253,7 @@ function StaffModal({
     transport_dropoff: editingStaff?.transport_dropoff ?? false
   });
 
-  const [scheduleType, setScheduleType] = useState<'weekly' | 'monthly' | 'none'>(
-    editingStaff?.schedule_type || 'none'
-  );
-  const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleConfig>(
-    editingStaff?.schedule_type === 'weekly'
-      ? normalizeWeeklyConfig(editingStaff.schedule_config as unknown as Record<string, unknown>)
-      : getDefaultWeeklySchedule()
-  );
-  const [monthlySchedule, setMonthlySchedule] = useState<MonthlyScheduleConfig>(
-    editingStaff?.schedule_type === 'monthly'
-      ? normalizeMonthlyConfig(editingStaff.schedule_config as unknown as Record<string, unknown>)
-      : getDefaultMonthlySchedule()
-  );
-
   const [saving, setSaving] = useState(false);
-
-  // Weekly helpers
-  const updateDayEnabled = (day: keyof WeeklyScheduleConfig, enabled: boolean) => {
-    setWeeklySchedule(prev => ({
-      ...prev,
-      [day]: { ...prev[day], enabled }
-    }));
-  };
-
-  const updateShift = (day: keyof WeeklyScheduleConfig, shiftIndex: number, field: keyof Shift, value: string) => {
-    setWeeklySchedule(prev => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        shifts: prev[day].shifts.map((s, i) => i === shiftIndex ? { ...s, [field]: value } : s)
-      }
-    }));
-  };
-
-  const addShift = (day: keyof WeeklyScheduleConfig) => {
-    setWeeklySchedule(prev => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        shifts: [...prev[day].shifts, { start_time: '18:00', end_time: '23:00' }]
-      }
-    }));
-  };
-
-  const removeShift = (day: keyof WeeklyScheduleConfig, shiftIndex: number) => {
-    setWeeklySchedule(prev => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        shifts: prev[day].shifts.filter((_, i) => i !== shiftIndex)
-      }
-    }));
-  };
-
-  // Monthly helpers
-  const toggleMonthlyWorkingDay = (day: string) => {
-    setMonthlySchedule(prev => ({
-      ...prev,
-      working_days: prev.working_days.includes(day)
-        ? prev.working_days.filter(d => d !== day)
-        : [...prev.working_days, day]
-    }));
-  };
-
-  const updateMonthlyShift = (shiftIndex: number, field: keyof Shift, value: string) => {
-    setMonthlySchedule(prev => ({
-      ...prev,
-      default_shifts: prev.default_shifts.map((s, i) => i === shiftIndex ? { ...s, [field]: value } : s)
-    }));
-  };
-
-  const addMonthlyShift = () => {
-    setMonthlySchedule(prev => ({
-      ...prev,
-      default_shifts: [...prev.default_shifts, { start_time: '18:00', end_time: '23:00' }]
-    }));
-  };
-
-  const removeMonthlyShift = (shiftIndex: number) => {
-    setMonthlySchedule(prev => ({
-      ...prev,
-      default_shifts: prev.default_shifts.filter((_, i) => i !== shiftIndex)
-    }));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1570,12 +1266,6 @@ function StaffModal({
       department: formData.department || null,
       transport_pickup: formData.transport_pickup,
       transport_dropoff: formData.transport_dropoff,
-      schedule_type: scheduleType === 'none' ? null : scheduleType,
-      schedule_config: scheduleType === 'weekly'
-        ? weeklySchedule
-        : scheduleType === 'monthly'
-          ? monthlySchedule
-          : null,
       ...(editingStaff && { id: editingStaff.id })
     };
 
@@ -1790,206 +1480,6 @@ function StaffModal({
                 {pn.transportNote}
               </p>
             </div>
-          </div>
-
-          {/* Schedule Configuration Section */}
-          <div className="border-t border-border pt-4 mt-4">
-            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              {pn.scheduleConfig}
-            </h3>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">{pn.scheduleType}</label>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setScheduleType('none')}
-                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                    scheduleType === 'none'
-                      ? 'bg-[#606338] text-white'
-                      : 'bg-secondary text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {pn.noSchedule}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setScheduleType('weekly')}
-                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                    scheduleType === 'weekly'
-                      ? 'bg-[#606338] text-white'
-                      : 'bg-secondary text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {pn.weeklyDays}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setScheduleType('monthly')}
-                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                    scheduleType === 'monthly'
-                      ? 'bg-[#606338] text-white'
-                      : 'bg-secondary text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {pn.monthlyType}
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {scheduleType === 'weekly' && pn.weeklyDesc}
-                {scheduleType === 'monthly' && pn.monthlyDesc}
-                {scheduleType === 'none' && pn.noScheduleDesc}
-              </p>
-            </div>
-
-            {/* Weekly Schedule Config — double shifts */}
-            {scheduleType === 'weekly' && (
-              <div className="space-y-3 bg-secondary/50 p-3 rounded-lg">
-                {dayNames.map((day) => (
-                  <div key={day} className="space-y-1">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        id={`day-${day}`}
-                        checked={weeklySchedule[day].enabled}
-                        onChange={(e) => updateDayEnabled(day, e.target.checked)}
-                        className="w-4 h-4 rounded border-border text-[#606338] focus:ring-[#606338]"
-                      />
-                      <label htmlFor={`day-${day}`} className="w-20 text-sm font-medium">
-                        {translatedDayLabels[day]}
-                      </label>
-                      {weeklySchedule[day].enabled && weeklySchedule[day].shifts.length < 2 && (
-                        <button
-                          type="button"
-                          onClick={() => addShift(day)}
-                          className="ml-auto text-xs text-[#606338] hover:text-[#4d4f2e] flex items-center gap-1"
-                        >
-                          <Plus className="w-3 h-3" />
-                          {pn.addShift}
-                        </button>
-                      )}
-                    </div>
-                    {weeklySchedule[day].enabled && weeklySchedule[day].shifts.map((shift, sIdx) => (
-                      <div key={sIdx} className="flex items-center gap-2 ml-7">
-                        <span className="text-xs text-muted-foreground w-8">#{sIdx + 1}</span>
-                        <input
-                          type="time"
-                          value={shift.start_time}
-                          onChange={(e) => updateShift(day, sIdx, 'start_time', e.target.value)}
-                          className="px-2 py-1 bg-card border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-[#606338]/50"
-                        />
-                        <span className="text-muted-foreground text-sm">to</span>
-                        <input
-                          type="time"
-                          value={shift.end_time}
-                          onChange={(e) => updateShift(day, sIdx, 'end_time', e.target.value)}
-                          className="px-2 py-1 bg-card border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-[#606338]/50"
-                        />
-                        {sIdx > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => removeShift(day, sIdx)}
-                            className="p-1 text-red-400 hover:text-red-500"
-                          >
-                            <Minus className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Monthly Schedule Config — working days + double shifts */}
-            {scheduleType === 'monthly' && (
-              <div className="space-y-4 bg-secondary/50 p-3 rounded-lg">
-                {/* Working days checkboxes */}
-                <div>
-                  <label className="block text-xs font-medium mb-2">{pn.workingDays}</label>
-                  <div className="flex flex-wrap gap-2">
-                    {dayNames.map((day) => (
-                      <label
-                        key={day}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
-                          monthlySchedule.working_days.includes(day)
-                            ? 'bg-[#606338] text-white'
-                            : 'bg-card text-muted-foreground border border-border hover:text-foreground'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={monthlySchedule.working_days.includes(day)}
-                          onChange={() => toggleMonthlyWorkingDay(day)}
-                          className="sr-only"
-                        />
-                        {translatedDayLabels[day].slice(0, 3)}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Default shifts */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-xs font-medium">{pn.defaultShifts}</label>
-                    {monthlySchedule.default_shifts.length < 2 && (
-                      <button
-                        type="button"
-                        onClick={addMonthlyShift}
-                        className="text-xs text-[#606338] hover:text-[#4d4f2e] flex items-center gap-1"
-                      >
-                        <Plus className="w-3 h-3" />
-                        {pn.addShift}
-                      </button>
-                    )}
-                  </div>
-                  {monthlySchedule.default_shifts.map((shift, sIdx) => (
-                    <div key={sIdx} className="flex items-center gap-2 mb-2">
-                      <span className="text-xs text-muted-foreground w-8">#{sIdx + 1}</span>
-                      <input
-                        type="time"
-                        value={shift.start_time}
-                        onChange={(e) => updateMonthlyShift(sIdx, 'start_time', e.target.value)}
-                        className="flex-1 px-3 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
-                      />
-                      <span className="text-muted-foreground text-sm">to</span>
-                      <input
-                        type="time"
-                        value={shift.end_time}
-                        onChange={(e) => updateMonthlyShift(sIdx, 'end_time', e.target.value)}
-                        className="flex-1 px-3 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
-                      />
-                      {sIdx > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => removeMonthlyShift(sIdx)}
-                          className="p-1 text-red-400 hover:text-red-500"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium mb-1">{pn.workingDaysPerMonth}</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={monthlySchedule.days_per_month}
-                    onChange={(e) => setMonthlySchedule(prev => ({ ...prev, days_per_month: parseInt(e.target.value) || 22 }))}
-                    className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {pn.workingDaysPerMonthDesc}
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="flex items-center gap-2">

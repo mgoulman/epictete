@@ -1,77 +1,84 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import Image from "next/image";
 
 export function SplashScreen() {
-  const [isVisible, setIsVisible] = useState(true);
-  const [hasAnimated, setHasAnimated] = useState(false);
+  const [phase, setPhase] = useState<"visible" | "fading" | "done">("visible");
 
   useEffect(() => {
-    // Show splash for 2 seconds then fade out
+    document.body.style.overflow = "hidden";
+
     const timer = setTimeout(() => {
-      setIsVisible(false);
+      setPhase("fading");
     }, 2000);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      document.body.style.overflow = "";
+    };
   }, []);
 
-  // Don't render anything after animation is complete
-  if (hasAnimated && !isVisible) {
-    return null;
-  }
+  useEffect(() => {
+    if (phase === "fading") {
+      const timer = setTimeout(() => {
+        setPhase("done");
+        document.body.style.overflow = "";
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [phase]);
+
+  if (phase === "done") return null;
 
   return (
-    <AnimatePresence onExitComplete={() => setHasAnimated(true)}>
-      {isVisible && (
-        <motion.div
-          initial={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.8, ease: "easeInOut" }}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-[#F0E7CE]"
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        zIndex: 100,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#F0E7CE",
+        opacity: phase === "fading" ? 0 : 1,
+        transition: "opacity 0.8s ease-in-out",
+        pointerEvents: phase === "fading" ? "none" : "auto",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          padding: "0 2rem",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logos/logo-full.png"
+          alt="Epictète Restaurant"
+          style={{
+            width: "60vw",
+            maxWidth: "280px",
+            height: "auto",
+          }}
+        />
+        <div
+          style={{
+            width: "5rem",
+            height: "4px",
+            background: "rgba(96, 99, 56, 0.2)",
+            borderRadius: "9999px",
+            overflow: "hidden",
+            marginTop: "1.5rem",
+          }}
         >
-          <div className="flex flex-col items-center justify-center px-8 w-full max-w-md mx-auto text-center">
-            {/* Full logo with name */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-              className="w-full flex justify-center"
-            >
-              <Image
-                src="/logos/logo-full.png"
-                alt="Epictète Restaurant"
-                width={400}
-                height={400}
-                priority
-                className="w-full max-w-[280px] sm:max-w-[320px] md:max-w-[384px] h-auto"
-              />
-            </motion.div>
-
-            {/* Loading indicator */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3, delay: 0.8 }}
-              className="mt-6 sm:mt-8"
-            >
-              <div className="w-16 sm:w-20 h-1 bg-[#606338]/20 rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ x: "-100%" }}
-                  animate={{ x: "100%" }}
-                  transition={{
-                    duration: 1,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
-                  className="w-full h-full bg-[#606338]/60"
-                />
-              </div>
-            </motion.div>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+          <div className="splash-loader-bar" />
+        </div>
+      </div>
+    </div>
   );
 }

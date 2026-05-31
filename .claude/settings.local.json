@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(node:*)",
+      "mcp__supabase-mcp__execute_sql",
+      "Bash(npm list:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" --connect-timeout 5 \"https://ertxtpmtyeuzqpxqryix.supabase.co/rest/v1/\" -H \"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVydHh0cG10eWV1enFweHFyeWl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxODU4OTQsImV4cCI6MjA4NDc2MTg5NH0.jDIt88ghVq4PW_QrhrOnGcMkxS6NKjax1alGMbqVja4\")",
+      "Bash(echo \"FAILED: $?\")",
+      "Bash(curl -s --connect-timeout 5 \"https://ertxtpmtyeuzqpxqryix.supabase.co/auth/v1/settings\" -H \"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVydHh0cG10eWV1enFweHFyeWl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxODU4OTQsImV4cCI6MjA4NDc2MTg5NH0.jDIt88ghVq4PW_QrhrOnGcMkxS6NKjax1alGMbqVja4\")",
+      "Bash(rm -f /Users/macbook/Desktop/epictelerestaurant/.next/lock)",
+      "Bash(npx next:*)",
+      "Bash(xargs cat:*)",
+      "Read(//tmp/**)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase-mcp"
+  ]
+}

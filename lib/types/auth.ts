@@ -181,9 +181,24 @@ export const BACKOFFICE_NAV: NavItem[] = [
     children: [
       { key: 'overview', label: 'Overview', href: '/admin/finance?tab=overview', icon: 'BarChart3' },
       { key: 'sales', label: 'Sales', href: '/admin/finance?tab=sales', icon: 'TrendingUp' },
+      { key: 'dailyPurchases', label: 'Achats & Stock', href: '/admin/inventory', icon: 'ShoppingCart' },
       { key: 'inventory', label: 'Inventory', href: '/admin/finance?tab=inventory', icon: 'Package' },
       { key: 'vendors', label: 'Vendors', href: '/admin/finance?tab=vendors', icon: 'Users' },
       { key: 'import', label: 'Import', href: '/admin/finance?tab=import', icon: 'Upload' }
+    ]
+  },
+  {
+    key: 'reports',
+    label: 'Reports',
+    href: '/admin/reports',
+    icon: 'ClipboardList',
+    permission: 'finance.read',
+    children: [
+      { key: 'dailyEntry', label: 'Saisie Journalière', href: '/admin/reports?tab=daily', icon: 'Calendar' },
+      { key: 'suiviJournalier', label: 'Suivi Journalier', href: '/admin/reports?tab=suivi', icon: 'Table' },
+      { key: 'recapMensuel', label: 'Récap Mensuel', href: '/admin/reports?tab=recap', icon: 'BarChart3' },
+      { key: 'expenses', label: 'Dépenses', href: '/admin/reports?tab=expenses', icon: 'Receipt' },
+      { key: 'stockMovements', label: 'Mouvements Stock', href: '/admin/reports?tab=movements', icon: 'ArrowUpDown' }
     ]
   },
   { key: 'auditLogs', label: 'Audit Logs', href: '/admin/audit', icon: 'ScrollText', permission: 'audit.read' },

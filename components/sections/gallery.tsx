@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Section, SectionHeader } from "@/components/layout/section";
 import { X } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/useTranslation";
+import { useSiteContent } from "@/lib/hooks/useSiteContent";
 
 /**
  * Restaurant Gallery Images
@@ -137,10 +138,12 @@ function GalleryImage({
 
 function Lightbox({
   image,
-  onClose
+  onClose,
+  brandName,
 }: {
   image: ResolvedImage | null;
   onClose: () => void;
+  brandName: string;
 }) {
   if (!image) return null;
 
@@ -184,7 +187,7 @@ function Lightbox({
         {/* Info overlay */}
         <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 md:p-8 bg-linear-to-t from-primary/90 to-transparent">
           <p className="text-accent text-xs sm:text-sm font-medium uppercase tracking-[0.2em] mb-2">
-            Epictete Restaurant
+            {brandName}
           </p>
           <h3 className="text-foreground font-heading text-xl sm:text-2xl md:text-3xl font-semibold">
             {image.title}
@@ -203,6 +206,8 @@ export function GallerySection() {
   const isInView = useInView(ref, { once: true, margin: "-100px" });
   const [selectedImage, setSelectedImage] = useState<ResolvedImage | null>(null);
   const { t } = useTranslation();
+  const { getSectionText } = useSiteContent();
+  const s = (key: string, fallback: string) => getSectionText('gallery', key, fallback);
 
   const galleryImages: ResolvedImage[] = galleryImageData.map((img) => ({
     ...img,
@@ -215,9 +220,9 @@ export function GallerySection() {
     <>
       <Section id="gallery" className="bg-secondary overflow-hidden">
         <SectionHeader
-          eyebrow={t.gallery.eyebrow}
-          title={t.gallery.title}
-          description={t.gallery.description}
+          eyebrow={s('eyebrow', t.gallery.eyebrow)}
+          title={s('title', t.gallery.title)}
+          description={s('description', t.gallery.description)}
         />
 
         <div
@@ -242,7 +247,7 @@ export function GallerySection() {
 
       {/* Lightbox */}
       {selectedImage && (
-        <Lightbox image={selectedImage} onClose={() => setSelectedImage(null)} />
+        <Lightbox image={selectedImage} onClose={() => setSelectedImage(null)} brandName={t.common.brandName} />
       )}
     </>
   );

@@ -1,9 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
+// Client-compatible Supabase replacement
+// Uses the browser client (API proxy) — NOT the server-side pg pool
+// This file is imported by client components
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+import { createSupabaseBrowserClient } from '@/lib/auth/supabase-browser';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createSupabaseBrowserClient();
 
 // Types for database tables
 export type AvailabilityType = 'always' | 'breakfast' | 'brunch' | 'custom';
@@ -17,10 +18,9 @@ export interface MenuCategory {
   description: string | null;
   sort_order: number;
   created_at: string;
-  // Time-based availability
   availability_type: AvailabilityType;
-  available_start_time: string | null; // HH:MM:SS format
-  available_end_time: string | null;   // HH:MM:SS format
+  available_start_time: string | null;
+  available_end_time: string | null;
   available_days: DayOfWeek[] | null;
 }
 

@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "mcp-gsheets": {
+      "command": "npx",
+      "args": ["-y", "mcp-gsheets@latest"],
+      "env": {
+        "GOOGLE_PROJECT_ID": "epictete-492501",
+        "GOOGLE_APPLICATION_CREDENTIALS": "/Users/macbook/Desktop/epictelerestaurant/epictete-492501-b1efb2fc36ec.json"
+      }
+    },
+    "supabase-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--access-token",
+        "sbp_86c64d3cd4fd0ac5ae286c9b68e5a00e515bf314",
+        "--project-ref",
+        "ertxtpmtyeuzqpxqryix"
+      ],
+      "disabled": false,
+      "env": {}
+    }
+  }
+}

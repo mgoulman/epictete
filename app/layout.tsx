@@ -72,7 +72,7 @@ export const metadata: Metadata = {
     siteName: "Epictete Restaurant",
     title: "Epictete Restaurant | Fine Dining Italien & Méditerranéen à Bouskoura",
     description:
-      "Restaurant gastronomique italien et méditerranéen à Bouskoura. Pizza au feu de bois, pâtes fraîches, produits bio. Ouvert 7j/7, 10h-22h.",
+      "Restaurant gastronomique italien et méditerranéen à Bouskoura. Pizza au feu de bois, pâtes fraîches, produits bio. Ouvert 7j/7, 7h-22h.",
     images: [
       {
         url: "/og-image.jpg",
@@ -145,7 +145,7 @@ const jsonLd = {
             "Saturday",
             "Sunday",
           ],
-          opens: "10:00",
+          opens: "07:00",
           closes: "22:00",
         },
       ],

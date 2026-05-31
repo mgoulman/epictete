@@ -79,7 +79,7 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
           <Link
             href="/"
             className="flex items-center gap-2 sm:gap-3 group z-10"
-            aria-label="Epictete Restaurant - Accueil"
+            aria-label={t.common.logoAriaLabel}
           >
             <div className="h-11 w-11 rounded-full overflow-hidden bg-[#EDE6D6] flex items-center justify-center group-hover:scale-105 transition-transform shadow-lg">
               <Image
@@ -115,7 +115,7 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
             <button
               onClick={toggleLocale}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              aria-label={locale === "fr" ? "Switch to English" : "Passer en français"}
+              aria-label={t.common.switchLang}
             >
               <Globe size={16} />
               <span className="uppercase">{locale === "fr" ? "EN" : "FR"}</span>
@@ -188,7 +188,7 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
             <button
               onClick={toggleLocale}
               className="flex items-center gap-1.5 px-3 py-3 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              aria-label={locale === "fr" ? "Switch to English" : "Passer en français"}
+              aria-label={t.common.switchLang}
             >
               <Globe size={18} />
               <span className="uppercase">{locale === "fr" ? "EN" : "FR"}</span>

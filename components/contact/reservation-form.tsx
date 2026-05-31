@@ -10,10 +10,10 @@ import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
 import { useTranslation } from "@/lib/i18n/useTranslation";
 
-// Generate time slots from 10:00 to 22:00 in 30-min intervals
+// Generate time slots from 07:00 to 22:00 in 30-min intervals
 const generateTimeSlots = () => {
   const slots: string[] = [];
-  for (let hour = 10; hour <= 21; hour++) {
+  for (let hour = 7; hour <= 21; hour++) {
     slots.push(`${hour.toString().padStart(2, "0")}:00`);
     slots.push(`${hour.toString().padStart(2, "0")}:30`);
   }
@@ -215,7 +215,7 @@ export function ReservationForm() {
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-4 py-3.5 bg-secondary/50 border border-border rounded-xl text-foreground placeholder:text-muted focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all text-base"
-                placeholder="votre@email.com"
+                placeholder={locale === 'fr' ? "votre@email.com" : "your@email.com"}
               />
             </div>
           </div>
@@ -251,7 +251,7 @@ export function ReservationForm() {
                       mode="single"
                       selected={selectedDate}
                       onSelect={(date) => {
-                        setSelectedDate(date);
+                        setSelectedDate(date ?? undefined);
                         setShowCalendar(false);
                       }}
                       disabled={{ before: today }}
@@ -260,22 +260,21 @@ export function ReservationForm() {
                       classNames={{
                         months: "flex flex-col",
                         month: "space-y-4",
-                        caption: "flex justify-between items-center px-2",
+                        month_caption: "flex justify-between items-center px-2",
                         caption_label: "text-sm font-semibold text-foreground capitalize",
                         nav: "flex items-center gap-1",
-                        nav_button: "h-8 w-8 bg-secondary/50 hover:bg-secondary rounded-lg flex items-center justify-center text-foreground transition-colors",
-                        nav_button_previous: "",
-                        nav_button_next: "",
-                        table: "w-full border-collapse",
-                        head_row: "flex",
-                        head_cell: "text-muted-foreground rounded-md w-10 font-medium text-xs uppercase",
-                        row: "flex w-full mt-1",
-                        cell: "h-10 w-10 text-center text-sm relative",
-                        day: "h-10 w-10 rounded-lg font-medium hover:bg-accent/20 transition-colors flex items-center justify-center",
-                        day_selected: "bg-accent text-white hover:bg-accent",
-                        day_today: "border-2 border-accent",
-                        day_disabled: "text-muted opacity-50 cursor-not-allowed hover:bg-transparent",
-                        day_outside: "opacity-0",
+                        button_previous: "h-8 w-8 bg-secondary/50 hover:bg-secondary rounded-lg flex items-center justify-center text-foreground transition-colors",
+                        button_next: "h-8 w-8 bg-secondary/50 hover:bg-secondary rounded-lg flex items-center justify-center text-foreground transition-colors",
+                        month_grid: "w-full border-collapse",
+                        weekdays: "flex",
+                        weekday: "text-muted-foreground rounded-md w-10 font-medium text-xs uppercase",
+                        week: "flex w-full mt-1",
+                        day: "h-10 w-10 text-center text-sm relative",
+                        day_button: "h-10 w-10 rounded-lg font-medium text-foreground hover:bg-accent/20 transition-colors flex items-center justify-center cursor-pointer",
+                        selected: "!bg-accent !text-white hover:!bg-accent",
+                        today: "border-2 border-accent",
+                        disabled: "!text-muted !opacity-50 !cursor-not-allowed hover:!bg-transparent",
+                        outside: "opacity-0",
                       }}
                     />
                   </div>

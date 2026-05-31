@@ -126,7 +126,7 @@ export async function PATCH(request: NextRequest) {
           .select('id, name_fr, name, category_id')
           .in('id', menuItemIds);
 
-        const menuMap = new Map((menuItems || []).map(m => [m.id, m]));
+        const menuMap = new Map(((menuItems || []) as Array<Record<string, unknown>>).map(m => [m.id, m]));
 
         const salesItems = orders.map(order => {
           const menuItem = menuMap.get(order.menu_item_id);

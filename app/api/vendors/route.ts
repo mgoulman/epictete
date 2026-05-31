@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
+import { query } from '@/lib/db';
 
 // GET - Fetch vendors or transactions
 export async function GET(request: NextRequest) {
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
       // Get all vendors with their balance
       const { data: vendors, error } = await supabase
         .from('vendors')
-        .select('*')
+        .select('*, inventory_category:inventory_categories(id, name)')
         .order('name');
 
       if (error) throw error;
@@ -52,6 +53,19 @@ export async function GET(request: NextRequest) {
       const { data, error } = await query;
       if (error) throw error;
       return NextResponse.json({ transactions: data });
+    }
+
+    if (type === 'products') {
+      if (!vendorId) {
+        return NextResponse.json({ error: 'vendorId required' }, { status: 400 });
+      }
+      const { data: items, error } = await supabase
+        .from('inventory_items')
+        .select('*, inventory_category:inventory_categories(id, name)')
+        .eq('vendor_id', vendorId)
+        .order('name');
+      if (error) throw error;
+      return NextResponse.json({ products: items || [] });
     }
 
     if (type === 'summary') {
@@ -119,6 +133,53 @@ export async function POST(request: NextRequest) {
 
       if (error) throw error;
       return NextResponse.json({ success: true, transaction: result });
+    }
+
+    if (type === 'reassign-products') {
+      // data: { itemIds: string[], targetVendorId?: string, newVendor?: { name, ... } }
+      const itemIds: string[] = Array.isArray(data.itemIds) ? data.itemIds : [];
+      if (itemIds.length === 0) {
+        return NextResponse.json({ error: 'itemIds required' }, { status: 400 });
+      }
+
+      let targetVendorId: string | null = data.targetVendorId || null;
+      let createdVendor = null;
+
+      if (!targetVendorId && data.newVendor?.name) {
+        const { data: nv, error: nvErr } = await supabase
+          .from('vendors')
+          .insert({ name: data.newVendor.name, ...(data.newVendor || {}) })
+          .select()
+          .single();
+        if (nvErr) throw nvErr;
+        targetVendorId = nv.id;
+        createdVendor = nv;
+      }
+
+      if (!targetVendorId) {
+        return NextResponse.json({ error: 'targetVendorId or newVendor.name required' }, { status: 400 });
+      }
+
+      const { data: vendor } = await supabase
+        .from('vendors')
+        .select('name')
+        .eq('id', targetVendorId)
+        .single();
+
+      const { rows: updatedRows } = await query<{ id: string }>(
+        `UPDATE inventory_items
+            SET vendor_id = $1, supplier = $2, updated_at = now()
+          WHERE id = ANY($3::uuid[])
+          RETURNING id`,
+        [targetVendorId, vendor?.name || null, itemIds],
+      );
+
+      return NextResponse.json({
+        success: true,
+        movedCount: updatedRows.length,
+        targetVendorId,
+        createdVendor,
+      });
     }
 
     return NextResponse.json({ error: 'Invalid type' }, { status: 400 });

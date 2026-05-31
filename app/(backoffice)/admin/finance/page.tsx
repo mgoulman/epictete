@@ -33,36 +33,22 @@ interface SalesItem {
   created_at: string;
 }
 
-interface Stats {
-  summary: {
-    totalRevenue: number;
-    totalProfit: number;
-    totalItems: number;
-    averageOrderValue: number;
-  };
-  categoryStats: Array<{ name: string; revenue: number; count: number; profit: number }>;
-  dailyStats: Array<{ date: string; revenue: number; count: number; profit: number }>;
-  topProducts: Array<{ name: string; revenue: number; count: number }>;
-  categories: string[];
-  recentImports: Array<{
-    id: string;
-    filename: string;
-    records_count: number;
-    total_amount: number;
-    date_range_start: string;
-    date_range_end: string;
-    created_at: string;
-  }>;
+interface InventoryCategory {
+  id: string;
+  name: string;
 }
 
 interface InventoryItem {
   id: string;
   name: string;
   category: string | null;
+  category_id: string | null;
+  inventory_category: InventoryCategory | null;
   quantity: number;
   unit: string;
   minimum_stock: number;
   cost_per_unit: number;
+  last_purchase_price: number;
   supplier: string | null;
   vendor_id: string | null;
   vendor: { id: string; name: string } | null;
@@ -79,6 +65,8 @@ interface Vendor {
   phone: string | null;
   address: string | null;
   category: string;
+  category_id: string | null;
+  inventory_category: InventoryCategory | null;
   notes: string | null;
   is_active: boolean;
   balance: number;
@@ -136,7 +124,7 @@ interface VendorTransaction {
   created_at: string;
 }
 
-type TabType = 'overview' | 'sales' | 'import' | 'inventory' | 'vendors';
+type TabType = 'overview' | 'sales' | 'inventory' | 'vendors';
 
 export default function FinancePage() {
   const { hasPermission } = usePermissions();
@@ -148,16 +136,22 @@ export default function FinancePage() {
 
   // Get tab from URL or default to 'overview'
   const tabParam = searchParams.get('tab') as TabType | null;
-  const validTabs: TabType[] = ['overview', 'sales', 'import', 'inventory', 'vendors'];
+  const validTabs: TabType[] = ['overview', 'sales', 'inventory', 'vendors'];
   const activeTab: TabType = tabParam && validTabs.includes(tabParam) ? tabParam : 'overview';
 
   const setActiveTab = (tab: TabType) => {
     router.push(`/admin/finance?tab=${tab}`, { scroll: false });
   };
   const [salesItems, setSalesItems] = useState<SalesItem[]>([]);
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [dashStats, setDashStats] = useState<{
+    summary: { revenue: number; transactions: number; couverts: number; days: number; avgTicket: number; last_synced: string | null };
+    daily: Array<{ date: string; revenue: number; transactions: number; couverts: number; avg_ticket: number | null }>;
+    lastSyncRun: { ca_realise: number; ca_annule: number; benefice: number; couverts: number; transactions: number; best_day: string | null; best_day_amount: number | null; created_at: string } | null;
+    topProducts: Array<{ name: string; count: number; revenue: number }>;
+    categoryStats: Array<{ name: string; count: number; revenue: number }>;
+    profit: { benefice: number; totalCost: number; mappedRevenue: number; coverage: number; marginOnMapped: number; distinctDishes: number; mappedDishes: number };
+  } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [importing, setImporting] = useState(false);
   const [autoImporting, setAutoImporting] = useState(false);
   const [showAutoImportModal, setShowAutoImportModal] = useState(false);
   const [autoImportDates, setAutoImportDates] = useState(() => {
@@ -179,8 +173,6 @@ export default function FinancePage() {
   // Sort state
   const [salesSort, setSalesSort] = useState('sale_date');
   const [salesSortDir, setSalesSortDir] = useState<SortDir>('asc');
-  const [importSort, setImportSort] = useState('created_at');
-  const [importSortDir, setImportSortDir] = useState<SortDir>('asc');
   const [invSort, setInvSort] = useState('name');
   const [invSortDir, setInvSortDir] = useState<SortDir>('asc');
 
@@ -190,15 +182,6 @@ export default function FinancePage() {
     } else {
       setSalesSort(field);
       setSalesSortDir('asc');
-    }
-  };
-
-  const handleImportSort = (field: string) => {
-    if (importSort === field) {
-      setImportSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setImportSort(field);
-      setImportSortDir('asc');
     }
   };
 
@@ -213,15 +196,18 @@ export default function FinancePage() {
 
   // Inventory state
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
-  const [inventoryCategories, setInventoryCategories] = useState<string[]>([]);
+  const [inventoryCategories, setInventoryCategories] = useState<InventoryCategory[]>([]);
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [inventorySearch, setInventorySearch] = useState('');
   const [inventoryCategory, setInventoryCategory] = useState('');
   const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [editingInventory, setEditingInventory] = useState<InventoryItem | null>(null);
+  const [detailProductId, setDetailProductId] = useState<string | null>(null);
+  const [detailMovements, setDetailMovements] = useState<Array<{ id: string; inventory_item_id: string; movement_type: string; quantity_change: number; unit_cost: number; reference_type: string; reference_id: string; created_at: string }>>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [newInventory, setNewInventory] = useState({
     name: '',
-    category: '',
+    category_id: '',
     quantity: 0,
     unit: 'kg',
     minimum_stock: 0,
@@ -240,13 +226,28 @@ export default function FinancePage() {
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [selectedVendorForTransaction, setSelectedVendorForTransaction] = useState<Vendor | null>(null);
   const [viewingVendorTransactions, setViewingVendorTransactions] = useState<Vendor | null>(null);
+  // Vendor detail modal
+  const [viewingVendorDetail, setViewingVendorDetail] = useState<Vendor | null>(null);
+  const [vendorProducts, setVendorProducts] = useState<InventoryItem[]>([]);
+  const [vendorProductsLoading, setVendorProductsLoading] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+  // Per-transaction expansion (vendor history): clicking a tx fetches PO line items for that order
+  const [expandedTxId, setExpandedTxId] = useState<string | null>(null);
+  const [txDetails, setTxDetails] = useState<Record<string, Array<{ id: string; product_name: string; quantity: number; unit: string; unit_cost: number; vendor_id: string | null }>>>({});
+  const [txDetailsLoading, setTxDetailsLoading] = useState<string | null>(null);
+  const [showQuickAddProduct, setShowQuickAddProduct] = useState(false);
+  const [quickProduct, setQuickProduct] = useState({ name: '', category: '', quantity: 0, unit: 'pieces', cost_per_unit: 0 });
+  const [showMoveProducts, setShowMoveProducts] = useState(false);
+  const [moveTargetVendorId, setMoveTargetVendorId] = useState('');
+  const [moveNewVendorName, setMoveNewVendorName] = useState('');
+  const [moveSaving, setMoveSaving] = useState(false);
   const [newVendor, setNewVendor] = useState({
     name: '',
     contact_name: '',
     email: '',
     phone: '',
     address: '',
-    category: 'general',
+    category_id: '',
     notes: '',
     invoice_template_url: '' as string,
     invoice_template_path: '' as string
@@ -313,19 +314,15 @@ export default function FinancePage() {
     sale_date: new Date().toISOString().split('T')[0]
   });
 
-  const fetchStats = useCallback(async () => {
+  const fetchDashStats = useCallback(async () => {
     try {
       const params = new URLSearchParams();
       if (startDate) params.set('startDate', startDate);
       if (endDate) params.set('endDate', endDate);
-
-      const res = await fetch(`/api/finance/stats?${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data);
-      }
+      const res = await fetch(`/api/finance/dashboard-stats?${params}`);
+      if (res.ok) setDashStats(await res.json());
     } catch (err) {
-      console.error('Stats fetch error:', err);
+      console.error('Dashboard stats fetch error:', err);
     }
   }, [startDate, endDate]);
 
@@ -386,6 +383,130 @@ export default function FinancePage() {
     if (showLoader) setVendorsLoading(false);
   }, []);
 
+  const fetchVendorProducts = useCallback(async (vendorId: string) => {
+    setVendorProductsLoading(true);
+    try {
+      const res = await fetch(`/api/vendors?type=products&vendorId=${vendorId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setVendorProducts(data.products || []);
+      }
+    } catch (err) {
+      console.error('Vendor products fetch error:', err);
+    }
+    setVendorProductsLoading(false);
+  }, []);
+
+  const openVendorDetail = (vendor: Vendor) => {
+    setViewingVendorDetail(vendor);
+    setSelectedProductIds(new Set());
+    setShowQuickAddProduct(false);
+    setShowMoveProducts(false);
+    setMoveTargetVendorId('');
+    setMoveNewVendorName('');
+    setQuickProduct({ name: '', category: vendor.category || '', quantity: 0, unit: 'pieces', cost_per_unit: 0 });
+    fetchVendorProducts(vendor.id);
+  };
+
+  const closeVendorDetail = () => {
+    setViewingVendorDetail(null);
+    setVendorProducts([]);
+    setSelectedProductIds(new Set());
+    setShowQuickAddProduct(false);
+    setShowMoveProducts(false);
+  };
+
+  const toggleProductSelection = (id: string) => {
+    setSelectedProductIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedProductIds(prev =>
+      prev.size === vendorProducts.length ? new Set() : new Set(vendorProducts.map(p => p.id))
+    );
+  };
+
+  const handleQuickAddProduct = async () => {
+    if (!viewingVendorDetail || !quickProduct.name.trim()) return;
+    try {
+      const res = await fetch('/api/inventory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...quickProduct, vendor_id: viewingVendorDetail.id }),
+      });
+      if (res.ok) {
+        await fetchVendorProducts(viewingVendorDetail.id);
+        await fetchInventory(false);
+        setShowQuickAddProduct(false);
+        setQuickProduct({ name: '', category: viewingVendorDetail.category || '', quantity: 0, unit: 'pieces', cost_per_unit: 0 });
+      }
+    } catch (err) {
+      console.error('Quick add product error:', err);
+    }
+  };
+
+  const handleMoveProducts = async () => {
+    if (!viewingVendorDetail || selectedProductIds.size === 0) return;
+    if (!moveTargetVendorId && !moveNewVendorName.trim()) return;
+    setMoveSaving(true);
+    try {
+      const body: Record<string, unknown> = {
+        type: 'reassign-products',
+        itemIds: [...selectedProductIds],
+      };
+      if (moveTargetVendorId) body.targetVendorId = moveTargetVendorId;
+      else body.newVendor = { name: moveNewVendorName.trim() };
+      const res = await fetch('/api/vendors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        await Promise.all([
+          fetchVendorProducts(viewingVendorDetail.id),
+          fetchVendors(false),
+          fetchInventory(false),
+        ]);
+        setSelectedProductIds(new Set());
+        setShowMoveProducts(false);
+        setMoveTargetVendorId('');
+        setMoveNewVendorName('');
+      }
+    } catch (err) {
+      console.error('Move products error:', err);
+    }
+    setMoveSaving(false);
+  };
+
+  const toggleTransactionDetail = async (tx: VendorTransaction, vendorId: string) => {
+    if (expandedTxId === tx.id) { setExpandedTxId(null); return; }
+    setExpandedTxId(tx.id);
+    if (txDetails[tx.id]) return; // already cached
+    // Reference shape: "order_<uuid>" or "order_pay_<uuid>"
+    const ref = tx.reference || '';
+    const m = ref.match(/^order(?:_pay)?_([0-9a-fA-F-]{36})$/);
+    if (!m) return;
+    const orderId = m[1];
+    setTxDetailsLoading(tx.id);
+    try {
+      const res = await fetch(`/api/purchase-orders?id=${orderId}`);
+      if (res.ok) {
+        const { order } = await res.json();
+        const lines = (order?.items || [])
+          .filter((it: { vendor_id: string | null }) => (it.vendor_id || order.vendor_id) === vendorId);
+        setTxDetails(prev => ({ ...prev, [tx.id]: lines }));
+      }
+    } catch (err) {
+      console.error('tx detail fetch error:', err);
+    } finally {
+      setTxDetailsLoading(null);
+    }
+  };
+
   const fetchVendorTransactions = useCallback(async (vendorId: string) => {
     try {
       const res = await fetch(`/api/vendors?type=transactions&vendorId=${vendorId}`);
@@ -400,11 +521,10 @@ export default function FinancePage() {
 
   useEffect(() => {
     const loadData = async () => {
-      await fetchStats();
-      await fetchSales();
+      await Promise.all([fetchDashStats(), fetchSales()]);
     };
     loadData();
-  }, [fetchStats, fetchSales]);
+  }, [fetchDashStats, fetchSales]);
 
   useEffect(() => {
     const loadTabData = async () => {
@@ -414,86 +534,57 @@ export default function FinancePage() {
       }
       if (activeTab === 'vendors') {
         await fetchVendors();
+        await fetchInventory(false);
       }
     };
     loadTabData();
   }, [activeTab, fetchInventory, fetchVendors]);
 
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setImporting(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const res = await fetch('/api/finance/import', {
-        method: 'POST',
-        body: formData
-      });
-
-      const result = await res.json();
-      if (res.ok) {
-        alert(fn.importSuccessMsg.replace('{count}', String(result.recordsImported)));
-        fetchStats();
-        fetchSales();
-      } else {
-        alert(result.error || fn.importFailedMsg);
-      }
-    } catch (err) {
-      console.error('Import error:', err);
-      alert(fn.importFailedMsg);
-    }
-    setImporting(false);
-    e.target.value = '';
-  };
-
   const handleAutoImport = async () => {
     setAutoImporting(true);
     setAutoImportResult(null);
-    
+
     try {
-      const res = await fetch('/api/finance/auto-import', {
+      const res = await fetch('/api/finance/dashboard-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           startDate: autoImportDates.startDate,
-          endDate: autoImportDates.endDate
-        })
+          endDate: autoImportDates.endDate,
+        }),
       });
 
       const result = await res.json();
-      
+
       if (res.ok) {
         setAutoImportResult({
           success: true,
-          totalRows: result.totalRows,
-          insertedRows: result.insertedRows,
-          skippedDuplicates: result.skippedDuplicates
+          totalRows: result.daysSynced || 0,
+          insertedRows: result.daysSynced || 0,
+          skippedDuplicates: 0,
+          message: `CA Réalisé: ${Number(result.kpis?.caRealise || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MAD · ${result.kpis?.transactions || 0} tickets · ${result.kpis?.couverts || 0} couverts`,
         });
-        fetchStats();
-        fetchSales();
+        fetchDashStats();
       } else {
         setAutoImportResult({
           success: false,
           totalRows: 0,
           insertedRows: 0,
           skippedDuplicates: 0,
-          message: result.error || 'Auto-import failed'
+          message: result.error || 'Sync failed',
         });
       }
     } catch (err) {
-      console.error('Auto-import error:', err);
+      console.error('Dashboard sync error:', err);
       setAutoImportResult({
         success: false,
         totalRows: 0,
         insertedRows: 0,
         skippedDuplicates: 0,
-        message: 'Auto-import failed'
+        message: 'Sync failed',
       });
     }
-    
+
     setAutoImporting(false);
   };
 
@@ -519,7 +610,6 @@ export default function FinancePage() {
           selling_price: 0,
           sale_date: new Date().toISOString().split('T')[0]
         });
-        fetchStats();
         fetchSales();
       } else {
         const err = await res.json();
@@ -537,7 +627,6 @@ export default function FinancePage() {
     try {
       const res = await fetch(`/api/finance/sales?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
-        fetchStats();
         fetchSales();
       }
     } catch (err) {
@@ -562,7 +651,7 @@ export default function FinancePage() {
         setShowInventoryModal(false);
         setNewInventory({
           name: '',
-          category: '',
+          category_id: '',
           quantity: 0,
           unit: 'kg',
           minimum_stock: 0,
@@ -585,7 +674,7 @@ export default function FinancePage() {
     if (!editingInventory) return;
 
     try {
-      const { vendor, supplier, ...inventoryPayload } = editingInventory;
+      const { vendor, supplier, inventory_category, ...inventoryPayload } = editingInventory;
       const res = await fetch('/api/inventory', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -616,6 +705,22 @@ export default function FinancePage() {
     } catch (err) {
       console.error('Delete inventory error:', err);
     }
+  };
+
+  const openProductDetail = async (productId: string) => {
+    setDetailProductId(productId);
+    setDetailLoading(true);
+    try {
+      const [pRes, uRes] = await Promise.all([
+        fetch(`/api/inventory/daily-purchase?itemId=${productId}`),
+        fetch(`/api/inventory/daily-usage?itemId=${productId}`),
+      ]);
+      const [pData, uData] = await Promise.all([pRes.json(), uRes.json()]);
+      const all = [...(pData.movements || []), ...(uData.movements || [])].sort(
+        (a: { created_at: string }, b: { created_at: string }) => b.created_at.localeCompare(a.created_at)
+      );
+      setDetailMovements(all);
+    } catch { setDetailMovements([]); } finally { setDetailLoading(false); }
   };
 
   const handleQuickQuantityUpdate = async (item: InventoryItem, delta: number) => {
@@ -649,7 +754,7 @@ export default function FinancePage() {
         email: newVendor.email,
         phone: newVendor.phone,
         address: newVendor.address,
-        category: newVendor.category,
+        category_id: newVendor.category_id || null,
         notes: newVendor.notes,
         invoice_template_url: newVendor.invoice_template_url || null,
         invoice_template_path: newVendor.invoice_template_path || null
@@ -668,7 +773,7 @@ export default function FinancePage() {
           email: '',
           phone: '',
           address: '',
-          category: 'general',
+          category_id: '',
           notes: '',
           invoice_template_url: '',
           invoice_template_path: ''
@@ -699,7 +804,7 @@ export default function FinancePage() {
           email: editingVendor.email,
           phone: editingVendor.phone,
           address: editingVendor.address,
-          category: editingVendor.category,
+          category_id: editingVendor.category_id || null,
           notes: editingVendor.notes,
           is_active: editingVendor.is_active,
           invoice_template_url: editingVendor.invoice_template_url,
@@ -952,7 +1057,7 @@ export default function FinancePage() {
   const filteredVendors = vendors.filter(v =>
     v.name.toLowerCase().includes(vendorSearch.toLowerCase()) ||
     v.contact_name?.toLowerCase().includes(vendorSearch.toLowerCase()) ||
-    v.category.toLowerCase().includes(vendorSearch.toLowerCase())
+    (v.inventory_category?.name || v.category || '').toLowerCase().includes(vendorSearch.toLowerCase())
   );
 
   const totalOwedToVendors = vendors.reduce((sum, v) => sum + Math.max(0, v.balance), 0);
@@ -1063,17 +1168,6 @@ export default function FinancePage() {
                   <RefreshCw className={`w-4 h-4 ${autoImporting ? 'animate-spin' : ''}`} />
                   {autoImporting ? fn.syncing : fn.syncLaCaisse}
                 </button>
-                <label className="flex items-center gap-2 px-4 py-2.5 bg-secondary border border-border rounded-lg text-foreground text-sm cursor-pointer hover:bg-card transition-colors">
-                  <Upload className="w-4 h-4" />
-                  {importing ? fn.importing : fn.import}
-                  <input
-                    type="file"
-                    accept=".xls,.xlsx,.csv"
-                    onChange={handleImport}
-                    disabled={importing}
-                    className="hidden"
-                  />
-                </label>
                 <button
                   onClick={() => setShowAddModal(true)}
                   className="flex items-center gap-2 px-4 py-2.5 bg-linear-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium"
@@ -1092,7 +1186,6 @@ export default function FinancePage() {
             { id: 'sales', label: fn.tabs.salesList, icon: ShoppingCart },
             { id: 'inventory', label: fn.tabs.inventory, icon: Package },
             { id: 'vendors', label: fn.tabs.vendors, icon: Users },
-            { id: 'import', label: fn.tabs.importHistory, icon: FileSpreadsheet }
           ].map(tab => (
             <button
               key={tab.id}
@@ -1136,15 +1229,15 @@ export default function FinancePage() {
             </button>
           )}
           <button
-            onClick={() => { fetchStats(); fetchSales(); }}
+            onClick={() => { fetchDashStats(); fetchSales(); }}
             className="p-2 text-muted-foreground hover:text-foreground"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Overview Tab */}
-        {activeTab === 'overview' && stats && (
+        {/* Overview Tab — fed entirely by lacaisse_daily (matches lacaisse.ma) */}
+        {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* Summary Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1154,7 +1247,7 @@ export default function FinancePage() {
                     <DollarSign className="w-5 h-5 text-green-500" />
                   </div>
                 </div>
-                <p className="text-3xl font-bold text-foreground">{formatCurrency(stats.summary.totalRevenue)}</p>
+                <p className="text-3xl font-bold text-foreground">{formatCurrency(dashStats?.summary.revenue ?? 0)}</p>
                 <p className="text-muted-foreground text-sm mt-1">{fn.totalRevenue}</p>
               </div>
 
@@ -1164,8 +1257,18 @@ export default function FinancePage() {
                     <TrendingUp className="w-5 h-5 text-[#606338]" />
                   </div>
                 </div>
-                <p className="text-3xl font-bold text-foreground">{formatCurrency(stats.summary.totalProfit)}</p>
-                <p className="text-muted-foreground text-sm mt-1">{fn.totalProfit}</p>
+                <p className="text-3xl font-bold text-foreground">{formatCurrency(dashStats?.profit.benefice ?? 0)}</p>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-muted-foreground text-sm">{fn.totalProfit}</p>
+                  {dashStats?.profit && dashStats.profit.distinctDishes > 0 && (
+                    <span
+                      title={`${dashStats.profit.mappedDishes}/${dashStats.profit.distinctDishes} produits mappés · marge ${(dashStats.profit.marginOnMapped * 100).toFixed(1)}%`}
+                      className={`text-xs px-1.5 py-0.5 rounded font-medium ${dashStats.profit.coverage >= 0.8 ? 'bg-emerald-100 text-emerald-700' : dashStats.profit.coverage >= 0.4 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {(dashStats.profit.coverage * 100).toFixed(0)}% mappé
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="bg-secondary border border-border rounded-2xl p-5">
@@ -1174,7 +1277,7 @@ export default function FinancePage() {
                     <ShoppingCart className="w-5 h-5 text-blue-500" />
                   </div>
                 </div>
-                <p className="text-3xl font-bold text-foreground">{stats.summary.totalItems.toLocaleString()}</p>
+                <p className="text-3xl font-bold text-foreground">{(dashStats?.summary.couverts ?? 0).toLocaleString()}</p>
                 <p className="text-muted-foreground text-sm mt-1">{fn.itemsSold}</p>
               </div>
 
@@ -1184,69 +1287,102 @@ export default function FinancePage() {
                     <PieChart className="w-5 h-5 text-purple-500" />
                   </div>
                 </div>
-                <p className="text-3xl font-bold text-foreground">{formatCurrency(stats.summary.averageOrderValue)}</p>
+                <p className="text-3xl font-bold text-foreground">{formatCurrency(dashStats?.summary.avgTicket ?? 0)}</p>
                 <p className="text-muted-foreground text-sm mt-1">{fn.avgItemValue}</p>
               </div>
             </div>
 
-            {/* Charts Row */}
-            <div className="grid lg:grid-cols-2 gap-6">
-              {/* Category Breakdown */}
-              <div className="bg-secondary border border-border rounded-2xl p-5">
-                <h3 className="text-lg font-semibold text-foreground mb-4">{fn.salesByCategory}</h3>
-                <div className="space-y-4">
-                  {stats.categoryStats.slice(0, 8).map((cat) => {
-                    const maxRevenue = stats.categoryStats[0]?.revenue || 1;
-                    const percentage = (cat.revenue / maxRevenue) * 100;
-                    return (
-                      <div key={cat.name} className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-foreground">{cat.name}</span>
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-semibold text-[#606338]">{formatCurrency(cat.revenue)}</span>
-                            <span className="text-xs text-muted-foreground w-16 text-right">{cat.count} {fn.items}</span>
+            {/* Secondary KPIs from the latest sync */}
+            {dashStats?.lastSyncRun && (
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                {dashStats.lastSyncRun.best_day && (
+                  <div className="bg-secondary border border-border rounded-2xl p-4">
+                    <p className="text-xs text-muted-foreground mb-1">{fn.bestDay}</p>
+                    <p className="text-xl font-bold text-foreground">{formatCurrency(dashStats.lastSyncRun.best_day_amount ?? 0)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{new Date(dashStats.lastSyncRun.best_day).toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'short' })}</p>
+                  </div>
+                )}
+                {dashStats.lastSyncRun.ca_annule > 0 && (
+                  <div className="bg-secondary border border-border rounded-2xl p-4">
+                    <p className="text-xs text-muted-foreground mb-1">{fn.cancelled}</p>
+                    <p className="text-xl font-bold text-red-500">{formatCurrency(dashStats.lastSyncRun.ca_annule)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {((dashStats.lastSyncRun.ca_annule / Math.max(dashStats.lastSyncRun.ca_realise, 1)) * 100).toFixed(1)}% du CA
+                    </p>
+                  </div>
+                )}
+                {dashStats.summary.last_synced && (
+                  <div className="bg-secondary border border-border rounded-2xl p-4">
+                    <p className="text-xs text-muted-foreground mb-1">{fn.lastSync}</p>
+                    <p className="text-sm font-semibold text-foreground">{new Date(dashStats.summary.last_synced).toLocaleString('fr-FR')}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{dashStats.summary.days} jours · LaCaisse</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Sales by Category + Top Products */}
+            {dashStats && (dashStats.categoryStats.length > 0 || dashStats.topProducts.length > 0) && (
+              <div className="grid lg:grid-cols-2 gap-6">
+                {dashStats.categoryStats.length > 0 && (
+                  <div className="bg-secondary border border-border rounded-2xl p-5">
+                    <h3 className="text-lg font-semibold text-foreground mb-4">{fn.salesByCategory}</h3>
+                    <div className="space-y-3">
+                      {dashStats.categoryStats.slice(0, 8).map(cat => {
+                        const max = dashStats.categoryStats[0]?.revenue || 1;
+                        const pct = (cat.revenue / max) * 100;
+                        return (
+                          <div key={cat.name}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium text-foreground truncate">{cat.name}</span>
+                              <div className="flex items-center gap-3 ml-3">
+                                <span className="text-sm font-semibold text-[#606338]">{formatCurrency(cat.revenue)}</span>
+                                <span className="text-xs text-muted-foreground w-20 text-right">{cat.count.toLocaleString()} {fn.items}</span>
+                              </div>
+                            </div>
+                            <div className="h-2 bg-card rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-linear-to-r from-[#606338] to-[#7A7B4E] rounded-full transition-all duration-500"
+                                style={{ width: `${Math.max(pct, 3)}%` }}
+                              />
+                            </div>
                           </div>
-                        </div>
-                        <div className="h-2.5 bg-card rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-linear-to-r from-[#606338] to-[#7A7B4E] rounded-full transition-all duration-500"
-                            style={{ width: `${Math.max(percentage, 3)}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Top Products */}
-              <div className="bg-secondary border border-border rounded-2xl p-5">
-                <h3 className="text-lg font-semibold text-foreground mb-4">{fn.topProducts}</h3>
-                <div className="space-y-2">
-                  {stats.topProducts.map((product, i) => (
-                    <div key={product.name} className="flex items-center gap-3 p-3 bg-card rounded-xl">
-                      <div className="w-8 h-8 rounded-lg bg-[#606338]/20 flex items-center justify-center text-[#606338] font-bold text-sm">
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-foreground font-medium truncate">{product.name}</p>
-                        <p className="text-xs text-muted-foreground">{product.count} {fn.sold}</p>
-                      </div>
-                      <p className="text-[#606338] font-semibold">{formatCurrency(product.revenue)}</p>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+                  </div>
+                )}
 
-            {/* Daily Stats */}
-            {stats.dailyStats.length > 0 && (
+                {dashStats.topProducts.length > 0 && (
+                  <div className="bg-secondary border border-border rounded-2xl p-5">
+                    <h3 className="text-lg font-semibold text-foreground mb-4">{fn.topProducts}</h3>
+                    <div className="space-y-2">
+                      {dashStats.topProducts.map((p, i) => (
+                        <div key={p.name} className="flex items-center gap-3 p-3 bg-card rounded-xl">
+                          <div className="w-8 h-8 rounded-lg bg-[#606338]/20 flex items-center justify-center text-[#606338] font-bold text-sm">
+                            {i + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-foreground font-medium truncate">{p.name.replace(/\s*-\s*$/, '')}</p>
+                            <p className="text-xs text-muted-foreground">{p.count.toLocaleString()} {fn.sold}</p>
+                          </div>
+                          <p className="text-[#606338] font-semibold">{formatCurrency(p.revenue)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Daily revenue bar chart from lacaisse_daily */}
+            {dashStats && dashStats.daily.length > 0 && (
               <div className="bg-secondary border border-border rounded-2xl p-5">
                 <h3 className="text-lg font-semibold text-foreground mb-4">{fn.dailyRevenue}</h3>
                 <div className="overflow-x-auto">
                   <div className="flex gap-2 min-w-max pb-2">
-                    {stats.dailyStats.slice(-14).map(day => {
-                      const maxRevenue = Math.max(...stats.dailyStats.map(d => d.revenue)) || 1;
+                    {dashStats.daily.slice(-30).map(day => {
+                      const maxRevenue = Math.max(...dashStats.daily.map(d => d.revenue)) || 1;
                       const height = (day.revenue / maxRevenue) * 120;
                       return (
                         <div key={day.date} className="flex flex-col items-center gap-2 w-16">
@@ -1254,7 +1390,7 @@ export default function FinancePage() {
                             <div
                               className="w-10 bg-linear-to-t from-[#606338] to-[#7A7B4E] rounded-t-lg"
                               style={{ height: `${Math.max(height, 4)}px` }}
-                              title={formatCurrency(day.revenue)}
+                              title={`${formatCurrency(day.revenue)} · ${day.couverts} couv.`}
                             />
                           </div>
                           <p className="text-xs text-muted-foreground">
@@ -1291,7 +1427,7 @@ export default function FinancePage() {
                 className="py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm"
               >
                 <option value="">{fn.allCategories}</option>
-                {stats?.categories.map(cat => (
+                {[...new Set(salesItems.map(s => s.category).filter(Boolean) as string[])].sort().map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
@@ -1403,69 +1539,6 @@ export default function FinancePage() {
           </div>
         )}
 
-        {/* Import History Tab */}
-        {activeTab === 'import' && (
-          <div className="space-y-4">
-            <div className="bg-secondary border border-border rounded-xl overflow-hidden">
-              {!stats?.recentImports?.length ? (
-                <div className="flex flex-col items-center justify-center h-64">
-                  <FileSpreadsheet className="w-12 h-12 text-muted mb-4" />
-                  <p className="text-muted-foreground">{fn.noImports}</p>
-                  {canWrite && (
-                    <label className="mt-4 flex items-center gap-2 px-4 py-2.5 bg-[#606338] rounded-lg text-white text-sm cursor-pointer">
-                      <Upload className="w-4 h-4" /> {fn.importFirst}
-                      <input
-                        type="file"
-                        accept=".xls,.xlsx,.csv"
-                        onChange={handleImport}
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                </div>
-              ) : (
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-card">
-                      <th className="px-4 py-3"><SortHeader label={fn.file} field="filename" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
-                      <th className="px-4 py-3"><SortHeader label={fn.dateRange} field="date_range_start" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
-                      <th className="px-4 py-3"><SortHeader label={fn.records} field="records_count" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
-                      <th className="px-4 py-3"><SortHeader label={fn.total} field="total_amount" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
-                      <th className="px-4 py-3"><SortHeader label={fn.imported} field="created_at" currentSort={importSort} currentDir={importSortDir} onSort={handleImportSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[...stats.recentImports].sort((a, b) => sortCompare(a, b, importSort, importSortDir)).map(imp => (
-                      <tr key={imp.id} className="border-t border-border">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
-                              <FileSpreadsheet className="w-5 h-5 text-green-500" />
-                            </div>
-                            <p className="text-sm font-medium text-foreground">{imp.filename}</p>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground">
-                          {imp.date_range_start && imp.date_range_end
-                            ? `${imp.date_range_start} - ${imp.date_range_end}`
-                            : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-foreground text-center">{imp.records_count}</td>
-                        <td className="px-4 py-3 text-sm font-medium text-[#606338] text-right">
-                          {formatCurrency(imp.total_amount)}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground text-right">
-                          {new Date(imp.created_at).toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Inventory Tab */}
         {activeTab === 'inventory' && (
           <div className="space-y-4">
@@ -1488,7 +1561,7 @@ export default function FinancePage() {
               >
                 <option value="">{fn.allCategories}</option>
                 {inventoryCategories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
               </select>
               {canWrite && (
@@ -1545,10 +1618,11 @@ export default function FinancePage() {
                     <thead>
                       <tr className="bg-card">
                         <th className="px-4 py-3"><SortHeader label={fn.item} field="name" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
-                        <th className="px-4 py-3"><SortHeader label={fn.category} field="category" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                        <th className="px-4 py-3"><SortHeader label={fn.category} field="inventory_category.name" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
                         <th className="px-4 py-3"><SortHeader label={fn.quantity} field="quantity" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
                         <th className="px-4 py-3"><SortHeader label={fn.unit} field="unit" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
                         <th className="px-4 py-3"><SortHeader label={fn.costPerUnit} field="cost_per_unit" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
+                        <th className="px-4 py-3"><SortHeader label={fn.lastPrice} field="last_purchase_price" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
                         <th className="px-4 py-3"><SortHeader label={fn.totalValue} field="totalValue" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
                         {canWrite && <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">{fn.actions}</th>}
                       </tr>
@@ -1578,8 +1652,8 @@ export default function FinancePage() {
                               </div>
                             </td>
                             <td className="px-4 py-3">
-                              {item.category ? (
-                                <span className="px-2 py-1 bg-card rounded-md text-xs text-foreground">{item.category}</span>
+                              {item.inventory_category?.name ? (
+                                <span className="px-2 py-1 bg-card rounded-md text-xs text-foreground">{item.inventory_category.name}</span>
                               ) : (
                                 <span className="text-muted-foreground text-sm">-</span>
                               )}
@@ -1631,12 +1705,27 @@ export default function FinancePage() {
                             </td>
                             <td className="px-4 py-3 text-sm text-foreground text-center">{item.unit}</td>
                             <td className="px-4 py-3 text-sm text-foreground text-right">{formatCurrency(item.cost_per_unit)}</td>
+                            <td className="px-4 py-3 text-sm text-right">
+                              <span className="text-foreground">{formatCurrency(item.last_purchase_price || 0)}</span>
+                              {item.last_purchase_price > 0 && item.cost_per_unit > 0 && item.last_purchase_price !== item.cost_per_unit && (
+                                <span className={`block text-xs mt-0.5 ${item.last_purchase_price > item.cost_per_unit ? 'text-red-500' : 'text-emerald-500'}`}>
+                                  {item.last_purchase_price > item.cost_per_unit ? '▲' : '▼'} {Math.abs(Math.round((item.last_purchase_price - item.cost_per_unit) / item.cost_per_unit * 100))}%
+                                </span>
+                              )}
+                            </td>
                             <td className="px-4 py-3 text-sm font-medium text-[#606338] text-right">
                               {formatCurrency(item.quantity * item.cost_per_unit)}
                             </td>
                             {canWrite && (
                               <td className="px-4 py-3 text-right">
                                 <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    onClick={() => openProductDetail(item.id)}
+                                    className="p-1.5 text-muted-foreground hover:text-[#606338] hover:bg-[#606338]/10 rounded-lg"
+                                    title="Détails"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
                                   <button
                                     onClick={() => setEditingInventory(item)}
                                     className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-card rounded-lg"
@@ -1754,7 +1843,7 @@ export default function FinancePage() {
                             {!vendor.is_active && (
                               <span className="text-xs px-2 py-0.5 bg-muted rounded-full text-muted-foreground">{fn.inactive}</span>
                             )}
-                            <span className="text-xs px-2 py-0.5 bg-card rounded-full text-muted-foreground capitalize">{vendor.category}</span>
+                            <span className="text-xs px-2 py-0.5 bg-card rounded-full text-muted-foreground capitalize">{vendor.inventory_category?.name || vendor.category}</span>
                           </div>
                           {vendor.contact_name && (
                             <p className="text-sm text-muted-foreground mt-1">{vendor.contact_name}</p>
@@ -1813,6 +1902,12 @@ export default function FinancePage() {
                           </>
                         )}
                         <button
+                          onClick={() => openVendorDetail(vendor)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-card text-muted-foreground rounded-lg text-xs font-medium hover:text-foreground transition-colors"
+                        >
+                          <Package className="w-3.5 h-3.5" /> {fn.details}
+                        </button>
+                        <button
                           onClick={() => { setViewingVendorTransactions(vendor); fetchVendorTransactions(vendor.id); fetchVendorInvoices(vendor.id); }}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-card text-muted-foreground rounded-lg text-xs font-medium hover:text-foreground transition-colors"
                         >
@@ -1843,6 +1938,200 @@ export default function FinancePage() {
           </div>
         )}
 
+        {/* Vendor Detail Modal — shows linked products with multi-select + bulk reassign */}
+        {viewingVendorDetail && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-secondary border border-border rounded-2xl w-full max-w-3xl shadow-2xl max-h-[88vh] flex flex-col">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">{viewingVendorDetail.name}</h2>
+                  <p className="text-sm text-muted-foreground">{fn.vendorDetails}</p>
+                </div>
+                <button onClick={closeVendorDetail} className="p-2 text-muted-foreground hover:text-foreground">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Vendor info recap */}
+              <div className="grid grid-cols-2 gap-3 px-5 py-4 border-b border-border text-sm">
+                {viewingVendorDetail.contact_name && (
+                  <div className="flex items-center gap-2 text-muted-foreground"><Users className="w-4 h-4" />{viewingVendorDetail.contact_name}</div>
+                )}
+                {viewingVendorDetail.phone && (
+                  <div className="flex items-center gap-2 text-muted-foreground"><Phone className="w-4 h-4" />{viewingVendorDetail.phone}</div>
+                )}
+                {viewingVendorDetail.email && (
+                  <div className="flex items-center gap-2 text-muted-foreground"><Mail className="w-4 h-4" />{viewingVendorDetail.email}</div>
+                )}
+                {viewingVendorDetail.address && (
+                  <div className="flex items-center gap-2 text-muted-foreground"><MapPin className="w-4 h-4" />{viewingVendorDetail.address}</div>
+                )}
+                {viewingVendorDetail.category && (
+                  <div className="flex items-center gap-2 text-muted-foreground"><Package className="w-4 h-4" />{viewingVendorDetail.category}</div>
+                )}
+                <div className={`flex items-center gap-2 ${viewingVendorDetail.balance > 0 ? 'text-red-500' : viewingVendorDetail.balance < 0 ? 'text-green-500' : 'text-muted-foreground'}`}>
+                  <DollarSign className="w-4 h-4" />
+                  {formatCurrency(Math.abs(viewingVendorDetail.balance))}
+                  {viewingVendorDetail.balance > 0 ? ` (${fn.youOweLabel.trim()})` : viewingVendorDetail.balance < 0 ? ` (${fn.creditLabel.trim()})` : ''}
+                </div>
+              </div>
+
+              {/* Toolbar */}
+              <div className="flex flex-wrap items-center gap-2 px-5 py-3 border-b border-border">
+                <label className="flex items-center gap-2 px-3 py-1.5 bg-card hover:bg-card/70 rounded-lg cursor-pointer text-sm">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4"
+                    disabled={vendorProducts.length === 0}
+                    checked={vendorProducts.length > 0 && selectedProductIds.size === vendorProducts.length}
+                    ref={el => {
+                      if (el) el.indeterminate = selectedProductIds.size > 0 && selectedProductIds.size < vendorProducts.length;
+                    }}
+                    onChange={toggleSelectAll}
+                  />
+                  <span className="text-foreground font-medium">{fn.selectAll}</span>
+                  <span className="text-xs text-muted-foreground">
+                    ({selectedProductIds.size}/{vendorProducts.length})
+                  </span>
+                </label>
+                <div className="flex-1" />
+                {selectedProductIds.size > 0 && (
+                  <button
+                    onClick={() => setShowMoveProducts(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 text-blue-500 rounded-lg text-xs font-medium hover:bg-blue-500/20"
+                  >
+                    <ArrowUpRight className="w-3.5 h-3.5" /> {fn.moveSelected}
+                  </button>
+                )}
+                {canWrite && (
+                  <button
+                    onClick={() => setShowQuickAddProduct(s => !s)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#606338]/20 text-[#606338] rounded-lg text-xs font-medium hover:bg-[#606338]/30"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> {fn.addProduct}
+                  </button>
+                )}
+              </div>
+
+              {/* Quick add inline form */}
+              {showQuickAddProduct && (
+                <div className="px-5 py-3 border-b border-border bg-card/40 grid grid-cols-2 lg:grid-cols-5 gap-2">
+                  <input
+                    type="text"
+                    placeholder={fn.productName}
+                    value={quickProduct.name}
+                    onChange={e => setQuickProduct({ ...quickProduct, name: e.target.value })}
+                    className="col-span-2 lg:col-span-2 py-1.5 px-2 bg-card border border-border rounded text-sm text-foreground"
+                  />
+                  <input
+                    type="text"
+                    placeholder={fn.category}
+                    value={quickProduct.category}
+                    onChange={e => setQuickProduct({ ...quickProduct, category: e.target.value })}
+                    className="py-1.5 px-2 bg-card border border-border rounded text-sm text-foreground"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Coût"
+                    value={quickProduct.cost_per_unit || ''}
+                    onChange={e => setQuickProduct({ ...quickProduct, cost_per_unit: parseFloat(e.target.value) || 0 })}
+                    className="py-1.5 px-2 bg-card border border-border rounded text-sm text-foreground"
+                  />
+                  <button
+                    onClick={handleQuickAddProduct}
+                    disabled={!quickProduct.name.trim()}
+                    className="px-3 py-1.5 bg-[#606338] hover:bg-[#525529] disabled:opacity-40 rounded text-white text-sm font-medium"
+                  >
+                    {fn.add}
+                  </button>
+                </div>
+              )}
+
+              {/* Move-products inline panel */}
+              {showMoveProducts && (
+                <div className="px-5 py-3 border-b border-border bg-card/40 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    {fn.moveTo} {selectedProductIds.size} {fn.itemsSelected}
+                  </p>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                    <select
+                      value={moveTargetVendorId}
+                      onChange={e => { setMoveTargetVendorId(e.target.value); if (e.target.value) setMoveNewVendorName(''); }}
+                      className="py-1.5 px-2 bg-card border border-border rounded text-sm text-foreground"
+                    >
+                      <option value="">{fn.selectExisting}</option>
+                      {vendors.filter(v => v.id !== viewingVendorDetail.id).map(v => (
+                        <option key={v.id} value={v.id}>{v.name}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      placeholder={fn.newVendorName}
+                      value={moveNewVendorName}
+                      onChange={e => { setMoveNewVendorName(e.target.value); if (e.target.value) setMoveTargetVendorId(''); }}
+                      className="py-1.5 px-2 bg-card border border-border rounded text-sm text-foreground"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleMoveProducts}
+                      disabled={moveSaving || (!moveTargetVendorId && !moveNewVendorName.trim())}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 rounded text-white text-sm font-medium"
+                    >
+                      {moveSaving ? fn.moving : fn.moveSelected}
+                    </button>
+                    <button
+                      onClick={() => { setShowMoveProducts(false); setMoveTargetVendorId(''); setMoveNewVendorName(''); }}
+                      className="px-3 py-1.5 bg-transparent border border-border rounded text-muted-foreground text-sm"
+                    >
+                      {fn.cancel}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Product list */}
+              <div className="flex-1 overflow-y-auto p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Package className="w-4 h-4 text-muted-foreground" />
+                  <h3 className="text-sm font-semibold text-foreground">{fn.linkedProducts}</h3>
+                  <span className="text-xs text-muted-foreground">({vendorProducts.length})</span>
+                </div>
+                {vendorProductsLoading ? (
+                  <div className="text-center py-12 text-muted-foreground">…</div>
+                ) : vendorProducts.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">{fn.noLinkedProducts}</div>
+                ) : (
+                  <div className="space-y-1">
+                    {vendorProducts.map(item => {
+                      const checked = selectedProductIds.has(item.id);
+                      return (
+                        <label
+                          key={item.id}
+                          className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${checked ? 'bg-blue-500/10' : 'bg-card hover:bg-card/70'}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleProductSelection(item.id)}
+                            className="w-4 h-4"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-foreground truncate">{item.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.category || '—'} · {Number(item.quantity)} {item.unit} · {formatCurrency(Number(item.cost_per_unit))}
+                            </p>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Vendor Transaction History Modal */}
         {viewingVendorTransactions && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -1863,39 +2152,72 @@ export default function FinancePage() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {vendorTransactions.map(tx => (
-                      <div key={tx.id} className="flex items-center justify-between p-3 bg-card rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${tx.type === 'debt' ? 'bg-red-500/10' : 'bg-green-500/10'}`}>
-                            {tx.type === 'debt' ? (
-                              <ArrowUpRight className="w-4 h-4 text-red-500" />
-                            ) : (
-                              <ArrowDownRight className="w-4 h-4 text-green-500" />
-                            )}
+                    {vendorTransactions.map(tx => {
+                      const isExpandable = !!(tx.reference && /^order(?:_pay)?_[0-9a-fA-F-]{36}$/.test(tx.reference));
+                      const isExpanded = expandedTxId === tx.id;
+                      const lines = txDetails[tx.id];
+                      return (
+                        <div key={tx.id} className="bg-card rounded-lg overflow-hidden">
+                          <div
+                            onClick={() => isExpandable && toggleTransactionDetail(tx, viewingVendorTransactions.id)}
+                            className={`flex items-center justify-between p-3 ${isExpandable ? 'cursor-pointer hover:bg-card/70' : ''}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              {isExpandable && (
+                                <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                              )}
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${tx.type === 'debt' ? 'bg-red-500/10' : 'bg-green-500/10'}`}>
+                                {tx.type === 'debt' ? (
+                                  <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                ) : (
+                                  <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-foreground capitalize">{tx.type}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {tx.date} {tx.reference && `• ${tx.reference}`}
+                                </p>
+                                {tx.description && <p className="text-xs text-muted-foreground mt-0.5">{tx.description}</p>}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
+                              <p className={`font-semibold ${tx.type === 'debt' ? 'text-red-500' : 'text-green-500'}`}>
+                                {tx.type === 'debt' ? '-' : '+'}{formatCurrency(tx.amount)}
+                              </p>
+                              {canWrite && (
+                                <button
+                                  onClick={() => handleDeleteTransaction(tx.id)}
+                                  className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-medium text-foreground capitalize">{tx.type}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {tx.date} {tx.reference && `• ${tx.reference}`}
-                            </p>
-                            {tx.description && <p className="text-xs text-muted-foreground mt-0.5">{tx.description}</p>}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <p className={`font-semibold ${tx.type === 'debt' ? 'text-red-500' : 'text-green-500'}`}>
-                            {tx.type === 'debt' ? '-' : '+'}{formatCurrency(tx.amount)}
-                          </p>
-                          {canWrite && (
-                            <button
-                              onClick={() => handleDeleteTransaction(tx.id)}
-                              className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                          {isExpanded && (
+                            <div className="border-t border-border px-3 py-2 bg-card/40">
+                              {txDetailsLoading === tx.id ? (
+                                <p className="text-xs text-muted-foreground py-2">…</p>
+                              ) : !lines || lines.length === 0 ? (
+                                <p className="text-xs text-muted-foreground py-2">{fn.noLinkedProducts || 'Aucun produit lié'}</p>
+                              ) : (
+                                <div className="space-y-1">
+                                  {lines.map(it => (
+                                    <div key={it.id} className="grid grid-cols-[1fr_80px_80px_100px] gap-3 px-2 py-1 text-xs">
+                                      <span className="text-foreground">{it.product_name}</span>
+                                      <span className="text-right text-muted-foreground">{Number(it.quantity)} {it.unit}</span>
+                                      <span className="text-right text-muted-foreground">{formatCurrency(Number(it.unit_cost))}</span>
+                                      <span className="text-right font-medium text-foreground">{formatCurrency(Number(it.quantity) * Number(it.unit_cost))}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -2015,17 +2337,14 @@ export default function FinancePage() {
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1.5">{fn.vendorCategory}</label>
                   <select
-                    value={newVendor.category}
-                    onChange={e => setNewVendor({ ...newVendor, category: e.target.value })}
+                    value={newVendor.category_id}
+                    onChange={e => setNewVendor({ ...newVendor, category_id: e.target.value })}
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
                   >
-                    <option value="general">{fn.catGeneral}</option>
-                    <option value="food">{fn.catFood}</option>
-                    <option value="beverages">{fn.catBeverages}</option>
-                    <option value="equipment">{fn.catEquipment}</option>
-                    <option value="supplies">{fn.catSupplies}</option>
-                    <option value="services">{fn.catServices}</option>
-                    <option value="utilities">{fn.catUtilities}</option>
+                    <option value="">{fn.categoryPlaceholder}</option>
+                    {inventoryCategories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -2159,17 +2478,14 @@ export default function FinancePage() {
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1.5">{fn.vendorCategory}</label>
                   <select
-                    value={editingVendor.category}
-                    onChange={e => setEditingVendor({ ...editingVendor, category: e.target.value })}
+                    value={editingVendor.category_id || ''}
+                    onChange={e => setEditingVendor({ ...editingVendor, category_id: e.target.value || null })}
                     className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
                   >
-                    <option value="general">{fn.catGeneral}</option>
-                    <option value="food">{fn.catFood}</option>
-                    <option value="beverages">{fn.catBeverages}</option>
-                    <option value="equipment">{fn.catEquipment}</option>
-                    <option value="supplies">{fn.catSupplies}</option>
-                    <option value="services">{fn.catServices}</option>
-                    <option value="utilities">{fn.catUtilities}</option>
+                    <option value="">{fn.categoryPlaceholder}</option>
+                    {inventoryCategories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -2373,19 +2689,16 @@ export default function FinancePage() {
               </div>
               <div>
                 <label className="block text-xs text-muted-foreground mb-1.5">{fn.category}</label>
-                <input
-                  type="text"
-                  value={newInventory.category}
-                  onChange={e => setNewInventory({ ...newInventory, category: e.target.value })}
+                <select
+                  value={newInventory.category_id}
+                  onChange={e => setNewInventory({ ...newInventory, category_id: e.target.value })}
                   className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
-                  placeholder={fn.categoryPlaceholder}
-                  list="inventory-categories"
-                />
-                <datalist id="inventory-categories">
+                >
+                  <option value="">{fn.categoryPlaceholder}</option>
                   {inventoryCategories.map(cat => (
-                    <option key={cat} value={cat} />
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
-                </datalist>
+                </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -2505,18 +2818,16 @@ export default function FinancePage() {
               </div>
               <div>
                 <label className="block text-xs text-muted-foreground mb-1.5">{fn.category}</label>
-                <input
-                  type="text"
-                  value={editingInventory.category || ''}
-                  onChange={e => setEditingInventory({ ...editingInventory, category: e.target.value })}
+                <select
+                  value={editingInventory.category_id || ''}
+                  onChange={e => setEditingInventory({ ...editingInventory, category_id: e.target.value || null })}
                   className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm"
-                  list="inventory-categories-edit"
-                />
-                <datalist id="inventory-categories-edit">
+                >
+                  <option value="">{fn.categoryPlaceholder}</option>
                   {inventoryCategories.map(cat => (
-                    <option key={cat} value={cat} />
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
-                </datalist>
+                </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -3250,6 +3561,109 @@ export default function FinancePage() {
           </div>
         </div>
       )}
+      {/* ─── Product Detail Slide-over ─────────────────────────────── */}
+      {detailProductId && (() => {
+        const dp = inventoryItems.find(i => i.id === detailProductId);
+        const purchases = detailMovements.filter(m => m.reference_type === 'daily_purchase');
+        const usages = detailMovements.filter(m => m.reference_type === 'daily_usage');
+        const prices = purchases.map(m => Number(m.unit_cost) || 0).filter(p => p > 0);
+        const stats = {
+          totalPurchased: Math.round(purchases.reduce((s, m) => s + Math.abs(Number(m.quantity_change)), 0) * 100) / 100,
+          totalUsed: Math.round(usages.reduce((s, m) => s + Math.abs(Number(m.quantity_change)), 0) * 100) / 100,
+          totalSpent: Math.round(purchases.reduce((s, m) => s + Math.abs(Number(m.quantity_change)) * Number(m.unit_cost), 0) * 100) / 100,
+          avgPrice: prices.length > 0 ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length * 100) / 100 : 0,
+          minPrice: prices.length > 0 ? Math.min(...prices) : 0,
+          maxPrice: prices.length > 0 ? Math.max(...prices) : 0,
+          lastPrice: prices.length > 0 ? prices[0] : 0,
+          priceVar: prices.length >= 2 ? Math.round((prices[0] - prices[prices.length - 1]) / prices[prices.length - 1] * 100) : 0,
+        };
+        return (
+          <>
+            <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setDetailProductId(null)} />
+            <div className="fixed right-0 top-0 h-full w-full max-w-lg bg-card border-l border-border z-50 overflow-y-auto shadow-2xl">
+              <div className="sticky top-0 bg-card border-b border-border px-5 py-4 flex items-center justify-between z-10">
+                <div>
+                  <h2 className="text-lg font-semibold">{dp?.name || '—'}</h2>
+                  <p className="text-xs text-muted-foreground">{dp?.inventory_category?.name || ''} — {dp?.unit} {dp?.vendor?.name ? `— ${dp.vendor.name}` : ''}</p>
+                </div>
+                <button onClick={() => setDetailProductId(null)} className="p-2 rounded-lg hover:bg-secondary"><X className="w-5 h-5" /></button>
+              </div>
+              {detailLoading ? (
+                <div className="flex items-center justify-center h-40"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+              ) : (
+                <div className="p-5 space-y-6">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-secondary rounded-xl p-3 text-center">
+                      <p className="text-xs text-muted-foreground">Stock</p>
+                      <p className="text-xl font-bold">{dp?.quantity || 0}</p>
+                      <p className="text-[10px] text-muted-foreground">{dp?.unit}</p>
+                    </div>
+                    <div className="bg-secondary rounded-xl p-3 text-center">
+                      <p className="text-xs text-muted-foreground">Coût moy.</p>
+                      <p className="text-lg font-bold">{formatCurrency(dp?.cost_per_unit || 0)}</p>
+                    </div>
+                    <div className="bg-secondary rounded-xl p-3 text-center">
+                      <p className="text-xs text-muted-foreground">Dernier prix</p>
+                      <p className="text-lg font-bold">{formatCurrency(dp?.last_purchase_price || 0)}</p>
+                    </div>
+                  </div>
+                  {purchases.length > 0 && (
+                    <div className="bg-secondary rounded-xl p-4 space-y-3">
+                      <h3 className="text-sm font-semibold">Analyse des prix</h3>
+                      <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
+                        <div className="flex justify-between"><span className="text-muted-foreground">Prix moyen</span><span className="font-medium">{formatCurrency(stats.avgPrice)}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Dernier prix</span><span className="font-medium">{formatCurrency(stats.lastPrice)}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Min</span><span className="font-medium text-emerald-600">{formatCurrency(stats.minPrice)}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Max</span><span className="font-medium text-red-600">{formatCurrency(stats.maxPrice)}</span></div>
+                      </div>
+                      {stats.priceVar !== 0 && (
+                        <div className={`text-xs px-2 py-1 rounded-lg inline-block ${stats.priceVar > 0 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                          {stats.priceVar > 0 ? '▲' : '▼'} {Math.abs(stats.priceVar)}% depuis le 1er achat
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                      <p className="text-xs text-emerald-700">Total acheté</p>
+                      <p className="text-lg font-bold text-emerald-700">{stats.totalPurchased} {dp?.unit}</p>
+                      <p className="text-[10px] text-emerald-600">{purchases.length} achats — {formatCurrency(stats.totalSpent)}</p>
+                    </div>
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                      <p className="text-xs text-red-700">Total sorti</p>
+                      <p className="text-lg font-bold text-red-700">{stats.totalUsed} {dp?.unit}</p>
+                      <p className="text-[10px] text-red-600">{usages.length} sorties</p>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold mb-3">Historique ({detailMovements.length})</h3>
+                    <div className="space-y-1 max-h-[400px] overflow-y-auto">
+                      {detailMovements.map(m => {
+                        const isOut = m.reference_type === 'daily_usage';
+                        return (
+                          <div key={m.id} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-secondary text-sm">
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium min-w-[40px] text-center ${isOut ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                              {isOut ? '-' : '+'}{Math.abs(Number(m.quantity_change))}
+                            </span>
+                            <span className="text-muted-foreground text-xs flex-1">{m.reference_id}</span>
+                            <span className="text-xs text-muted-foreground">{formatCurrency(Number(m.unit_cost))}/{dp?.unit}</span>
+                            <span className={`text-xs font-medium ${isOut ? 'text-red-600' : 'text-[#606338]'}`}>
+                              {formatCurrency(Math.abs(Number(m.quantity_change)) * Number(m.unit_cost))}
+                            </span>
+                          </div>
+                        );
+                      })}
+                      {detailMovements.length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-6">Aucun mouvement</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        );
+      })()}
     </PermissionGate>
   );
 }

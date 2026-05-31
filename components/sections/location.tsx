@@ -8,18 +8,21 @@ import { Section, SectionHeader } from "@/components/layout/section";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
 import { useTranslation } from "@/lib/i18n/useTranslation";
+import { useSiteContent } from "@/lib/hooks/useSiteContent";
 
 export function LocationSection() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
   const { t } = useTranslation();
+  const { getSectionText } = useSiteContent();
+  const s = (key: string, fallback: string) => getSectionText('location', key, fallback);
 
   return (
     <Section id="location" className="bg-primary">
       <SectionHeader
-        eyebrow={t.location.eyebrow}
-        title={t.location.title}
-        description={t.location.description}
+        eyebrow={s('eyebrow', t.location.eyebrow)}
+        title={s('title', t.location.title)}
+        description={s('description', t.location.description)}
       />
 
       <div ref={ref} className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 lg:gap-12 items-stretch">
