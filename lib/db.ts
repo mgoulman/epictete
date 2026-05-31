@@ -6,15 +6,25 @@ pgTypes.setTypeParser(1082, (val: string) => val);
 
 // ─── Connection Pool ────────────────────────────────────────────────────────
 
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  user: process.env.DB_USER || 'slowbob',
-  password: process.env.DB_PASSWORD || 'slowbob',
-  database: process.env.DB_NAME || 'epictete_db',
-  max: 20,
-  idleTimeoutMillis: 30000,
-});
+// In production (Vercel + Neon) use DATABASE_URL with SSL and a tiny pool
+// (one connection per serverless lambda). Locally, fall back to the discrete
+// DB_* vars so the developer's local Postgres keeps working.
+const pool = process.env.DATABASE_URL
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+      max: 1,
+      idleTimeoutMillis: 30000,
+    })
+  : new Pool({
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '5432'),
+      user: process.env.DB_USER || 'slowbob',
+      password: process.env.DB_PASSWORD || 'slowbob',
+      database: process.env.DB_NAME || 'epictete_db',
+      max: 20,
+      idleTimeoutMillis: 30000,
+    });
 
 // ─── Raw query helper ───────────────────────────────────────────────────────
 
