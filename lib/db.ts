@@ -26,6 +26,12 @@ const pool = process.env.DATABASE_URL
       idleTimeoutMillis: 30000,
     });
 
+// Neon's neondb_owner role has an empty search_path by default, and the pooler
+// rejects `options=` startup params — so set it on every new connection.
+pool.on('connect', (client) => {
+  client.query('SET search_path TO public').catch(() => {});
+});
+
 // ─── Raw query helper ───────────────────────────────────────────────────────
 
 export async function query<T = Record<string, unknown>>(
