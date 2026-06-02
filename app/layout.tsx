@@ -263,11 +263,11 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className={`${playfair.variable} ${inter.variable} antialiased`}>
+      <body className={`${playfair.variable} ${inter.variable} antialiased overflow-x-clip`}>
         <ThemeProvider defaultTheme="dark" storageKey="epictete-theme">
           <LanguageProvider>
             <HtmlLangUpdater />
-            {children}
+            <div className="overflow-x-clip w-full">{children}</div>
           </LanguageProvider>
         </ThemeProvider>
       </body>
