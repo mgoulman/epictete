@@ -28,21 +28,27 @@ const ALLOWED_TABLES = new Set([
   'site_content', 'audit_logs', 'invoices',
 ]);
 
+// Tables the public marketing site reads (menu page, home page, etc.)
+// Writes still require auth; only SELECT is allowed anonymously.
+const PUBLIC_READ_TABLES = new Set(['menu_items', 'menu_categories', 'site_content']);
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
-
-    // Verify auth
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ data: null, error: { message: 'Unauthorized' } }, { status: 401 });
-    }
 
     const body = await request.json();
     const { action, table, select, filters, orders, limit: limitVal, single, data } = body;
 
     if (!ALLOWED_TABLES.has(table)) {
       return NextResponse.json({ data: null, error: { message: 'Table not allowed' } }, { status: 403 });
+    }
+
+    const isPublicRead = action === 'select' && PUBLIC_READ_TABLES.has(table);
+    if (!isPublicRead) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return NextResponse.json({ data: null, error: { message: 'Unauthorized' } }, { status: 401 });
+      }
     }
 
     if (action === 'select') {

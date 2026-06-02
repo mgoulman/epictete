@@ -32,6 +32,51 @@ pool.on('connect', (client) => {
   client.query('SET search_path TO public').catch(() => {});
 });
 
+// ─── Audit logging ──────────────────────────────────────────────────────────
+// Auto-record every INSERT/UPDATE/DELETE made through the builders into
+// audit_logs. Anonymous (no JWT) writes still get logged with a null user_id.
+// Never throws — audit failures must not break the caller.
+
+const NON_AUDITABLE_TABLES = new Set(['audit_logs']);
+
+async function recordAudit(
+  table: string,
+  action: 'create' | 'update' | 'delete',
+  resourceId: string | null,
+  newValues: Record<string, unknown> | null,
+): Promise<void> {
+  if (NON_AUDITABLE_TABLES.has(table)) return;
+
+  let userId: string | null = null;
+  try {
+    const [{ cookies }, { jwtVerify }] = await Promise.all([
+      import('next/headers'),
+      import('jose'),
+    ]);
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value;
+    if (token) {
+      const secret = new TextEncoder().encode(
+        process.env.JWT_SECRET || 'epictete-secret-key-change-in-production-2026'
+      );
+      const { payload } = await jwtVerify(token, secret);
+      userId = (payload.sub as string) || null;
+    }
+  } catch {
+    // No request context (cron, script) or invalid token — log as anonymous.
+  }
+
+  try {
+    await pool.query(
+      `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, new_values)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, action, table, resourceId, newValues ? JSON.stringify(newValues) : null]
+    );
+  } catch (err) {
+    console.error('[audit] failed:', (err as Error).message);
+  }
+}
+
 // ─── Raw query helper ───────────────────────────────────────────────────────
 
 export async function query<T = Record<string, unknown>>(
@@ -428,6 +473,10 @@ class InsertBuilder<T = Record<string, unknown>> {
       const sql = `INSERT INTO ${this._table} (${cols.map(c => `"${c}"`).join(', ')}) VALUES ${valueGroups.join(', ')}${conflictClause} ${returning}`;
       const result = await pool.query(sql, allParams);
 
+      for (const row of result.rows) {
+        await recordAudit(this._table, 'create', (row.id as string) ?? null, row);
+      }
+
       if (this._selectCols && result.rows.length > 0) {
         // If complex select with relations, do a follow-up query
         const ids = result.rows.map(r => r.id);
@@ -508,6 +557,11 @@ class UpdateBuilder<T = Record<string, unknown>> {
 
       sql += ' RETURNING *';
       const result = await pool.query(sql, params);
+
+      for (const row of result.rows) {
+        await recordAudit(this._table, 'update', (row.id as string) ?? null, this._data);
+      }
+
       const data = this._single ? result.rows[0] || null : result.rows;
       return resolve({ data: data as T[] | T | null, error: null });
     } catch (err) {
@@ -578,6 +632,11 @@ class DeleteBuilder<T = Record<string, unknown>> {
 
       sql += ' RETURNING *';
       const result = await pool.query(sql, params);
+
+      for (const row of result.rows) {
+        await recordAudit(this._table, 'delete', (row.id as string) ?? null, row);
+      }
+
       return resolve({ data: result.rows as T[] | T | null, error: null });
     } catch (err) {
       if (reject) return reject(err);
