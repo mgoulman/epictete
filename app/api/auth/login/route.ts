@@ -4,6 +4,27 @@ import db from '@/lib/db';
 import { createJWT } from '@/lib/auth/supabase-server';
 import type { PermissionName, RoleName } from '@/lib/types/auth';
 
+async function logAuthEvent(
+  action: 'login_success' | 'login_failed' | 'login_blocked',
+  email: string,
+  userId: string | null,
+  request: Request,
+) {
+  try {
+    const ipAddress =
+      request.headers.get('x-forwarded-for')?.split(',')[0] ||
+      request.headers.get('x-real-ip') ||
+      null;
+    await db.query(
+      `INSERT INTO audit_logs (user_id, user_email, action, resource_type, ip_address, user_agent)
+       VALUES ($1, $2, $3, 'auth', $4, $5)`,
+      [userId, email, action, ipAddress, request.headers.get('user-agent')]
+    );
+  } catch {
+    // never let audit break a real auth flow
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
@@ -19,6 +40,7 @@ export async function POST(request: Request) {
     );
 
     if (users.length === 0) {
+      await logAuthEvent('login_failed', email, null, request);
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
@@ -31,11 +53,13 @@ export async function POST(request: Request) {
     );
 
     if (profiles.length === 0) {
+      await logAuthEvent('login_failed', email, user.id as string, request);
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
     }
 
     const profile = profiles[0] as Record<string, unknown>;
     if (!profile.is_active) {
+      await logAuthEvent('login_blocked', email, user.id as string, request);
       return NextResponse.json({ error: 'Account is deactivated' }, { status: 403 });
     }
 
@@ -55,6 +79,8 @@ export async function POST(request: Request) {
       maxAge: 7 * 24 * 60 * 60, // 7 days
       path: '/',
     });
+
+    await logAuthEvent('login_success', email, user.id as string, request);
 
     return NextResponse.json({
       success: true,
