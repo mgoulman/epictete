@@ -38,16 +38,6 @@ export function PhilosophySection() {
       <div ref={ref} className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="text-center mb-10 sm:mb-16">
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={isInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.8 }}
-          >
-            <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full border border-accent/30 mb-6 sm:mb-8">
-              <span className="text-accent text-xl sm:text-2xl font-heading">ε</span>
-            </div>
-          </motion.div>
-
           <motion.h2
             initial={{ opacity: 0, y: 40 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
