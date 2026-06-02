@@ -267,7 +267,7 @@ export default function RootLayout({
         <ThemeProvider defaultTheme="dark" storageKey="epictete-theme">
           <LanguageProvider>
             <HtmlLangUpdater />
-            <div className="overflow-x-clip w-full">{children}</div>
+            {children}
           </LanguageProvider>
         </ThemeProvider>
       </body>

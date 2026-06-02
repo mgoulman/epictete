@@ -28,8 +28,8 @@ export function LocationSection() {
       <div ref={ref} className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 lg:gap-12 items-stretch">
         {/* Map */}
         <motion.div
-          initial={{ opacity: 0, x: -40 }}
-          animate={isInView ? { opacity: 1, x: 0 } : {}}
+          initial={{ opacity: 0, y: 40 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.8 }}
           className="relative aspect-video md:aspect-auto md:min-h-[400px] rounded-2xl overflow-hidden border border-border"
         >
@@ -61,8 +61,8 @@ export function LocationSection() {
 
         {/* Info */}
         <motion.div
-          initial={{ opacity: 0, x: 40 }}
-          animate={isInView ? { opacity: 1, x: 0 } : {}}
+          initial={{ opacity: 0, y: 40 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.8, delay: 0.2 }}
           className="space-y-5 sm:space-y-6"
         >

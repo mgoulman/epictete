@@ -137,7 +137,7 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
 
           {/* Mobile Menu Button */}
           <button
-            className={`lg:hidden p-2 -mr-2 active:scale-95 transition-all touch-manipulation rounded-full ${
+            className={`lg:hidden p-2 shrink-0 active:scale-95 transition-all touch-manipulation rounded-full ${
               isScrolled
                 ? "text-foreground hover:text-accent"
                 : "text-white bg-black/30 hover:bg-black/40"
@@ -152,27 +152,20 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
         </nav>
       </div>
 
-      {/* Mobile Menu Overlay */}
-      <div
-        className={`
-          lg:hidden fixed inset-0 bg-primary/60 backdrop-blur-sm z-40
-          transition-opacity duration-300
-          ${isMobileMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none"}
-        `}
-        onClick={closeMobileMenu}
-        aria-hidden="true"
-      />
-
-      {/* Mobile Menu Panel */}
-      <div
-        id="mobile-menu"
-        className={`
-          lg:hidden fixed top-0 right-0 h-full w-full max-w-sm bg-primary border-l border-border z-50
-          transform transition-transform duration-300 ease-out
-          ${isMobileMenuOpen ? "translate-x-0" : "translate-x-full"}
-        `}
-      >
-        <div className="px-6 py-6 space-y-4">
+      {/* Mobile Menu Overlay + Panel — only mounted when open so there's no
+          off-viewport content that could cause horizontal scroll on phones. */}
+      {isMobileMenuOpen && (
+        <>
+          <div
+            className="lg:hidden fixed inset-0 bg-primary/60 backdrop-blur-sm z-40 animate-in fade-in duration-200"
+            onClick={closeMobileMenu}
+            aria-hidden="true"
+          />
+          <div
+            id="mobile-menu"
+            className="lg:hidden fixed top-0 right-0 h-full w-full max-w-sm bg-primary border-l border-border z-50 animate-in slide-in-from-right duration-300"
+          >
+            <div className="px-6 py-6 space-y-4">
           {siteConfig.navigation.map((item) => (
             <Link
               key={item.key}
@@ -206,8 +199,10 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
               <Link href="/reservation" onClick={() => setIsMobileMenuOpen(false)}>{t.common.reserve}</Link>
             </Button>
           </div>
-        </div>
-      </div>
+            </div>
+          </div>
+        </>
+      )}
     </header>
   );
 }
