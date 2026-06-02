@@ -167,9 +167,9 @@ export function Header({ hideThemeToggle = false }: HeaderProps) {
       <div
         id="mobile-menu"
         className={`
-          lg:hidden fixed top-0 right-0 h-full w-full max-w-sm bg-primary border-l border-border z-50
-          transform transition-transform duration-300 ease-out
-          ${isMobileMenuOpen ? "translate-x-0" : "translate-x-full"}
+          lg:hidden fixed top-0 h-full w-full max-w-sm bg-primary border-l border-border z-50
+          transition-[right] duration-300 ease-out
+          ${isMobileMenuOpen ? "right-0" : "-right-full"}
         `}
       >
         <div className="px-6 py-6 space-y-4">
