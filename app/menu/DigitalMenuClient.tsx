@@ -8,8 +8,25 @@ import { supabase, MenuCategory as DBMenuCategory, MenuItem as DBMenuItem } from
 import { MenuSection, SearchBar, ItemDetailModal } from "./components";
 import { getCategoryAvailabilityStatus } from "@/lib/time-availability";
 
+// `ingredients` is stored as a JSON-formatted text column in the DB, not as
+// a Postgres array — so it arrives at the client as a string. Parse defensively
+// in case the value is null, a real array, or a malformed string.
+function toStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value as string[];
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 // Transform DB item to frontend MenuItem format
 function transformDBItem(dbItem: DBMenuItem): MenuItem {
+  const ingredientsEn = toStringArray(dbItem.ingredients_en);
   return {
     id: dbItem.id,
     name: dbItem.name,
@@ -19,10 +36,10 @@ function transformDBItem(dbItem: DBMenuItem): MenuItem {
     priceLarge: dbItem.price_large || undefined,
     description: dbItem.description || '',
     descriptionEn: dbItem.description_en || undefined,
-    ingredients: dbItem.ingredients || [],
-    ingredientsEn: dbItem.ingredients_en || undefined,
+    ingredients: toStringArray(dbItem.ingredients),
+    ingredientsEn: ingredientsEn.length > 0 ? ingredientsEn : undefined,
     category: dbItem.category_id as MenuCategory,
-    tags: (dbItem.tags || []) as MenuTag[],
+    tags: toStringArray(dbItem.tags) as MenuTag[],
     isSignature: dbItem.is_signature || false,
     chefNote: dbItem.chef_note || undefined,
     image: dbItem.image_url || undefined,
