@@ -53,47 +53,51 @@ export function ItemDetailModal({ item, isOpen, onClose }: ItemDetailModalProps)
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 
-                       md:max-w-lg md:w-full md:max-h-[85vh] 
+            className="fixed inset-x-3 bottom-3 top-[10vh]
+                       md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2
+                       md:max-w-lg md:w-full md:max-h-[85vh]
                        bg-card border border-border rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col"
           >
-            {/* Header */}
-            <div className="relative px-6 pt-6 pb-4 border-b border-border/50">
-              {/* Close button */}
+            {/* Sticky close bar */}
+            <div className="flex items-center justify-end px-3 pt-3">
               <button
                 onClick={onClose}
-                className="absolute top-4 right-4 p-2 rounded-full bg-secondary hover:bg-secondary/80 
+                className="p-2 rounded-full bg-secondary/80 hover:bg-secondary
                            text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Fermer"
               >
                 <X size={20} />
               </button>
+            </div>
 
+            {/* Header */}
+            <div className="px-6 pb-4">
               {/* Region badge */}
               {regionInfo && (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent/10 
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent/10
                                 border border-accent/30 text-accent text-sm mb-3">
                   <MapPin size={14} />
                   <span>{regionInfo.emoji} {regionInfo.nameFr}</span>
                 </div>
               )}
 
-              {/* Title & Price */}
-              <div className="flex items-start justify-between gap-4 pr-10">
-                <div>
-                  <h2 className="text-2xl font-heading font-semibold text-foreground">
-                    {item.name}
-                  </h2>
-                  {item.isSignature && (
-                    <div className="flex items-center gap-1 text-accent text-sm mt-1">
-                      <Star size={14} className="fill-current" />
-                      <span>Signature du Chef</span>
-                    </div>
-                  )}
+              {/* Title */}
+              <h2 className="text-2xl font-heading font-semibold text-foreground">
+                {item.name}
+              </h2>
+
+              {/* Signature badge */}
+              {item.isSignature && (
+                <div className="flex items-center gap-1 text-accent text-sm mt-1">
+                  <Star size={14} className="fill-current" />
+                  <span>Signature du Chef</span>
                 </div>
-                <div className="text-right shrink-0">
-                  <span className="text-2xl font-semibold text-accent">{item.price}</span>
-                  <span className="text-sm text-muted-foreground ml-1">DHS</span>
-                </div>
+              )}
+
+              {/* Price */}
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-3xl font-semibold text-accent">{item.price}</span>
+                <span className="text-sm text-muted-foreground">DHS</span>
               </div>
 
               {/* Tags */}
@@ -104,7 +108,7 @@ export function ItemDetailModal({ item, isOpen, onClose }: ItemDetailModalProps)
                     return (
                       <span
                         key={tag}
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full 
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full
                                     text-xs bg-secondary ${tagInfo.color}`}
                       >
                         <span>{tagInfo.icon}</span>
@@ -115,6 +119,8 @@ export function ItemDetailModal({ item, isOpen, onClose }: ItemDetailModalProps)
                 </div>
               )}
             </div>
+
+            <div className="border-b border-border/50" />
 
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
@@ -158,12 +164,14 @@ export function ItemDetailModal({ item, isOpen, onClose }: ItemDetailModalProps)
               )}
 
               {/* Ingredients */}
-              <div>
-                <h3 className="text-sm font-medium text-foreground mb-2">Ingrédients</h3>
-                <p className="text-sm text-muted-foreground">
-                  {item.ingredients.join(" • ")}
-                </p>
-              </div>
+              {item.ingredients.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-foreground mb-2">Ingrédients</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {item.ingredients.join(" • ")}
+                  </p>
+                </div>
+              )}
 
               {/* Customizations */}
               {(hasPastaCustomization || hasSauceCustomization) && (
