@@ -21,6 +21,7 @@ interface MenuItemForm {
   description: string;
   description_en: string;
   category_id: string;
+  extra_category_ids: string[];
   is_signature: boolean;
   is_featured: boolean;
   is_available: boolean;
@@ -44,7 +45,7 @@ interface RecipeWithIngredients extends Recipe {
 
 const emptyForm: MenuItemForm = {
   name: '', name_fr: '', price: '',
-  description: '', description_en: '', category_id: '',
+  description: '', description_en: '', category_id: '', extra_category_ids: [],
   is_signature: false, is_featured: false, is_available: true, chef_note: '', image_url: '',
   recipe_id: '', recipe_mode: 'none', new_recipe_name: '', new_recipe_portions: '1',
   new_recipe_ingredients: []
@@ -124,6 +125,7 @@ export default function MenuPage() {
         price: item.price?.toString() || '',
         description: item.description || '',
         description_en: item.description_en || '', category_id: item.category_id || '',
+        extra_category_ids: Array.isArray((item as MenuItem & { extra_category_ids?: string[] }).extra_category_ids) ? (item as MenuItem & { extra_category_ids?: string[] }).extra_category_ids! : [],
         is_signature: item.is_signature || false, is_featured: item.is_featured || false, is_available: item.is_available !== false,
         chef_note: item.chef_note || '', image_url: item.image_url || '',
         recipe_id: item.recipe_id || '',
@@ -269,11 +271,14 @@ export default function MenuPage() {
         recipeId = formData.recipe_id;
       }
 
+      const extraIds = (formData.extra_category_ids || []).filter(id => id && id !== formData.category_id);
       const itemData = {
         name: formData.name, name_fr: formData.name_fr,
         price: parseFloat(formData.price),
         description: formData.description || null, description_en: formData.description_en || null,
-        category_id: formData.category_id || null, is_signature: formData.is_signature,
+        category_id: formData.category_id || null,
+        extra_category_ids: extraIds,
+        is_signature: formData.is_signature,
         is_featured: formData.is_featured, is_available: formData.is_available, chef_note: formData.chef_note || null,
         image_url: formData.image_url || null,
         recipe_id: recipeId,
@@ -470,7 +475,7 @@ export default function MenuPage() {
             <p className="text-muted-foreground mt-1 text-sm">{mp.subtitle}</p>
           </div>
           <CanEditMenu>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button onClick={() => setShowRecipeMatch(true)} className="flex items-center gap-2 px-4 py-2.5 bg-secondary border border-border rounded-lg text-foreground text-sm font-medium hover:bg-card transition-colors">
                 <BookOpen className="w-4 h-4" />{mp.matchRecipes}
               </button>
@@ -777,6 +782,40 @@ export default function MenuPage() {
                   <option value="">{mp.selectCategory}</option>
                   {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.icon} {cat.name_fr}</option>)}
                 </select>
+              </div>
+
+              {/* Extra categories — item also appears in these */}
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1.5">
+                  Catégories supplémentaires <span className="text-muted">(l&apos;article apparaîtra aussi dans ces catégories)</span>
+                </label>
+                <div className="flex flex-wrap gap-1.5 p-2 bg-card border border-border rounded-lg max-h-32 overflow-y-auto">
+                  {categories.filter(c => c.id !== formData.category_id).map(cat => {
+                    const checked = formData.extra_category_ids.includes(cat.id);
+                    return (
+                      <button
+                        type="button"
+                        key={cat.id}
+                        onClick={() => setFormData(prev => ({
+                          ...prev,
+                          extra_category_ids: checked
+                            ? prev.extra_category_ids.filter(id => id !== cat.id)
+                            : [...prev.extra_category_ids, cat.id],
+                        }))}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                          checked
+                            ? 'bg-[#606338]/15 border-[#606338] text-[#606338]'
+                            : 'bg-secondary border-border text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <span>{cat.icon}</span>{cat.name_fr}
+                      </button>
+                    );
+                  })}
+                  {categories.filter(c => c.id !== formData.category_id).length === 0 && (
+                    <span className="text-xs text-muted">Aucune autre catégorie disponible</span>
+                  )}
+                </div>
               </div>
 
               {/* Price */}

@@ -80,6 +80,7 @@ export interface MenuItem {
   ingredients: string[];
   ingredientsEn?: string[];
   category: MenuCategory;
+  extraCategories?: string[];
   tags: MenuTag[];
   customizations?: Customization[];
   isSignature?: boolean;

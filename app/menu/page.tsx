@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function MenuPage() {
   return (
     <>
-      <Header />
+      <Header hideThemeToggle />
       <DigitalMenuClient />
       <Footer />
     </>
