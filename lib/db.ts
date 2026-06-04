@@ -446,7 +446,10 @@ class InsertBuilder<T = Record<string, unknown>> {
       for (const row of rows) {
         const placeholders = cols.map(c => {
           const val = row[c];
-          if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+          // Stringify both objects and arrays — the schema has no native
+          // Postgres array columns, so any array value targets a JSONB column
+          // and node-pg needs a JSON string, not a JS array.
+          if (val !== null && typeof val === 'object') {
             allParams.push(JSON.stringify(val));
           } else {
             allParams.push(val ?? null);
@@ -537,7 +540,7 @@ class UpdateBuilder<T = Record<string, unknown>> {
 
       const setClauses = cols.map(c => {
         const val = this._data[c];
-        if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+        if (val !== null && typeof val === 'object') {
           params.push(JSON.stringify(val));
         } else {
           params.push(val ?? null);

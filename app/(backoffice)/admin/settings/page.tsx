@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Save, User, Bell, Shield, Palette, Sun, Moon, Monitor } from 'lucide-react';
+import { Save, User, Bell, Shield, Palette, Sun, Moon, Monitor, UtensilsCrossed } from 'lucide-react';
 import { useAuth } from '@/lib/auth/hooks';
 import { PermissionGate, AdminOnly } from '@/components/backoffice/auth/PermissionGate';
 import { useTheme } from '@/components/theme-provider';
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import { CategoriesSettings } from './CategoriesSettings';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -15,6 +16,7 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: 'profile', label: s.tabs.profile, icon: User },
+    { id: 'categories', label: 'Catégories', icon: UtensilsCrossed },
     { id: 'notifications', label: s.tabs.notifications, icon: Bell },
     { id: 'appearance', label: s.tabs.appearance, icon: Palette },
     { id: 'security', label: s.tabs.security, icon: Shield, adminOnly: true }
@@ -59,6 +61,7 @@ export default function SettingsPage() {
         {/* Content */}
         <div className="flex-1">
           {activeTab === 'profile' && <ProfileSettings user={user} />}
+          {activeTab === 'categories' && <CategoriesSettings />}
           {activeTab === 'notifications' && <NotificationSettings />}
           {activeTab === 'appearance' && <AppearanceSettings />}
           {activeTab === 'security' && (

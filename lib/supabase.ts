@@ -36,6 +36,7 @@ export interface MenuItem {
   ingredients: string[];
   ingredients_en: string[];
   category_id: string | null;
+  extra_category_ids: string[];
   tags: string[];
   is_signature: boolean;
   is_featured: boolean;

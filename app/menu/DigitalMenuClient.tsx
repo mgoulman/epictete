@@ -39,6 +39,7 @@ function transformDBItem(dbItem: DBMenuItem): MenuItem {
     ingredients: toStringArray(dbItem.ingredients),
     ingredientsEn: ingredientsEn.length > 0 ? ingredientsEn : undefined,
     category: dbItem.category_id as MenuCategory,
+    extraCategories: toStringArray(dbItem.extra_category_ids),
     tags: toStringArray(dbItem.tags) as MenuTag[],
     isSignature: dbItem.is_signature || false,
     chefNote: dbItem.chef_note || undefined,
@@ -152,24 +153,30 @@ export function DigitalMenuClient() {
     return items;
   }, [dbMenuItems, searchQuery, activeTags]);
 
+  // Returns true if item belongs to the given category (primary or extra).
+  const itemIsInCategory = useCallback((item: MenuItem, categoryId: string) => {
+    if (item.category === categoryId) return true;
+    return (item.extraCategories || []).includes(categoryId);
+  }, []);
+
   // Get brunch extras items separately (to display within brunch section)
   const brunchExtrasItems = useMemo(() => {
-    return filteredItems.filter(item => item.category === ('brunch-extras' as MenuCategory));
-  }, [filteredItems]);
+    return filteredItems.filter(item => itemIsInCategory(item, 'brunch-extras'));
+  }, [filteredItems, itemIsInCategory]);
 
   // Group filtered items by category (exclude brunch-extras as they go in brunch section)
   const itemsByCategory = useMemo(() => {
     const grouped = new Map<MenuCategory, MenuItem[]>();
-    
+
     categories.forEach((cat) => {
-      const categoryItems = filteredItems.filter((item) => item.category === cat.id);
+      const categoryItems = filteredItems.filter((item) => itemIsInCategory(item, cat.id));
       if (categoryItems.length > 0) {
         grouped.set(cat.id, categoryItems);
       }
     });
 
     return grouped;
-  }, [filteredItems, categories]);
+  }, [filteredItems, categories, itemIsInCategory]);
 
   // Handle category in view (from intersection observer)
   const handleCategoryInView = useCallback((categoryId: string) => {
