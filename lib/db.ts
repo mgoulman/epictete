@@ -6,7 +6,7 @@ pgTypes.setTypeParser(1082, (val: string) => val);
 
 // ─── Connection Pool ────────────────────────────────────────────────────────
 
-// In production (Vercel + Neon) use DATABASE_URL with SSL and a tiny pool
+// In production (Vercel + Neon) use DATABASE_URL with SSL and a tiny pooll
 // (one connection per serverless lambda). Locally, fall back to the discrete
 // DB_* vars so the developer's local Postgres keeps working.
 const pool = process.env.DATABASE_URL
