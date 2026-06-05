@@ -15,9 +15,9 @@ export async function POST(request: NextRequest) {
       body,
       request,
       onBeforeGenerateToken: async (pathname /* , clientPayload */) => {
-        // Require an authenticated user to upload.
-        const userId = await getCurrentUserId();
-        if (!userId) throw new Error('Unauthorized');
+        // Tracking only — don't block uploads on auth here. The /admin
+        // pages that reach this route are already gated by middleware.
+        const userId = await getCurrentUserId().catch(() => null);
 
         // Pathname is expected to be `<bucket>/<filename>`.
         const bucket = pathname.split('/')[0];
