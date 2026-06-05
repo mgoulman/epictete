@@ -8,6 +8,67 @@ import { supabase, MenuCategory as DBMenuCategory, MenuItem as DBMenuItem } from
 import { MenuSection, SearchBar, ItemDetailModal } from "./components";
 import { getCategoryAvailabilityStatus } from "@/lib/time-availability";
 
+// Lowercase + strip diacritics so "Épictète" and "epictete" match.
+function normalize(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+// Split into word tokens, case- and accent-insensitive.
+function tokenize(s: string): string[] {
+  return normalize(s).split(/[^a-z0-9]+/).filter(Boolean);
+}
+
+// Italian/French/English synonyms so "pizza" finds "pizze" items, "pates"
+// finds "pasta", "salade" finds "salades", etc. Keys are normalized tokens.
+const SYNONYMS: Record<string, string[]> = {
+  pizza: ['pizze', 'pizzas'],
+  pizze: ['pizza', 'pizzas'],
+  pizzas: ['pizza', 'pizze'],
+  pasta: ['paste', 'pates', 'pate'],
+  paste: ['pasta', 'pates', 'pate'],
+  pates: ['pasta', 'paste', 'pate'],
+  pate: ['pasta', 'paste', 'pates'],
+  antipasto: ['antipasti', 'entree', 'entrees', 'starter', 'appetizer'],
+  antipasti: ['antipasto', 'entree', 'entrees', 'starter', 'appetizer'],
+  dolce: ['dolci', 'dessert', 'desserts'],
+  dolci: ['dolce', 'dessert', 'desserts'],
+  dessert: ['dolce', 'dolci', 'desserts'],
+  secondo: ['secondi', 'plat', 'plats', 'main'],
+  secondi: ['secondo', 'plat', 'plats', 'main'],
+  boisson: ['boissons', 'drink', 'drinks', 'beverages', 'beverage'],
+  boissons: ['boisson', 'drink', 'drinks', 'beverages', 'beverage'],
+  jus: ['juice', 'juices'],
+  vin: ['vins', 'wine', 'wines'],
+  cafe: ['coffee', 'cafes'],
+  the: ['tea', 'teas', 'thes'],
+  salade: ['salades', 'salad', 'salads', 'insalata', 'insalate'],
+  salades: ['salade', 'salad', 'salads', 'insalata', 'insalate'],
+  poulet: ['chicken', 'pollo'],
+  poisson: ['fish', 'pesce'],
+  poissons: ['fish', 'pesce'],
+  viande: ['meat', 'carne'],
+  fromage: ['cheese', 'formaggio', 'formaggi'],
+  fromages: ['cheese', 'formaggio', 'formaggi'],
+};
+
+// A query token matches the searchable blob if any of:
+//  - it (or a synonym) is a substring of the blob, OR
+//  - a token in the blob shares a long common prefix with it (handles
+//    typos / minor plural variants like "pizza" ~ "pizze").
+function matchToken(qt: string, blob: string): boolean {
+  const variants = [qt, ...(SYNONYMS[qt] || [])];
+  for (const v of variants) {
+    if (blob.includes(v)) return true;
+  }
+  if (qt.length >= 4) {
+    const prefix = qt.slice(0, Math.max(4, qt.length - 1));
+    for (const word of blob.split(/[^a-z0-9]+/)) {
+      if (word.length >= 4 && word.startsWith(prefix)) return true;
+    }
+  }
+  return false;
+}
+
 // `ingredients` is stored as a JSON-formatted text column in the DB, not as
 // a Postgres array — so it arrives at the client as a string. Parse defensively
 // in case the value is null, a real array, or a malformed string.
@@ -132,15 +193,32 @@ export function DigitalMenuClient() {
   const filteredItems = useMemo(() => {
     let items = dbMenuItems;
 
-    // Search filter
+    // Search filter — smart, accent-insensitive, token-based, synonym-aware.
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      items = items.filter(
-        (item) =>
-          item.name.toLowerCase().includes(query) ||
-          item.description.toLowerCase().includes(query) ||
-          item.ingredients.some((ing) => ing.toLowerCase().includes(query))
-      );
+      // Build a category id → display name map so the search can match by
+      // category (e.g. typing "pizza" should surface every item whose
+      // category is "pizze").
+      const categoryNameById = new Map<string, string>();
+      for (const c of dbCategories) {
+        categoryNameById.set(c.id, `${c.name} ${c.name_fr || ''}`);
+      }
+
+      const queryTokens = tokenize(searchQuery);
+      items = items.filter((item) => {
+        const parts: string[] = [
+          item.name,
+          item.nameFr,
+          item.description,
+          ...item.ingredients,
+          ...item.tags,
+          categoryNameById.get(item.category) || '',
+          ...(item.extraCategories || []).map((id) => categoryNameById.get(id) || ''),
+        ];
+        if (item.descriptionEn) parts.push(item.descriptionEn);
+        if (item.ingredientsEn) parts.push(...item.ingredientsEn);
+        const blob = parts.filter(Boolean).map(normalize).join(' ');
+        return queryTokens.every((qt) => matchToken(qt, blob));
+      });
     }
 
     // Tag filter
@@ -151,7 +229,7 @@ export function DigitalMenuClient() {
     }
 
     return items;
-  }, [dbMenuItems, searchQuery, activeTags]);
+  }, [dbMenuItems, dbCategories, searchQuery, activeTags]);
 
   // Returns true if item belongs to the given category (primary or extra).
   const itemIsInCategory = useCallback((item: MenuItem, categoryId: string) => {

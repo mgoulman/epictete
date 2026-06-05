@@ -9,6 +9,7 @@ import {
   ChevronLeft, ChevronRight, X, Trash2, Save, Check, AlertTriangle,
   TrendingUp, TrendingDown, DollarSign, Package, Loader2, FileText, Printer
 } from 'lucide-react';
+import type ExcelJS from 'exceljs';
 
 // ============================================
 // Types
@@ -281,11 +282,13 @@ export default function ReportsPage() {
     const fmt = (n: number) => (n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const renderItems = (items: CashSheetItem[]) => items.filter(i => i.label).map(i => `<div>${i.label} : ${fmt(Number(i.amount))}</div>`).join('') || '<div>&nbsp;</div>';
 
+    const logoUrl = `${window.location.origin}/logos/logo-full.png`;
     win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Feuille de Caisse — ${date}</title>
       <style>
         body { font-family: Georgia, serif; max-width: 600px; margin: 20px auto; padding: 20px; color: #000; }
-        .header { background: #e8e9d8; text-align: center; padding: 8px; border: 1px solid #999; margin-bottom: 0; }
-        .logo { font-family: 'Brush Script MT', cursive; font-size: 36px; text-align: center; padding: 16px 0; border: 1px solid #999; border-top: 0; margin-bottom: 24px; }
+        .header { background: #e8e9d8; text-align: center; padding: 8px; border: 1px solid #999; margin-bottom: 0; font-weight: bold; letter-spacing: 1px; }
+        .logo { text-align: center; padding: 16px 0; border: 1px solid #999; border-top: 0; margin-bottom: 24px; }
+        .logo img { max-height: 80px; width: auto; }
         table { width: 100%; border-collapse: collapse; }
         th, td { border: 1px solid #999; padding: 8px 10px; text-align: left; vertical-align: top; }
         .label { font-weight: bold; width: 30%; }
@@ -299,7 +302,7 @@ export default function ReportsPage() {
         }
       </style></head><body>
       <div class="header">FEUILLE DE CAISSE</div>
-      <div class="logo">epictete</div>
+      <div class="logo"><img src="${logoUrl}" alt="Epictète"></div>
       <table>
         <tr><td colspan="2" class="amount">DATE : ${date}</td></tr>
         <tr><td class="label">TOTAL CA :</td><td class="amount">${fmt(cashSheet.total_ca)}</td></tr>
@@ -331,6 +334,148 @@ export default function ReportsPage() {
       </div>
     </body></html>`);
     win.document.close();
+  };
+
+  // ── Suivi Excel export ─────────────────────────────────────────────────────
+  const exportSuiviExcel = async () => {
+    if (!monthEntries.length) return;
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Epictète Restaurant';
+
+    const ws = wb.addWorksheet('Suivi');
+
+    // Logo (top-left, spans 3 rows)
+    try {
+      const logoRes = await fetch('/logos/logo-full.png');
+      const logoBuf = await logoRes.arrayBuffer();
+      const imageId = wb.addImage({ buffer: logoBuf, extension: 'png' });
+      ws.addImage(imageId, {
+        tl: { col: 0, row: 0 },
+        ext: { width: 120, height: 60 },
+      });
+    } catch { /* ignore — file still useful without logo */ }
+
+    // Title row (offset to leave room for the logo)
+    ws.getRow(1).height = 24;
+    ws.getRow(2).height = 24;
+    ws.getRow(3).height = 24;
+    const titleCell = ws.getCell('C2');
+    titleCell.value = `Suivi Financier — ${monthLabel(selectedMonth)}`;
+    titleCell.font = { bold: true, size: 16, color: { argb: '606338' } };
+    ws.mergeCells('C2:N2');
+    titleCell.alignment = { vertical: 'middle' };
+
+    // Header row 1
+    const hRow1 = ws.getRow(5);
+    hRow1.values = [
+      'Date',
+      'Recettes', '', '', '',
+      'Dépenses', '', '', '',
+      'Retraits', '', '',
+      'Solde', 'Observations',
+    ];
+    ws.mergeCells('B5:E5');
+    ws.mergeCells('F5:I5');
+    ws.mergeCells('J5:L5');
+    const groupFill: ExcelJS.FillPattern = { type: 'pattern', pattern: 'solid', fgColor: { argb: '606338' } };
+    const groupFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
+    hRow1.eachCell(c => { c.fill = groupFill; c.font = groupFont; c.alignment = { horizontal: 'center', vertical: 'middle' }; });
+    hRow1.height = 20;
+
+    // Header row 2
+    const hRow2 = ws.getRow(6);
+    hRow2.values = [
+      '',
+      'Carte', 'Espèces', 'Virement', 'Total',
+      'Caisse', 'Carte Pro', 'TPE', 'Total',
+      'Pro', 'Perso', 'Total',
+      '', '',
+    ];
+    const subFill: ExcelJS.FillPattern = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EDE6D6' } };
+    const subFont: Partial<ExcelJS.Font> = { bold: true, size: 10, color: { argb: '4d4f2e' } };
+    hRow2.eachCell(c => { c.fill = subFill; c.font = subFont; c.alignment = { horizontal: 'center' }; });
+
+    const currencyFmt = '#,##0.00 "DH"';
+    const thinBorder: Partial<ExcelJS.Borders> = {
+      top: { style: 'thin', color: { argb: 'D0D0D0' } },
+      bottom: { style: 'thin', color: { argb: 'D0D0D0' } },
+      left: { style: 'thin', color: { argb: 'D0D0D0' } },
+      right: { style: 'thin', color: { argb: 'D0D0D0' } },
+    };
+
+    // Data rows
+    const sorted = [...monthEntries].sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+    let totRevCard = 0, totRevCash = 0, totRevTransfer = 0;
+    let totExpCash = 0, totExpCardPro = 0, totExpTpe = 0;
+    let totWithdrawPro = 0, totWithdrawPerso = 0, totSolde = 0;
+
+    for (const e of sorted) {
+      const revTotal = Number(e.revenue_card) + Number(e.revenue_cash) + Number(e.revenue_transfer);
+      const expTotal = Number(e.expense_cash) + Number(e.expense_card_pro) + Number(e.expense_tpe);
+      const wTotal = Number(e.withdrawal_pro) + Number(e.withdrawal_perso);
+      totRevCard += Number(e.revenue_card);
+      totRevCash += Number(e.revenue_cash);
+      totRevTransfer += Number(e.revenue_transfer);
+      totExpCash += Number(e.expense_cash);
+      totExpCardPro += Number(e.expense_card_pro);
+      totExpTpe += Number(e.expense_tpe);
+      totWithdrawPro += Number(e.withdrawal_pro);
+      totWithdrawPerso += Number(e.withdrawal_perso);
+      totSolde += Number(e.solde_theorique);
+
+      const row = ws.addRow([
+        new Date(e.entry_date + 'T12:00:00').toLocaleDateString('fr-FR'),
+        Number(e.revenue_card), Number(e.revenue_cash), Number(e.revenue_transfer), revTotal,
+        Number(e.expense_cash), Number(e.expense_card_pro), Number(e.expense_tpe), expTotal,
+        Number(e.withdrawal_pro), Number(e.withdrawal_perso), wTotal,
+        Number(e.solde_theorique),
+        e.observations || '',
+      ]);
+      row.eachCell(c => { c.border = thinBorder; });
+      for (let col = 2; col <= 13; col++) {
+        row.getCell(col).numFmt = currencyFmt;
+        row.getCell(col).alignment = { horizontal: 'right' };
+      }
+      // Highlight totals + solde
+      row.getCell(5).font = { bold: true, color: { argb: '606338' } };
+      row.getCell(9).font = { bold: true };
+      row.getCell(12).font = { bold: true };
+      row.getCell(13).font = { bold: true, color: { argb: Number(e.solde_theorique) >= 0 ? '16A34A' : 'DC2626' } };
+    }
+
+    // Total row
+    const totalRow = ws.addRow([
+      'TOTAL',
+      totRevCard, totRevCash, totRevTransfer, totRevCard + totRevCash + totRevTransfer,
+      totExpCash, totExpCardPro, totExpTpe, totExpCash + totExpCardPro + totExpTpe,
+      totWithdrawPro, totWithdrawPerso, totWithdrawPro + totWithdrawPerso,
+      totSolde,
+      '',
+    ]);
+    totalRow.eachCell(c => { c.fill = groupFill; c.font = groupFont; c.border = thinBorder; c.alignment = { horizontal: 'right' }; });
+    totalRow.getCell(1).alignment = { horizontal: 'left' };
+    for (let col = 2; col <= 13; col++) totalRow.getCell(col).numFmt = currencyFmt;
+
+    // Column widths
+    ws.columns = [
+      { width: 12 },
+      { width: 12 }, { width: 12 }, { width: 12 }, { width: 14 },
+      { width: 12 }, { width: 12 }, { width: 12 }, { width: 14 },
+      { width: 12 }, { width: 12 }, { width: 14 },
+      { width: 14 },
+      { width: 40 },
+    ];
+
+    // Download
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Suivi_${selectedMonth}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const fetchDailyEntry = useCallback(async (date: string) => {
@@ -991,6 +1136,14 @@ export default function ReportsPage() {
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
+              <button
+                onClick={exportSuiviExcel}
+                disabled={!monthEntries.length}
+                className="flex items-center gap-1.5 px-3 py-2 bg-secondary border border-border rounded-lg text-xs font-medium text-foreground hover:bg-card disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Exporter Excel
+              </button>
             </div>
 
             <div className="bg-secondary border border-border rounded-xl overflow-hidden">
