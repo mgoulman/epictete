@@ -117,7 +117,19 @@ interface InventoryMovement {
   created_at: string;
 }
 
-type TabType = 'daily' | 'suivi' | 'recap' | 'expenses' | 'movements';
+type TabType = 'daily' | 'suivi' | 'recap' | 'expenses' | 'movements' | 'frais-divers';
+
+interface MiscExpense {
+  id: string;
+  expense_date: string;
+  amount: number;
+  description: string | null;
+  justification: string | null;
+  receipt_url: string | null;
+  receipt_path: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 // ============================================
 // Helpers
@@ -157,7 +169,7 @@ export default function ReportsPage() {
   const rp = t.backoffice.reportsPage;
 
   const tabParam = searchParams.get('tab') as TabType | null;
-  const validTabs: TabType[] = ['daily', 'suivi', 'recap', 'expenses', 'movements'];
+  const validTabs: TabType[] = ['daily', 'suivi', 'recap', 'expenses', 'movements', 'frais-divers'];
   const activeTab: TabType = tabParam && validTabs.includes(tabParam) ? tabParam : 'daily';
   const setActiveTab = (tab: TabType) => router.push(`/admin/reports?tab=${tab}`, { scroll: false });
 
@@ -209,6 +221,17 @@ export default function ReportsPage() {
   const [newExpense, setNewExpense] = useState({
     expense_date: today, amount: 0, payment_method: 'cash' as string,
     category: 'market_purchase' as string, description: '', vendor_id: '',
+  });
+
+  // ── Frais Divers State ──
+  // Money taken from the till for non-restaurant uses (personal, family, etc.).
+  // Tracked & justified here but NEVER mixed with the restaurant's finances.
+  const [miscExpenses, setMiscExpenses] = useState<MiscExpense[]>([]);
+  const [miscLoading, setMiscLoading] = useState(false);
+  const [showMiscModal, setShowMiscModal] = useState(false);
+  const [editingMiscId, setEditingMiscId] = useState<string | null>(null);
+  const [miscForm, setMiscForm] = useState<{ expense_date: string; amount: number; description: string; justification: string }>({
+    expense_date: today, amount: 0, description: '', justification: '',
   });
 
   // ── Movements State ──
@@ -287,8 +310,8 @@ export default function ReportsPage() {
       <style>
         body { font-family: Georgia, serif; max-width: 600px; margin: 20px auto; padding: 20px; color: #000; }
         .header { background: #e8e9d8; text-align: center; padding: 8px; border: 1px solid #999; margin-bottom: 0; font-weight: bold; letter-spacing: 1px; }
-        .logo { text-align: center; padding: 16px 0; border: 1px solid #999; border-top: 0; margin-bottom: 24px; }
-        .logo img { max-height: 80px; width: auto; }
+        .logo { text-align: center; padding: 0; border: 1px solid #999; border-top: 0; margin-bottom: 24px; line-height: 0; }
+        .logo img { width: 100%; height: auto; display: block; }
         table { width: 100%; border-collapse: collapse; }
         th, td { border: 1px solid #999; padding: 8px 10px; text-align: left; vertical-align: top; }
         .label { font-weight: bold; width: 30%; }
@@ -614,6 +637,141 @@ export default function ReportsPage() {
     setMovementsLoading(false);
   }, [selectedMonth]);
 
+  // ── Frais Divers fetchers + handlers ──
+  const fetchMiscExpenses = useCallback(async () => {
+    setMiscLoading(true);
+    try {
+      const res = await fetch(`/api/reports/misc-expenses?month=${selectedMonth}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMiscExpenses(data.entries || []);
+      }
+    } catch (err) {
+      console.error('Fetch misc expenses error:', err);
+    }
+    setMiscLoading(false);
+  }, [selectedMonth]);
+
+  const openMiscModal = (entry?: MiscExpense) => {
+    if (entry) {
+      setEditingMiscId(entry.id);
+      setMiscForm({
+        expense_date: entry.expense_date,
+        amount: Number(entry.amount) || 0,
+        description: entry.description || '',
+        justification: entry.justification || '',
+      });
+    } else {
+      setEditingMiscId(null);
+      setMiscForm({ expense_date: today, amount: 0, description: '', justification: '' });
+    }
+    setShowMiscModal(true);
+  };
+
+  const saveMiscExpense = async () => {
+    if (!miscForm.expense_date || !miscForm.amount) return;
+    try {
+      if (editingMiscId) {
+        await fetch(`/api/reports/misc-expenses?id=${editingMiscId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(miscForm),
+        });
+      } else {
+        await fetch('/api/reports/misc-expenses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(miscForm),
+        });
+      }
+      setShowMiscModal(false);
+      fetchMiscExpenses();
+    } catch (err) {
+      console.error('Save misc expense error:', err);
+    }
+  };
+
+  const deleteMiscExpense = async (id: string) => {
+    if (!confirm('Supprimer ce frais divers ?')) return;
+    try {
+      await fetch(`/api/reports/misc-expenses?id=${id}`, { method: 'DELETE' });
+      fetchMiscExpenses();
+    } catch (err) {
+      console.error('Delete misc expense error:', err);
+    }
+  };
+
+  const exportMiscExpensesExcel = async () => {
+    if (!miscExpenses.length) return;
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Epictète Restaurant';
+    const ws = wb.addWorksheet('Frais Divers');
+
+    // Logo
+    try {
+      const logoRes = await fetch('/logos/logo-full.png');
+      const logoBuf = await logoRes.arrayBuffer();
+      const imageId = wb.addImage({ buffer: logoBuf, extension: 'png' });
+      ws.addImage(imageId, { tl: { col: 0, row: 0 }, ext: { width: 120, height: 60 } });
+    } catch { /* ignore */ }
+
+    ws.getRow(1).height = 24;
+    ws.getRow(2).height = 24;
+    ws.getRow(3).height = 24;
+    const titleCell = ws.getCell('C2');
+    titleCell.value = `Frais Divers — ${monthLabel(selectedMonth)}`;
+    titleCell.font = { bold: true, size: 16, color: { argb: '606338' } };
+    ws.mergeCells('C2:E2');
+    titleCell.alignment = { vertical: 'middle' };
+
+    const headerFill: ExcelJS.FillPattern = { type: 'pattern', pattern: 'solid', fgColor: { argb: '606338' } };
+    const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
+    const thinBorder: Partial<ExcelJS.Borders> = {
+      top: { style: 'thin', color: { argb: 'D0D0D0' } },
+      bottom: { style: 'thin', color: { argb: 'D0D0D0' } },
+      left: { style: 'thin', color: { argb: 'D0D0D0' } },
+      right: { style: 'thin', color: { argb: 'D0D0D0' } },
+    };
+    const currencyFmt = '#,##0.00 "DH"';
+
+    const hRow = ws.getRow(5);
+    hRow.values = ['Date', 'Montant', 'Description', 'Justification'];
+    hRow.eachCell(c => { c.fill = headerFill; c.font = headerFont; c.border = thinBorder; c.alignment = { horizontal: 'center' }; });
+    hRow.height = 20;
+
+    let total = 0;
+    const sorted = [...miscExpenses].sort((a, b) => a.expense_date.localeCompare(b.expense_date));
+    for (const e of sorted) {
+      total += Number(e.amount);
+      const r = ws.addRow([
+        new Date(e.expense_date + 'T12:00:00').toLocaleDateString('fr-FR'),
+        Number(e.amount),
+        e.description || '',
+        e.justification || '',
+      ]);
+      r.eachCell(c => { c.border = thinBorder; c.alignment = { vertical: 'top', wrapText: true }; });
+      r.getCell(2).numFmt = currencyFmt;
+      r.getCell(2).alignment = { horizontal: 'right' };
+    }
+
+    const totalRow = ws.addRow(['TOTAL', total, '', '']);
+    totalRow.eachCell(c => { c.fill = headerFill; c.font = headerFont; c.border = thinBorder; });
+    totalRow.getCell(2).numFmt = currencyFmt;
+    totalRow.getCell(2).alignment = { horizontal: 'right' };
+
+    ws.columns = [{ width: 14 }, { width: 16 }, { width: 40 }, { width: 50 }];
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Frais_Divers_${selectedMonth}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // ── Effects ──
   useEffect(() => {
     if (activeTab === 'daily') {
@@ -629,7 +787,8 @@ export default function ReportsPage() {
     if (activeTab === 'recap') fetchRecap();
     if (activeTab === 'expenses') fetchExpenses();
     if (activeTab === 'movements') fetchMovements();
-  }, [activeTab, selectedMonth, fetchMonthEntries, fetchRecap, fetchExpenses, fetchMovements]);
+    if (activeTab === 'frais-divers') fetchMiscExpenses();
+  }, [activeTab, selectedMonth, fetchMonthEntries, fetchRecap, fetchExpenses, fetchMovements, fetchMiscExpenses]);
 
   // ── Handlers ──
   const handleSaveEntry = async (status: 'draft' | 'validated' = 'draft') => {
@@ -763,6 +922,7 @@ export default function ReportsPage() {
             { id: 'recap' as TabType, label: rp.tabs.recap, icon: BarChart3 },
             { id: 'expenses' as TabType, label: rp.tabs.expenses, icon: Receipt },
             { id: 'movements' as TabType, label: rp.tabs.movements, icon: ArrowUpDown },
+            { id: 'frais-divers' as TabType, label: 'Frais Divers', icon: DollarSign },
           ]).map(tab => (
             <button
               key={tab.id}
@@ -1560,6 +1720,172 @@ export default function ReportsPage() {
                 <button onClick={handleAddExpense}
                   className="px-4 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium">
                   {rp.addExpense}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════ */}
+        {/* TAB: FRAIS DIVERS                          */}
+        {/* ═══════════════════════════════════════════ */}
+        {activeTab === 'frais-divers' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-2">
+                <button onClick={() => navigateMonth(-1)} className="p-2 bg-secondary border border-border rounded-lg hover:bg-card">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm font-medium text-foreground capitalize min-w-[160px] text-center">
+                  {monthLabel(selectedMonth)}
+                </span>
+                <button onClick={() => navigateMonth(1)} className="p-2 bg-secondary border border-border rounded-lg hover:bg-card">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={exportMiscExpensesExcel}
+                  disabled={!miscExpenses.length}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-secondary border border-border rounded-lg text-xs font-medium text-foreground hover:bg-card disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  Exporter Excel
+                </button>
+                <button
+                  onClick={() => openMiscModal()}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-xs font-medium"
+                >
+                  <Plus className="w-4 h-4" />
+                  Nouveau frais
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-xl p-4 text-sm">
+              <span className="text-muted-foreground">Total du mois :</span>{' '}
+              <span className="font-semibold text-[#606338]">
+                {miscExpenses.reduce((s, e) => s + Number(e.amount), 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DH
+              </span>
+              <span className="ml-3 text-xs text-muted-foreground">(non inclus dans les calculs du restaurant)</span>
+            </div>
+
+            <div className="bg-secondary border border-border rounded-xl overflow-hidden">
+              {miscLoading ? (
+                <div className="flex items-center justify-center h-48">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#606338]" />
+                </div>
+              ) : miscExpenses.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+                  <DollarSign className="w-10 h-10 mb-3 opacity-50" />
+                  <p className="text-sm">Aucun frais divers ce mois-ci</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-secondary text-xs text-muted-foreground uppercase tracking-wide">
+                        <th className="px-4 py-3 text-left font-semibold">Date</th>
+                        <th className="px-4 py-3 text-right font-semibold">Montant</th>
+                        <th className="px-4 py-3 text-left font-semibold">Description</th>
+                        <th className="px-4 py-3 text-left font-semibold">Justification</th>
+                        <th className="px-4 py-3 text-right font-semibold">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...miscExpenses].sort((a, b) => b.expense_date.localeCompare(a.expense_date)).map(e => (
+                        <tr key={e.id} className="border-t border-border hover:bg-card/40">
+                          <td className="px-4 py-3 whitespace-nowrap text-foreground">
+                            {new Date(e.expense_date + 'T12:00:00').toLocaleDateString('fr-FR')}
+                          </td>
+                          <td className="px-4 py-3 text-right font-medium text-foreground whitespace-nowrap">
+                            {Number(e.amount).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DH
+                          </td>
+                          <td className="px-4 py-3 text-foreground">{e.description || <span className="text-muted-foreground">—</span>}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{e.justification || <span className="text-muted-foreground">—</span>}</td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            <button onClick={() => openMiscModal(e)} className="p-1.5 text-muted-foreground hover:text-foreground" aria-label="Modifier">
+                              <FileText className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => deleteMiscExpense(e.id)} className="p-1.5 text-muted-foreground hover:text-red-500" aria-label="Supprimer">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {showMiscModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowMiscModal(false)}>
+            <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-foreground">
+                  {editingMiscId ? 'Modifier le frais divers' : 'Nouveau frais divers'}
+                </h2>
+                <button onClick={() => setShowMiscModal(false)} className="p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1.5">Date *</label>
+                  <input
+                    type="date"
+                    value={miscForm.expense_date}
+                    onChange={(e) => setMiscForm({ ...miscForm, expense_date: e.target.value })}
+                    className="w-full py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1.5">Montant (DH) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={miscForm.amount}
+                    onChange={(e) => setMiscForm({ ...miscForm, amount: Number(e.target.value) || 0 })}
+                    className="w-full py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1.5">Description</label>
+                  <input
+                    type="text"
+                    value={miscForm.description}
+                    onChange={(e) => setMiscForm({ ...miscForm, description: e.target.value })}
+                    className="w-full py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50"
+                    placeholder="ex: Avance personnelle"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1.5">Justification</label>
+                  <textarea
+                    value={miscForm.justification}
+                    onChange={(e) => setMiscForm({ ...miscForm, justification: e.target.value })}
+                    rows={3}
+                    className="w-full py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50 resize-none"
+                    placeholder="Pourquoi cet argent a été pris de la caisse..."
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 mt-5">
+                <button
+                  onClick={() => setShowMiscModal(false)}
+                  className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={saveMiscExpense}
+                  disabled={!miscForm.expense_date || !miscForm.amount}
+                  className="px-4 py-2 rounded-lg bg-gradient-to-br from-[#606338] to-[#4d4f2e] text-white text-sm font-medium disabled:opacity-50"
+                >
+                  {editingMiscId ? 'Enregistrer' : 'Créer'}
                 </button>
               </div>
             </div>
