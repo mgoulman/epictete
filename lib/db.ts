@@ -463,14 +463,30 @@ class InsertBuilder<T = Record<string, unknown>> {
         ? `RETURNING *`
         : 'RETURNING *';
 
-      // Handle upsert options
+      // Handle upsert options. Supabase semantics:
+      //   upsert(data, { onConflict: 'col' })                        → DO UPDATE (insert or update)
+      //   upsert(data, { onConflict: 'col', ignoreDuplicates: true }) → DO NOTHING (insert or skip)
+      //   upsert(data, { ignoreDuplicates: true })                   → DO NOTHING on any conflict
       const upsertConflict = (this as unknown as Record<string, unknown>)._upsertConflict as string | undefined;
       const upsertIgnore = (this as unknown as Record<string, unknown>)._upsertIgnore as boolean | undefined;
       let conflictClause = '';
       if (upsertConflict || upsertIgnore) {
-        conflictClause = upsertConflict
-          ? ` ON CONFLICT (${upsertConflict}) DO NOTHING`
-          : ' ON CONFLICT DO NOTHING';
+        if (upsertIgnore) {
+          conflictClause = upsertConflict
+            ? ` ON CONFLICT (${upsertConflict}) DO NOTHING`
+            : ' ON CONFLICT DO NOTHING';
+        } else if (upsertConflict) {
+          // Update every column we're inserting (except the conflict key itself)
+          // using EXCLUDED — Postgres' standard insert-or-update pattern.
+          const conflictCols = new Set(upsertConflict.split(',').map(c => c.trim()));
+          const updateCols = cols.filter(c => !conflictCols.has(c));
+          if (updateCols.length === 0) {
+            conflictClause = ` ON CONFLICT (${upsertConflict}) DO NOTHING`;
+          } else {
+            const setClauses = updateCols.map(c => `"${c}" = EXCLUDED."${c}"`).join(', ');
+            conflictClause = ` ON CONFLICT (${upsertConflict}) DO UPDATE SET ${setClauses}`;
+          }
+        }
       }
 
       const sql = `INSERT INTO ${this._table} (${cols.map(c => `"${c}"`).join(', ')}) VALUES ${valueGroups.join(', ')}${conflictClause} ${returning}`;

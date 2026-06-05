@@ -16,6 +16,7 @@
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.91.1",
     "@types/pg": "^8.20.0",
+    "@vercel/blob": "^2.4.0",
     "date-fns": "^4.1.0",
     "docx": "^9.6.1",
     "exceljs": "^4.4.0",
