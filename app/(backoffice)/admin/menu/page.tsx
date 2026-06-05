@@ -152,21 +152,8 @@ export default function MenuPage() {
   const handleImageUpload = async (file: File) => {
     setUploadingImage(true);
     try {
-      const formDataUpload = new FormData();
-      formDataUpload.append('file', file);
-      formDataUpload.append('bucket', 'menu-images');
-
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formDataUpload
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Upload failed');
-      }
-
-      const result = await response.json();
+      const { uploadFile } = await import('@/lib/client-upload');
+      const result = await uploadFile(file, 'menu-images');
       setFormData(prev => ({ ...prev, image_url: result.url }));
     } catch (err) {
       console.error('Image upload error:', err);
@@ -561,9 +548,9 @@ export default function MenuPage() {
         {viewMode === 'grid' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
             {sortedItems.map(item => (
-              <div key={item.id} onClick={() => { setViewingItem(item); loadRecipeForView(item); }} className={`bg-secondary border border-border rounded-xl overflow-hidden transition-all hover:border-[#606338]/30 cursor-pointer ${!item.is_available ? 'opacity-60' : ''}`}>
-                <div className="h-40 bg-card relative flex items-center justify-center">
-                  {item.image_url ? <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" /> : <Image className="w-8 h-8 text-muted" />}
+              <div key={item.id} onClick={() => { setViewingItem(item); loadRecipeForView(item); }} className={`bg-secondary border border-border rounded-xl overflow-hidden transition-all hover:border-[#606338]/30 cursor-pointer flex flex-col ${!item.is_available ? 'opacity-60' : ''}`}>
+                <div className="h-40 shrink-0 bg-card relative flex items-center justify-center overflow-hidden">
+                  {item.image_url ? <img src={item.image_url} alt={item.name} className="absolute inset-0 w-full h-full object-cover" /> : <Image className="w-8 h-8 text-muted" />}
                   <div className="absolute top-2.5 left-2.5 flex gap-1.5">
                     {item.is_signature && <span className="flex items-center gap-1 px-2 py-1 bg-yellow-500/90 rounded-md text-[11px] font-semibold text-black"><Star className="w-3 h-3" />{mp.signatureDish}</span>}
                     {item.is_featured && <span className="flex items-center gap-1 px-2 py-1 bg-orange-500/90 rounded-md text-[11px] font-semibold text-white"><Flame className="w-3 h-3" />{mp.featured}</span>}

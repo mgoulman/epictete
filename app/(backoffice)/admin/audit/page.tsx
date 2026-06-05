@@ -22,6 +22,11 @@ export default function AuditPage() {
   // Filters
   const [resourceType, setResourceType] = useState('');
   const [action, setAction] = useState('');
+  const [userId, setUserId] = useState('');
+
+  // Filter dropdown options, populated from the audit_logs themselves
+  const [resourceTypeOptions, setResourceTypeOptions] = useState<string[]>([]);
+  const [userOptions, setUserOptions] = useState<{ id: string; email: string | null }[]>([]);
 
   const limit = 20;
 
@@ -35,6 +40,7 @@ export default function AuditPage() {
 
       if (resourceType) params.set('resourceType', resourceType);
       if (action) params.set('action', action);
+      if (userId) params.set('userId', userId);
 
       const response = await fetch(`/api/audit?${params}`);
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -47,7 +53,22 @@ export default function AuditPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [offset, resourceType, action]);
+  }, [offset, resourceType, action, userId]);
+
+  // Load distinct resource types + users for the dropdown options
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/audit?metadata=1');
+        if (!res.ok) return;
+        const data = await res.json();
+        setResourceTypeOptions(data.resourceTypes || []);
+        setUserOptions(data.users || []);
+      } catch (err) {
+        console.error('Failed to fetch audit metadata:', err);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     fetchLogs();
@@ -130,9 +151,9 @@ export default function AuditPage() {
               className="py-2 px-3 bg-card border border-border rounded-lg text-sm text-foreground"
             >
               <option value="">{a.allResources}</option>
-              <option value="user">{a.resourceUsers}</option>
-              <option value="menu">{a.resourceMenu}</option>
-              <option value="settings">{a.resourceSettings}</option>
+              {resourceTypeOptions.map(rt => (
+                <option key={rt} value={rt}>{rt}</option>
+              ))}
             </select>
 
             <select
@@ -147,13 +168,32 @@ export default function AuditPage() {
               <option value="create">{a.actionCreate}</option>
               <option value="update">{a.actionUpdate}</option>
               <option value="delete">{a.actionDelete}</option>
+              <option value="login_success">Connexion réussie</option>
+              <option value="login_failed">Connexion échouée</option>
+              <option value="login_blocked">Compte bloqué</option>
+              <option value="logout">Déconnexion</option>
             </select>
 
-            {(resourceType || action) && (
+            <select
+              value={userId}
+              onChange={e => {
+                setUserId(e.target.value);
+                setOffset(0);
+              }}
+              className="py-2 px-3 bg-card border border-border rounded-lg text-sm text-foreground min-w-[200px]"
+            >
+              <option value="">Tous les utilisateurs</option>
+              {userOptions.map(u => (
+                <option key={u.id} value={u.id}>{u.email || `(sans email) ${u.id.slice(0, 8)}`}</option>
+              ))}
+            </select>
+
+            {(resourceType || action || userId) && (
               <button
                 onClick={() => {
                   setResourceType('');
                   setAction('');
+                  setUserId('');
                   setOffset(0);
                 }}
                 className="py-2 px-3 text-sm text-muted-foreground bg-transparent border-none cursor-pointer hover:text-foreground"
