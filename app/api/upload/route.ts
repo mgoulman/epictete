@@ -1,16 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { put, del } from '@vercel/blob';
 import sharp from 'sharp';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-// Use service role for storage operations if available, otherwise use anon key
-const supabaseAdmin = createClient(
-  supabaseUrl,
-  supabaseServiceKey || supabaseAnonKey
-);
 
 // Image optimization settings
 const IMAGE_MAX_WIDTH = 1920;
@@ -21,7 +11,7 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const bucket = formData.get('bucket') as string || 'menu-images';
+    const bucket = (formData.get('bucket') as string) || 'menu-images';
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -53,47 +43,30 @@ export async function POST(request: NextRequest) {
     // Optimize images (not PDFs)
     if (imageTypes.includes(file.type) && bucket === 'menu-images') {
       try {
-        // Get image metadata
         const metadata = await sharp(buffer).metadata();
-
-        // Check if resizing is needed
         const needsResize = (metadata.width && metadata.width > IMAGE_MAX_WIDTH) ||
                            (metadata.height && metadata.height > IMAGE_MAX_HEIGHT);
 
-        // Process image with sharp
         let sharpInstance = sharp(buffer);
-
-        // Resize if too large (maintain aspect ratio)
         if (needsResize) {
           sharpInstance = sharpInstance.resize(IMAGE_MAX_WIDTH, IMAGE_MAX_HEIGHT, {
             fit: 'inside',
-            withoutEnlargement: true
+            withoutEnlargement: true,
           });
         }
 
-        // Convert HEIC/HEIF to JPEG
         if (file.type === 'image/heic' || file.type === 'image/heif') {
           buffer = Buffer.from(await sharpInstance.jpeg({ quality: IMAGE_QUALITY }).toBuffer()) as Buffer;
           contentType = 'image/jpeg';
           ext = 'jpg';
-        }
-        // Optimize JPEG
-        else if (file.type === 'image/jpeg') {
+        } else if (file.type === 'image/jpeg') {
           buffer = Buffer.from(await sharpInstance.jpeg({ quality: IMAGE_QUALITY }).toBuffer()) as Buffer;
-        }
-        // Optimize PNG
-        else if (file.type === 'image/png') {
+        } else if (file.type === 'image/png') {
           buffer = Buffer.from(await sharpInstance.png({ compressionLevel: 8 }).toBuffer()) as Buffer;
-        }
-        // Optimize WebP
-        else if (file.type === 'image/webp') {
+        } else if (file.type === 'image/webp') {
           buffer = Buffer.from(await sharpInstance.webp({ quality: IMAGE_QUALITY }).toBuffer()) as Buffer;
-        }
-        // GIFs - just pass through (sharp doesn't handle animated GIFs well)
-        else if (file.type === 'image/gif') {
-          if (needsResize) {
-            buffer = Buffer.from(await sharpInstance.gif().toBuffer()) as Buffer;
-          }
+        } else if (file.type === 'image/gif' && needsResize) {
+          buffer = Buffer.from(await sharpInstance.gif().toBuffer()) as Buffer;
         }
 
         console.log(`Image optimized: ${file.name} - Original: ${file.size} bytes, Optimized: ${buffer.length} bytes`);
@@ -103,62 +76,42 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate unique filename
-    const filename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
-    const filePath = `${filename}`;
+    // Generate unique filename — namespaced by bucket so we keep logical folders
+    const filename = `${bucket}/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
 
-    // Upload to Supabase Storage
-    const { data, error } = await supabaseAdmin.storage
-      .from(bucket)
-      .upload(filePath, buffer, {
-        contentType: contentType,
-        cacheControl: '3600',
-        upsert: false
-      });
-
-    if (error) {
-      console.error('Upload error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    // Get public URL
-    const { data: urlData } = supabaseAdmin.storage
-      .from(bucket)
-      .getPublicUrl(filePath);
+    const blob = await put(filename, buffer, {
+      access: 'public',
+      contentType,
+      addRandomSuffix: false,
+    });
 
     return NextResponse.json({
       success: true,
-      url: urlData.publicUrl,
-      path: data.path
+      url: blob.url,
+      path: blob.pathname,
     });
   } catch (error) {
     console.error('Upload error:', error);
-    return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : 'Upload failed';
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const path = searchParams.get('path');
-    const bucket = searchParams.get('bucket') || 'menu-images';
+    // Vercel Blob deletes by URL, not by path. Accept either for compatibility.
+    const url = searchParams.get('url') || searchParams.get('path');
 
-    if (!path) {
-      return NextResponse.json({ error: 'No path provided' }, { status: 400 });
+    if (!url) {
+      return NextResponse.json({ error: 'No url provided' }, { status: 400 });
     }
 
-    const { error } = await supabaseAdmin.storage
-      .from(bucket)
-      .remove([path]);
-
-    if (error) {
-      console.error('Delete error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
+    await del(url);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Delete error:', error);
-    return NextResponse.json({ error: 'Delete failed' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : 'Delete failed';
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

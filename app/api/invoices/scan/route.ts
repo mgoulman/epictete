@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { put } from '@vercel/blob';
+import db from '@/lib/db';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
-
-const supabaseAdmin = createClient(
-  supabaseUrl,
-  supabaseServiceKey || supabaseAnonKey
-);
 
 // --- Fuzzy matching helpers ---
 function normalize(str: string): string {
@@ -72,33 +65,28 @@ export async function POST(request: NextRequest) {
 
     // Upload to vendor-invoices bucket
     const ext = file.name.split('.').pop() || 'jpg';
-    const filename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+    const filename = `vendor-invoices/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
-      .from('vendor-invoices')
-      .upload(filename, buffer, {
+    let invoiceUrl: string;
+    let invoicePath: string;
+    try {
+      const blob = await put(filename, buffer, {
+        access: 'public',
         contentType: file.type,
-        cacheControl: '3600',
-        upsert: false
+        addRandomSuffix: false,
       });
-
-    if (uploadError) {
+      invoiceUrl = blob.url;
+      invoicePath = blob.pathname;
+    } catch (uploadError) {
       console.error('Upload error:', uploadError);
       return NextResponse.json({ error: 'Failed to upload invoice' }, { status: 500 });
     }
 
-    const { data: urlData } = supabaseAdmin.storage
-      .from('vendor-invoices')
-      .getPublicUrl(filename);
-
-    const invoiceUrl = urlData.publicUrl;
-    const invoicePath = uploadData.path;
-
     // Get vendor info + template
-    const { data: vendor } = await supabaseAdmin
-      .from('vendors')
+    const { data: vendor } = await db
+      .from<{ id: string; name: string; invoice_template_url: string | null }>('vendors')
       .select('id, name, invoice_template_url')
       .eq('id', vendorId)
       .single();
@@ -241,8 +229,8 @@ Important:
     }
 
     // Fuzzy-match extracted items against inventory for this vendor
-    const { data: inventoryItems } = await supabaseAdmin
-      .from('inventory_items')
+    const { data: inventoryItems } = await db
+      .from<{ id: string; name: string }>('inventory_items')
       .select('id, name')
       .eq('vendor_id', vendorId);
 
