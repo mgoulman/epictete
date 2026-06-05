@@ -120,17 +120,9 @@ export default function MatchImagesPage() {
     setError(null);
 
     try {
-      // 1. Compress and upload to storage
-      const compressed = await compressImage(selectedFile);
-      const fd = new FormData();
-      fd.append('file', compressed);
-      fd.append('bucket', 'menu-images');
-      const uploadRes = await fetch('/api/upload', { method: 'POST', body: fd });
-      if (!uploadRes.ok) {
-        const data = await uploadRes.json().catch(() => ({}));
-        throw new Error(data.error || 'Upload failed');
-      }
-      const { url } = await uploadRes.json();
+      // 1. Upload directly to Vercel Blob (the helper compresses too).
+      const { uploadFile } = await import('@/lib/client-upload');
+      const { url } = await uploadFile(selectedFile, 'menu-images');
 
       // 2. Save to menu item
       const saveRes = await fetch('/api/menu-items', {

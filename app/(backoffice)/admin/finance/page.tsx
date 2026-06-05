@@ -906,24 +906,15 @@ export default function FinancePage() {
   ) => {
     setUploadingTemplate(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('bucket', 'vendor-invoices');
-
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
-      const data = await res.json();
-
-      if (res.ok) {
-        if (target === 'new') {
-          setNewVendor({ ...newVendor, invoice_template_url: data.url, invoice_template_path: data.path });
-        } else if (editingVendor) {
-          setEditingVendor({ ...editingVendor, invoice_template_url: data.url, invoice_template_path: data.path });
-        }
-      } else {
-        alert(data.error || fn.failedUploadTemplate);
+      const { uploadFile } = await import('@/lib/client-upload');
+      const data = await uploadFile(file, 'vendor-invoices');
+      if (target === 'new') {
+        setNewVendor({ ...newVendor, invoice_template_url: data.url, invoice_template_path: data.path });
+      } else if (editingVendor) {
+        setEditingVendor({ ...editingVendor, invoice_template_url: data.url, invoice_template_path: data.path });
       }
-    } catch {
-      alert(fn.failedUploadTemplate);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : fn.failedUploadTemplate);
     }
     setUploadingTemplate(false);
   };

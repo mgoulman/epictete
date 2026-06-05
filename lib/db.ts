@@ -48,6 +48,7 @@ async function recordAudit(
   if (NON_AUDITABLE_TABLES.has(table)) return;
 
   let userId: string | null = null;
+  let userEmail: string | null = null;
   try {
     const [{ cookies }, { jwtVerify }] = await Promise.all([
       import('next/headers'),
@@ -61,6 +62,14 @@ async function recordAudit(
       );
       const { payload } = await jwtVerify(token, secret);
       userId = (payload.sub as string) || null;
+      if (userId) {
+        try {
+          const { rows } = await pool.query('SELECT email FROM users WHERE id = $1', [userId]);
+          userEmail = (rows[0]?.email as string) || null;
+        } catch {
+          // ignore — log entry still useful with just the id
+        }
+      }
     }
   } catch {
     // No request context (cron, script) or invalid token — log as anonymous.
@@ -68,9 +77,9 @@ async function recordAudit(
 
   try {
     await pool.query(
-      `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, new_values)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [userId, action, table, resourceId, newValues ? JSON.stringify(newValues) : null]
+      `INSERT INTO audit_logs (user_id, user_email, action, resource_type, resource_id, new_values)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [userId, userEmail, action, table, resourceId, newValues ? JSON.stringify(newValues) : null]
     );
   } catch (err) {
     console.error('[audit] failed:', (err as Error).message);
