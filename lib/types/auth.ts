@@ -204,9 +204,9 @@ export const ROLE_PERMISSIONS: Record<RoleName, PermissionName[]> = {
   serveur: [
     'salle.read', 'salle.serve',
   ],
-  // Intern / stagiaire — read-only observer across operations, no writes
+  // Intern / stagiaire — read-only observer (menu, salle, inventory), no recipes
   intern: [
-    'menu.read', 'recipes.read', 'salle.read', 'inventory.read',
+    'menu.read', 'salle.read', 'inventory.read',
   ],
   // Zero-access fallback (no role assigned / legacy)
   regular: [],
@@ -296,7 +296,6 @@ export const BACKOFFICE_NAV: NavItem[] = [
     children: [
       { key: 'overview', label: 'Overview', href: '/admin/finance?tab=overview', icon: 'BarChart3', permission: 'finance.read' },
       { key: 'sales', label: 'Sales', href: '/admin/finance?tab=sales', icon: 'TrendingUp', permission: 'finance.read' },
-      { key: 'dailyPurchases', label: 'Achats & Stock', href: '/admin/inventory', icon: 'ShoppingCart', permission: 'inventory.read' },
       { key: 'inventory', label: 'Inventory', href: '/admin/finance?tab=inventory', icon: 'Package', permission: 'finance.read' },
       { key: 'vendors', label: 'Vendors', href: '/admin/finance?tab=vendors', icon: 'Users', permission: 'finance.read' },
       { key: 'import', label: 'Import', href: '/admin/finance?tab=import', icon: 'Upload', permission: 'finance.read' }

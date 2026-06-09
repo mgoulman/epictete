@@ -110,6 +110,7 @@ export async function getServerSession(): Promise<AuthUser | null> {
 export async function checkServerPermission(permission: PermissionName): Promise<boolean> {
   const session = await getServerSession();
   if (!session) return false;
+  if (session.role === 'admin') return true; // super-admin: all permissions
   return session.permissions.includes(permission);
 }
 
@@ -121,6 +122,7 @@ export async function requireAuth(): Promise<AuthUser> {
 
 export async function requirePermission(permission: PermissionName): Promise<AuthUser> {
   const session = await requireAuth();
+  if (session.role === 'admin') return session; // super-admin: all permissions
   if (!session.permissions.includes(permission)) throw new Error('Forbidden');
   return session;
 }
@@ -133,6 +135,7 @@ export async function requirePermission(permission: PermissionName): Promise<Aut
 export async function enforce(permission?: PermissionName): Promise<NextResponse | null> {
   const session = await getServerSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (session.role === 'admin') return null; // super-admin: all permissions, all actions
   if (permission && !session.permissions.includes(permission)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }

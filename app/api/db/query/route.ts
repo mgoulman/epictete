@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforceAdmin } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, getServerSession } from '@/lib/auth/supabase-server';
+import type { PermissionName } from '@/lib/types/auth';
 
-// Generic DB query proxy for client-side components
-// Only authenticated users can use this endpoint
+// Generic DB query proxy for client-side components.
+// Access is enforced per-table against the RBAC resource the table belongs to:
+// SELECT needs <resource>.read, writes need <resource>.write (or .delete/.manage
+// for the few resources that define them). Admins bypass. Public marketing
+// reads (menu, site_content) remain anonymous.
 
 interface Filter {
   column: string;
@@ -32,8 +36,34 @@ const ALLOWED_TABLES = new Set([
 // Writes still require auth; only SELECT is allowed anonymously.
 const PUBLIC_READ_TABLES = new Set(['menu_items', 'menu_categories', 'site_content']);
 
+// Each allowed table maps to the RBAC resource that governs it.
+const TABLE_RESOURCE: Record<string, string> = {
+  menu_items: 'menu', menu_categories: 'menu', menus: 'menu',
+  recipes: 'recipes', recipe_ingredients: 'recipes',
+  inventory_items: 'inventory', inventory_categories: 'inventory', inventory_movements: 'inventory',
+  purchase_orders: 'inventory', purchase_order_items: 'inventory',
+  vendors: 'finance', vendor_transactions: 'finance', invoices: 'finance',
+  sales_items: 'finance', sales_imports: 'finance',
+  daily_entries: 'reports', expenses: 'reports',
+  staff_members: 'personnel', staff_types: 'personnel', staff_schedules: 'personnel', staff_time_off: 'personnel',
+  drivers: 'transport', vehicles: 'transport', transport_trips: 'transport', transport_trip_passengers: 'transport',
+  salle_tables: 'salle', salle_sessions: 'salle', salle_orders: 'salle',
+  site_content: 'marketing',
+  profiles: 'users', roles: 'users', permissions: 'users', role_permissions: 'users',
+  audit_logs: 'audit',
+};
+
+// Required permission for a (resource, action) pair through this proxy.
+function requiredPermission(resource: string, action: string): PermissionName | null {
+  if (action === 'select') return `${resource}.read` as PermissionName;
+  // writes (insert/update/delete)
+  if (resource === 'audit') return null;          // audit is read-only here
+  if (resource === 'users') return 'users.manage'; // user/role writes are sensitive
+  if (resource === 'menu' && action === 'delete') return 'menu.delete';
+  return `${resource}.write` as PermissionName;
+}
+
 export async function POST(request: NextRequest) {
-  const denied = await enforceAdmin(); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
 
@@ -44,11 +74,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ data: null, error: { message: 'Table not allowed' } }, { status: 403 });
     }
 
+    // Authorize per-table/per-action, except anonymous public marketing reads.
     const isPublicRead = action === 'select' && PUBLIC_READ_TABLES.has(table);
     if (!isPublicRead) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const session = await getServerSession();
+      if (!session) {
         return NextResponse.json({ data: null, error: { message: 'Unauthorized' } }, { status: 401 });
+      }
+      if (session.role !== 'admin') {
+        const resource = TABLE_RESOURCE[table];
+        const needed = resource ? requiredPermission(resource, action) : null;
+        if (!needed || !session.permissions.includes(needed)) {
+          return NextResponse.json({ data: null, error: { message: 'Forbidden' } }, { status: 403 });
+        }
       }
     }
 

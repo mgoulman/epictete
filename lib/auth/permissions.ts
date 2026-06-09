@@ -6,6 +6,7 @@ import { ROLE_PERMISSIONS } from '@/lib/types/auth';
  */
 export function hasPermission(user: AuthUser | null, permission: PermissionName): boolean {
   if (!user) return false;
+  if (user.role === 'admin') return true; // super-admin: all permissions, all actions
   return user.permissions.includes(permission);
 }
 
@@ -14,6 +15,7 @@ export function hasPermission(user: AuthUser | null, permission: PermissionName)
  */
 export function hasAnyPermission(user: AuthUser | null, permissions: PermissionName[]): boolean {
   if (!user) return false;
+  if (user.role === 'admin') return true;
   return permissions.some(permission => user.permissions.includes(permission));
 }
 
@@ -22,6 +24,7 @@ export function hasAnyPermission(user: AuthUser | null, permissions: PermissionN
  */
 export function hasAllPermissions(user: AuthUser | null, permissions: PermissionName[]): boolean {
   if (!user) return false;
+  if (user.role === 'admin') return true;
   return permissions.every(permission => user.permissions.includes(permission));
 }
 
