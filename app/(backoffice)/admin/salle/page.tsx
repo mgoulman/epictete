@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Plus, Save, Trash2, X, Map, Users, CircleDot, Square, RectangleHorizontal,
-  GripVertical, Settings2, RotateCw, Maximize2
+  GripVertical, Settings2, RotateCw, Maximize2, ChevronDown
 } from 'lucide-react';
 import type { FloorZone, Table, TableShape, TableStatus } from '@/lib/types/salle';
 import { TABLE_STATUS_CONFIG, SHAPE_DEFAULTS } from '@/lib/types/salle';
@@ -118,6 +118,7 @@ export default function SallePlanPage() {
   // Zone management
   const [showZoneModal, setShowZoneModal] = useState(false);
   const [newZoneName, setNewZoneName] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Observe canvas size for seat dot rendering
   useEffect(() => {
@@ -512,224 +513,163 @@ export default function SallePlanPage() {
 
         {/* ─── Properties panel ─────────────────────────────────────────── */}
         {selectedTable && (
-          <div className="w-72 bg-card border border-border rounded-xl p-4 self-start shrink-0">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-foreground flex items-center gap-2">
-                <Settings2 className="w-4 h-4" />
-                {selectedTable.table_number}
-              </h3>
+          <div className="w-72 bg-card border border-border rounded-xl p-4 self-start shrink-0 space-y-4">
+            {/* Header: editable number + delete */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-8 h-8 rounded-lg bg-[#606338]/10 flex items-center justify-center text-[#606338] shrink-0">
+                  <Settings2 className="w-4 h-4" />
+                </span>
+                <input
+                  type="text"
+                  value={selectedTable.table_number}
+                  onChange={(e) => setTables(prev => prev.map(t => t.id === selectedTable.id ? { ...t, table_number: e.target.value } : t))}
+                  onBlur={() => handleUpdateTable(selectedTable.id, { table_number: selectedTable.table_number })}
+                  className="w-24 px-2 py-1.5 bg-secondary border border-border rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
+                />
+              </div>
               <button
                 onClick={() => handleDeleteTable(selectedTable.id)}
-                className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded"
+                className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded shrink-0"
+                title={sl.deleteTable}
               >
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-4">
-              {/* Table number */}
+            {/* Seats + Status */}
+            <div className="flex items-end justify-between gap-3">
               <div>
-                <label className="block text-xs font-medium mb-1 text-muted-foreground">{sl.tableNumber}</label>
-                <input
-                  type="text"
-                  value={selectedTable.table_number}
-                  onChange={(e) => {
-                    setTables(prev => prev.map(t => t.id === selectedTable.id ? { ...t, table_number: e.target.value } : t));
-                  }}
-                  onBlur={() => handleUpdateTable(selectedTable.id, { table_number: selectedTable.table_number })}
-                  className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
-                />
-              </div>
-
-              {/* Seats */}
-              <div>
-                <label className="block text-xs font-medium mb-1 text-muted-foreground">{sl.seats}</label>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      const v = Math.max(1, selectedTable.seats - 1);
-                      setTableLocal(selectedTable.id, { seats: v });
-                    }}
-                    className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center hover:bg-[#606338]/10 text-foreground"
-                  >
-                    <span className="text-lg leading-none">−</span>
-                  </button>
+                <label className="block text-[11px] font-medium mb-1 text-muted-foreground">{sl.seats}</label>
+                <div className="flex items-center gap-1.5">
+                  <button onClick={() => setTableLocal(selectedTable.id, { seats: Math.max(1, selectedTable.seats - 1) })} className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center hover:bg-[#606338]/10 text-foreground">−</button>
                   <input
-                    type="number"
-                    min="1"
-                    max="20"
-                    value={selectedTable.seats}
-                    onChange={(e) => {
-                      const v = Math.max(1, Math.min(20, parseInt(e.target.value) || 1));
-                      setTableLocal(selectedTable.id, { seats: v });
-                    }}
+                    type="number" min="1" max="20" value={selectedTable.seats}
+                    onChange={(e) => setTableLocal(selectedTable.id, { seats: Math.max(1, Math.min(20, parseInt(e.target.value) || 1)) })}
                     onBlur={() => handleUpdateTable(selectedTable.id, { seats: selectedTable.seats })}
-                    className="w-14 text-center px-2 py-1.5 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
+                    className="w-12 text-center px-1 py-1.5 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
                   />
+                  <button onClick={() => setTableLocal(selectedTable.id, { seats: Math.min(20, selectedTable.seats + 1) })} className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center hover:bg-[#606338]/10 text-foreground">+</button>
+                </div>
+              </div>
+              <div className="text-right">
+                <label className="block text-[11px] font-medium mb-1 text-muted-foreground">{sl.status}</label>
+                <div className="flex items-center gap-1.5 justify-end py-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: TABLE_STATUS_CONFIG[selectedTable.status as TableStatus]?.color }} />
+                  <span className="text-sm text-foreground">{TABLE_STATUS_CONFIG[selectedTable.status as TableStatus]?.label || selectedTable.status}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Shape (compact, icon-only) */}
+            <div>
+              <label className="block text-[11px] font-medium mb-1 text-muted-foreground">{sl.shape}</label>
+              <div className="flex gap-1.5">
+                {([
+                  { shape: 'round' as TableShape, icon: CircleDot, label: sl.round },
+                  { shape: 'square' as TableShape, icon: Square, label: sl.square },
+                  { shape: 'rectangle' as TableShape, icon: RectangleHorizontal, label: sl.rectangle },
+                ]).map(opt => (
                   <button
+                    key={opt.shape}
+                    title={opt.label}
                     onClick={() => {
-                      const v = Math.min(20, selectedTable.seats + 1);
-                      setTableLocal(selectedTable.id, { seats: v });
+                      const defaults = SHAPE_DEFAULTS[opt.shape];
+                      setTableLocal(selectedTable.id, { shape: opt.shape, width: defaults.width, height: defaults.height });
+                      handleUpdateTable(selectedTable.id, { shape: opt.shape, width: defaults.width, height: defaults.height });
                     }}
-                    className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center hover:bg-[#606338]/10 text-foreground"
+                    className={`flex-1 flex items-center justify-center py-2 rounded-lg transition-colors ${
+                      selectedTable.shape === opt.shape ? 'bg-[#606338] text-white' : 'bg-secondary text-muted-foreground hover:text-foreground'
+                    }`}
                   >
-                    <span className="text-lg leading-none">+</span>
+                    <opt.icon className="w-4 h-4" />
                   </button>
-                </div>
+                ))}
               </div>
+            </div>
 
-              {/* Shape */}
-              <div>
-                <label className="block text-xs font-medium mb-1 text-muted-foreground">{sl.shape}</label>
-                <div className="flex gap-2">
-                  {([
-                    { shape: 'round' as TableShape, icon: CircleDot, label: sl.round },
-                    { shape: 'square' as TableShape, icon: Square, label: sl.square },
-                    { shape: 'rectangle' as TableShape, icon: RectangleHorizontal, label: sl.rectangle },
-                  ]).map(opt => (
-                    <button
-                      key={opt.shape}
-                      onClick={() => {
-                        const defaults = SHAPE_DEFAULTS[opt.shape];
-                        setTableLocal(selectedTable.id, {
-                          shape: opt.shape,
-                          width: defaults.width,
-                          height: defaults.height,
-                        });
-                        handleUpdateTable(selectedTable.id, {
-                          shape: opt.shape,
-                          width: defaults.width,
-                          height: defaults.height,
-                        });
-                      }}
-                      className={`flex-1 flex flex-col items-center gap-1 py-2 px-2 rounded-lg text-xs font-medium transition-colors ${
-                        selectedTable.shape === opt.shape
-                          ? 'bg-[#606338] text-white'
-                          : 'bg-secondary text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      <opt.icon className="w-4 h-4" />
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            {/* Assigned waiter */}
+            <div>
+              <label className="block text-[11px] font-medium mb-1 text-muted-foreground flex items-center gap-1">
+                <Users className="w-3 h-3" />{sl.assignedWaiter}
+              </label>
+              <select
+                value={selectedTable.assigned_waiter_id || ''}
+                onChange={(e) => {
+                  const val = e.target.value || null;
+                  setTables(prev => prev.map(t => t.id === selectedTable.id ? { ...t, assigned_waiter_id: val } : t));
+                  handleUpdateTable(selectedTable.id, { assigned_waiter_id: val } as Partial<Table>);
+                }}
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
+              >
+                <option value="">{sl.unassigned}</option>
+                {staff.map(s => <option key={s.id} value={s.id}>{s.first_name} {s.last_name}</option>)}
+              </select>
+            </div>
 
-              {/* Size (width x height) */}
-              <div>
-                <label className="block text-xs font-medium mb-1 text-muted-foreground flex items-center gap-1">
-                  <Maximize2 className="w-3 h-3" />
-                  {sl.size}
-                </label>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <label className="block text-[10px] text-muted-foreground mb-0.5">{sl.width}</label>
-                    <input
-                      type="number"
-                      min="3"
-                      max="40"
-                      step="0.5"
-                      value={selectedTable.width || SHAPE_DEFAULTS[selectedTable.shape].width}
-                      onChange={(e) => {
-                        const v = Math.max(3, Math.min(40, parseFloat(e.target.value) || 5));
-                        setTableLocal(selectedTable.id, { width: v });
-                      }}
-                      className="w-full px-2 py-1.5 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
-                    />
+            {/* Advanced: size + rotation (collapsed by default) */}
+            <div className="border-t border-border pt-3">
+              <button
+                onClick={() => setShowAdvanced(v => !v)}
+                className="w-full flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
+              >
+                <span className="flex items-center gap-1.5"><Maximize2 className="w-3 h-3" /> {sl.size} &amp; {sl.rotation}</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showAdvanced && (
+                <div className="space-y-4 mt-3">
+                  {/* Size */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <label className="block text-[10px] text-muted-foreground mb-0.5">{sl.width}</label>
+                      <input
+                        type="number" min="3" max="40" step="0.5"
+                        value={selectedTable.width || SHAPE_DEFAULTS[selectedTable.shape].width}
+                        onChange={(e) => setTableLocal(selectedTable.id, { width: Math.max(3, Math.min(40, parseFloat(e.target.value) || 5)) })}
+                        className="w-full px-2 py-1.5 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
+                      />
+                    </div>
+                    <span className="text-muted-foreground mt-4">×</span>
+                    <div className="flex-1">
+                      <label className="block text-[10px] text-muted-foreground mb-0.5">{sl.height}</label>
+                      <input
+                        type="number" min="3" max="40" step="0.5"
+                        value={selectedTable.height || SHAPE_DEFAULTS[selectedTable.shape].height}
+                        onChange={(e) => setTableLocal(selectedTable.id, { height: Math.max(3, Math.min(40, parseFloat(e.target.value) || 5)) })}
+                        className="w-full px-2 py-1.5 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
+                      />
+                    </div>
                   </div>
-                  <span className="text-muted-foreground mt-4">×</span>
-                  <div className="flex-1">
-                    <label className="block text-[10px] text-muted-foreground mb-0.5">{sl.height}</label>
-                    <input
-                      type="number"
-                      min="3"
-                      max="40"
-                      step="0.5"
-                      value={selectedTable.height || SHAPE_DEFAULTS[selectedTable.shape].height}
-                      onChange={(e) => {
-                        const v = Math.max(3, Math.min(40, parseFloat(e.target.value) || 5));
-                        setTableLocal(selectedTable.id, { height: v });
-                      }}
-                      className="w-full px-2 py-1.5 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
-                    />
+
+                  {/* Rotation */}
+                  <div>
+                    <label className="block text-[10px] text-muted-foreground mb-1 flex items-center gap-1"><RotateCw className="w-3 h-3" /> {sl.rotation}</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range" min="0" max="360" step="5"
+                        value={selectedTable.rotation || 0}
+                        onChange={(e) => setTableLocal(selectedTable.id, { rotation: parseFloat(e.target.value) })}
+                        className="flex-1 accent-[#606338]"
+                      />
+                      <span className="text-sm text-foreground w-10 text-right tabular-nums">{selectedTable.rotation || 0}°</span>
+                    </div>
+                    <div className="flex gap-1 mt-1.5">
+                      {[0, 45, 90, 135, 180].map(deg => (
+                        <button
+                          key={deg}
+                          onClick={() => setTableLocal(selectedTable.id, { rotation: deg })}
+                          className={`flex-1 py-1 text-[10px] rounded font-medium transition-colors ${
+                            (selectedTable.rotation || 0) === deg ? 'bg-[#606338] text-white' : 'bg-secondary text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          {deg}°
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              {/* Rotation */}
-              <div>
-                <label className="block text-xs font-medium mb-1 text-muted-foreground flex items-center gap-1">
-                  <RotateCw className="w-3 h-3" />
-                  {sl.rotation}
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="range"
-                    min="0"
-                    max="360"
-                    step="5"
-                    value={selectedTable.rotation || 0}
-                    onChange={(e) => {
-                      setTableLocal(selectedTable.id, { rotation: parseFloat(e.target.value) });
-                    }}
-                    className="flex-1 accent-[#606338]"
-                  />
-                  <span className="text-sm text-foreground w-10 text-right tabular-nums">
-                    {selectedTable.rotation || 0}°
-                  </span>
-                </div>
-                <div className="flex gap-1 mt-1.5">
-                  {[0, 45, 90, 135, 180].map(deg => (
-                    <button
-                      key={deg}
-                      onClick={() => setTableLocal(selectedTable.id, { rotation: deg })}
-                      className={`flex-1 py-1 text-[10px] rounded font-medium transition-colors ${
-                        (selectedTable.rotation || 0) === deg
-                          ? 'bg-[#606338] text-white'
-                          : 'bg-secondary text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {deg}°
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Assigned waiter */}
-              <div>
-                <label className="block text-xs font-medium mb-1 text-muted-foreground flex items-center gap-1">
-                  <Users className="w-3 h-3" />
-                  {sl.assignedWaiter}
-                </label>
-                <select
-                  value={selectedTable.assigned_waiter_id || ''}
-                  onChange={(e) => {
-                    const val = e.target.value || null;
-                    setTables(prev => prev.map(t => t.id === selectedTable.id ? { ...t, assigned_waiter_id: val } : t));
-                    handleUpdateTable(selectedTable.id, { assigned_waiter_id: val } as Partial<Table>);
-                  }}
-                  className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
-                >
-                  <option value="">{sl.unassigned}</option>
-                  {staff.map(s => (
-                    <option key={s.id} value={s.id}>{s.first_name} {s.last_name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Status */}
-              <div>
-                <label className="block text-xs font-medium mb-1 text-muted-foreground">{sl.status}</label>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: TABLE_STATUS_CONFIG[selectedTable.status as TableStatus]?.color }}
-                  />
-                  <span className="text-sm text-foreground">
-                    {TABLE_STATUS_CONFIG[selectedTable.status as TableStatus]?.label || selectedTable.status}
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         )}
