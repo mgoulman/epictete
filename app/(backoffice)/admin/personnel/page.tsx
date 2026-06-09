@@ -112,6 +112,7 @@ interface StaffMember {
   department: 'cuisine' | 'salle' | null;
   transport_pickup: boolean;
   transport_dropoff: boolean;
+  profile_id: string | null;
 }
 
 interface TimeOff {
@@ -1250,10 +1251,19 @@ function StaffModal({
     notes: editingStaff?.notes || '',
     department: editingStaff?.department || '',
     transport_pickup: editingStaff?.transport_pickup ?? false,
-    transport_dropoff: editingStaff?.transport_dropoff ?? false
+    transport_dropoff: editingStaff?.transport_dropoff ?? false,
+    profile_id: editingStaff?.profile_id || ''
   });
 
   const [saving, setSaving] = useState(false);
+  const [profiles, setProfiles] = useState<{ id: string; full_name: string | null; email: string }[]>([]);
+
+  useEffect(() => {
+    fetch('/api/personnel?type=profiles')
+      .then(r => r.json())
+      .then(d => setProfiles(d.profiles || []))
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1266,6 +1276,7 @@ function StaffModal({
       department: formData.department || null,
       transport_pickup: formData.transport_pickup,
       transport_dropoff: formData.transport_dropoff,
+      profile_id: formData.profile_id || null,
       ...(editingStaff && { id: editingStaff.id })
     };
 
@@ -1400,6 +1411,24 @@ function StaffModal({
                 </select>
                 <p className="text-xs text-muted-foreground mt-1">
                   {pn.deptUsedFor}
+                </p>
+              </div>
+
+              {/* Linked user account */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Compte utilisateur</label>
+                <select
+                  value={formData.profile_id}
+                  onChange={(e) => setFormData({ ...formData, profile_id: e.target.value })}
+                  className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
+                >
+                  <option value="">— Aucun compte lié —</option>
+                  {profiles.map(p => (
+                    <option key={p.id} value={p.id}>{p.full_name || p.email}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Liez ce membre à un compte de connexion (ex. un serveur verra « Mes tables »).
                 </p>
               </div>
 

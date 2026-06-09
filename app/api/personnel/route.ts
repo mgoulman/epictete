@@ -31,6 +31,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ staff: data });
     }
 
+    if (type === 'profiles') {
+      // Active user accounts, for linking a staff member to a login.
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .eq('is_active', true)
+        .order('full_name', { ascending: true });
+
+      if (error) throw error;
+      return NextResponse.json({ profiles: data });
+    }
+
     if (type === 'schedules') {
       const startDate = searchParams.get('startDate');
       const endDate = searchParams.get('endDate');
