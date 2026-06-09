@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared/SortHeader';
 import { useTranslation } from '@/lib/i18n/useTranslation';
-import ScheduleBoard from '@/components/backoffice/personnel/ScheduleBoard';
+import ScheduleTable from '@/components/backoffice/personnel/ScheduleTable';
 import jsPDF from 'jspdf';
 
 interface StaffType {
@@ -872,8 +872,8 @@ export default function PersonnelPage() {
             </div>
           </div>
 
-          {/* Drag-and-Drop Schedule Board */}
-          <ScheduleBoard
+          {/* Staff-row schedule table (click a cell to edit) */}
+          <ScheduleTable
             staffMembers={staffMembers}
             weekDays={getWeekDays()}
             approvedTimeOff={approvedTimeOff}

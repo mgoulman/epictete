@@ -1,7 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
-import { Search, GripVertical } from 'lucide-react';
+import { Search, GripVertical, ChevronDown, UserPlus } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface StaffType {
@@ -95,30 +96,43 @@ export default function StaffPool({ staffMembers, scheduleView, searchTerm, onSe
       `${s.first_name} ${s.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+  const [open, setOpen] = useState(false);
+
   return (
-    <div className="bg-card border border-border rounded-lg p-3 mb-4">
-      <div className="flex items-center gap-3 mb-2">
-        <h3 className="text-sm font-semibold text-foreground">{pn.staffPool}</h3>
-        <div className="relative flex-1 max-w-[200px]">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder={pn.search}
-            className="w-full pl-6 pr-2 py-1 text-xs bg-secondary border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-[#606338]/50"
-          />
+    <div className="bg-card border border-border rounded-lg mb-4">
+      {/* Collapsible header — keeps the board uncluttered until you add staff */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-2 px-3 py-2.5 text-left"
+      >
+        <UserPlus className="w-4 h-4 text-[#606338]" />
+        <span className="text-sm font-semibold text-foreground">{pn.staffPool}</span>
+        <span className="text-xs text-muted-foreground">· {filtered.length} {pn.staff}</span>
+        <ChevronDown className={`w-4 h-4 text-muted-foreground ml-auto transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="px-3 pb-3">
+          <div className="relative max-w-[220px] mb-2">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder={pn.search}
+              className="w-full pl-6 pr-2 py-1 text-xs bg-secondary border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-[#606338]/50"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2 max-h-[120px] overflow-y-auto">
+            {filtered.map(staff => (
+              <StaffChip key={staff.id} staff={staff} />
+            ))}
+            {filtered.length === 0 && (
+              <p className="text-xs text-muted-foreground py-2">{pn.noResults}</p>
+            )}
+          </div>
         </div>
-        <span className="text-xs text-muted-foreground ml-auto">{filtered.length} {pn.staff}</span>
-      </div>
-      <div className="flex flex-wrap gap-2 max-h-[120px] overflow-y-auto">
-        {filtered.map(staff => (
-          <StaffChip key={staff.id} staff={staff} />
-        ))}
-        {filtered.length === 0 && (
-          <p className="text-xs text-muted-foreground py-2">{pn.noResults}</p>
-        )}
-      </div>
+      )}
     </div>
   );
 }
