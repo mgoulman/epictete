@@ -73,7 +73,7 @@ export default async function middleware(request: NextRequest) {
   // route not in the map require only authentication. A missing role claim
   // (e.g. a token issued before roles were embedded) grants no permissions,
   // so the user keeps dashboard access and re-login restores the rest.
-  if (isProtectedRoute && user) {
+  if (isProtectedRoute && user && user.role !== "admin") {
     const required = requiredPermissionForPath(pathname);
     if (required) {
       const granted = user.role ? ROLE_PERMISSIONS[user.role] ?? [] : [];
