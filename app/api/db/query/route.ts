@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, getServerSession } from '@/lib/auth/supabase-server';
+import { approvalRequiredFor, submitApprovalRequest } from '@/lib/approvals';
 import type { PermissionName } from '@/lib/types/auth';
 
 // Generic DB query proxy for client-side components.
@@ -86,6 +87,25 @@ export async function POST(request: NextRequest) {
         const needed = resource ? requiredPermission(resource, action) : null;
         if (!needed || !session.permissions.includes(needed)) {
           return NextResponse.json({ data: null, error: { message: 'Forbidden' } }, { status: 403 });
+        }
+
+        // Approval gate: hold configured modules' writes for review.
+        if (action !== 'select') {
+          const moduleName = TABLE_RESOURCE[table];
+          if (moduleName) {
+            const rule = await approvalRequiredFor(moduleName, session);
+            if (rule) {
+              await submitApprovalRequest({
+                module: moduleName,
+                action: 'db_query',
+                payload: { action, table, data, filters },
+                summary: `${action} ${table}`,
+                session,
+                rule,
+              });
+              return NextResponse.json({ data: null, error: null, pending: true });
+            }
+          }
         }
       }
     }

@@ -709,6 +709,12 @@ export default function InventoryPage() {
         fetchItems();
         fetchAllHistory();
         setTab('history');
+      } else if (data.pending) {
+        // Held by the approval workflow — no vendor debt is created until approved.
+        showToast(tt('pendingApproval', 'Soumis pour approbation'));
+        setLines([{ inventory_item_id: '', quantity: 0, unit_cost: 0, notes: '', pack_mode: false, pack_count: 1, pack_size: 1, pack_price: 0, new_product_name: '', new_product_unit: 'kg', new_product_category_id: '', new_product_vendor_id: '', new_vendor_name: '' }]);
+        setVendorPayments({});
+        setPurchaseTvaAmount(0);
       }
     } catch { /* silent */ } finally {
       setSaving(false);

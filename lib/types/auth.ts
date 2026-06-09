@@ -315,6 +315,7 @@ export const BACKOFFICE_NAV: NavItem[] = [
       { key: 'stockMovements', label: 'Mouvements Stock', href: '/admin/reports?tab=movements', icon: 'ArrowUpDown' }
     ]
   },
+  { key: 'approvals', label: 'Approbations', href: '/admin/approvals', icon: 'ClipboardList' },
   { key: 'auditLogs', label: 'Audit Logs', href: '/admin/audit', icon: 'ScrollText', permission: 'audit.read' },
   { key: 'settings', label: 'Settings', href: '/admin/settings', icon: 'Settings', permission: 'settings.read' }
 ];
