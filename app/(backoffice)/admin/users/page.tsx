@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { PermissionGate } from '@/components/backoffice/auth/PermissionGate';
 import {
   Plus, Pencil, Trash2, X, Users, Search,
-  UserCheck, UserX, Shield, MoreVertical, Mail, Calendar
+  UserCheck, UserX, Shield, Mail, Calendar
 } from 'lucide-react';
 import type { Role, ProfileWithRole } from '@/lib/types/auth';
 import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared/SortHeader';
+import { RowMenu } from '@/components/backoffice/shared/RowMenu';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 
 interface UserFormData {
@@ -51,7 +52,6 @@ export default function UsersPage() {
     user: ProfileWithRole;
   } | null>(null);
   const [confirming, setConfirming] = useState(false);
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -87,14 +87,6 @@ export default function UsersPage() {
     loadData();
   }, [fetchUsers, fetchRoles]);
 
-  useEffect(() => {
-    const handleClick = () => setActiveDropdown(null);
-    if (activeDropdown) {
-      document.addEventListener('click', handleClick);
-      return () => document.removeEventListener('click', handleClick);
-    }
-  }, [activeDropdown]);
-
   const handleOpenModal = (user?: ProfileWithRole) => {
     setFormError(null);
     if (user) {
@@ -111,7 +103,6 @@ export default function UsersPage() {
       setFormData({ ...emptyForm, role_id: roles[0]?.id || '' });
     }
     setShowModal(true);
-    setActiveDropdown(null);
   };
 
   const handleCloseModal = () => {
@@ -436,41 +427,33 @@ export default function UsersPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="relative">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === user.id ? null : user.id); }}
-                    className="p-1.5 bg-transparent border-none rounded-md cursor-pointer text-muted-foreground hover:text-foreground"
-                  >
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
-
-                  {activeDropdown === user.id && (
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="absolute top-full right-0 mt-1 bg-card border border-border rounded-lg overflow-hidden z-10 min-w-[160px] shadow-2xl"
-                    >
-                      <button
-                        onClick={() => handleOpenModal(user)}
-                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                        {u.editUser}
-                      </button>
-                      <button
-                        onClick={() => { setConfirmDialog({ type: 'toggle', user }); setActiveDropdown(null); }}
-                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary"
-                      >
-                        {user.is_active ? <><UserX className="w-3.5 h-3.5" />{u.deactivate}</> : <><UserCheck className="w-3.5 h-3.5" />{u.activate}</>}
-                      </button>
-                      <button
-                        onClick={() => { setConfirmDialog({ type: 'delete', user }); setActiveDropdown(null); }}
-                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-red-500 text-[13px] cursor-pointer text-left hover:bg-red-500/10"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        {u.deleteUser}
-                      </button>
-                    </div>
-                  )}
+                <div className="relative" onClick={(e) => e.stopPropagation()}>
+                  <RowMenu>
+                    {(close) => (
+                      <>
+                        <button
+                          onClick={() => { handleOpenModal(user); close(); }}
+                          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          {u.editUser}
+                        </button>
+                        <button
+                          onClick={() => { setConfirmDialog({ type: 'toggle', user }); close(); }}
+                          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary"
+                        >
+                          {user.is_active ? <><UserX className="w-3.5 h-3.5" />{u.deactivate}</> : <><UserCheck className="w-3.5 h-3.5" />{u.activate}</>}
+                        </button>
+                        <button
+                          onClick={() => { setConfirmDialog({ type: 'delete', user }); close(); }}
+                          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-red-500 text-[13px] cursor-pointer text-left hover:bg-red-500/10"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          {u.deleteUser}
+                        </button>
+                      </>
+                    )}
+                  </RowMenu>
                 </div>
               </div>
             );

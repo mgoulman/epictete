@@ -7,10 +7,11 @@ import { PermissionGate, CanEditMenu } from '@/components/backoffice/auth/Permis
 import { usePermissions } from '@/lib/auth/hooks';
 import {
   Plus, Pencil, Trash2, X, UtensilsCrossed, Search, Image, Images,
-  LayoutGrid, List, Star, Eye, EyeOff, MoreVertical, Filter,
+  LayoutGrid, List, Star, Eye, EyeOff, Filter,
   Upload, Loader2, BookOpen, ChevronDown, ChevronUp, Flame, ArrowLeft, Check
 } from 'lucide-react';
 import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared/SortHeader';
+import { RowMenu } from '@/components/backoffice/shared/RowMenu';
 import Link from 'next/link';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 
@@ -71,7 +72,6 @@ export default function MenuPage() {
   const [formData, setFormData] = useState<MenuItemForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [viewingItem, setViewingItem] = useState<MenuItem | null>(null);
@@ -109,14 +109,6 @@ export default function MenuPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  useEffect(() => {
-    const handleClick = () => setActiveDropdown(null);
-    if (activeDropdown) {
-      document.addEventListener('click', handleClick);
-      return () => document.removeEventListener('click', handleClick);
-    }
-  }, [activeDropdown]);
-
   const handleOpenModal = (item?: MenuItem) => {
     if (item) {
       setEditingItem(item);
@@ -139,7 +131,6 @@ export default function MenuPage() {
       setShowRecipeSection(false);
     }
     setShowModal(true);
-    setActiveDropdown(null);
   };
 
   const handleCloseModal = () => {
@@ -296,7 +287,6 @@ export default function MenuPage() {
   const handleDelete = async (itemId: string) => {
     if (!confirm(mp.deleteItemConfirm)) return;
     setDeleting(itemId);
-    setActiveDropdown(null);
     try {
       const { error } = await supabase.from('menu_items').delete().eq('id', itemId);
       if (error) throw error;
@@ -315,7 +305,6 @@ export default function MenuPage() {
       if (error) throw error;
       setMenuItems(prev => prev.map(i => i.id === item.id ? { ...i, is_available: newValue } : i));
     } catch (err) { console.error('Toggle error:', err); }
-    setActiveDropdown(null);
   };
 
   const filteredItems = menuItems.filter(item => {
@@ -558,17 +547,16 @@ export default function MenuPage() {
                     {item.recipe_id && <span className="flex items-center gap-1 px-2 py-1 bg-[#606338]/90 rounded-md text-[11px] font-semibold text-white"><BookOpen className="w-3 h-3" /></span>}
                   </div>
                   {canEdit && (
-                    <div className="absolute top-2.5 right-2.5">
-                      <button onClick={(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === item.id ? null : item.id); }} className="p-1.5 bg-black/60 border-none rounded-md cursor-pointer text-white">
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-                      {activeDropdown === item.id && (
-                        <div onClick={(e) => e.stopPropagation()} className="absolute top-full right-0 mt-1 bg-card border border-border rounded-lg overflow-hidden z-10 min-w-[150px] shadow-2xl">
-                          <button onClick={() => handleOpenModal(item)} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary"><Pencil className="w-3.5 h-3.5" />{mp.edit}</button>
-                          <button onClick={() => toggleAvailability(item)} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary">{item.is_available ? <><EyeOff className="w-3.5 h-3.5" />{mp.markUnavailable}</> : <><Eye className="w-3.5 h-3.5" />{mp.markAvailable}</>}</button>
-                          <button onClick={() => handleDelete(item.id)} disabled={deleting === item.id} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-red-500 text-[13px] cursor-pointer text-left hover:bg-red-500/10"><Trash2 className="w-3.5 h-3.5" />{deleting === item.id ? mp.deleting : mp.delete}</button>
-                        </div>
-                      )}
+                    <div className="absolute top-2.5 right-2.5" onClick={(e) => e.stopPropagation()}>
+                      <RowMenu width={160} buttonClassName="p-1.5 bg-black/60 border-none rounded-md cursor-pointer text-white">
+                        {(close) => (
+                          <>
+                            <button onClick={() => { handleOpenModal(item); close(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary"><Pencil className="w-3.5 h-3.5" />{mp.edit}</button>
+                            <button onClick={() => { toggleAvailability(item); close(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary">{item.is_available ? <><EyeOff className="w-3.5 h-3.5" />{mp.markUnavailable}</> : <><Eye className="w-3.5 h-3.5" />{mp.markAvailable}</>}</button>
+                            <button onClick={() => { handleDelete(item.id); close(); }} disabled={deleting === item.id} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-red-500 text-[13px] cursor-pointer text-left hover:bg-red-500/10"><Trash2 className="w-3.5 h-3.5" />{deleting === item.id ? mp.deleting : mp.delete}</button>
+                          </>
+                        )}
+                      </RowMenu>
                     </div>
                   )}
                 </div>
@@ -628,17 +616,16 @@ export default function MenuPage() {
                 <div className="flex items-center justify-end gap-3">
                   <span className="text-sm font-semibold text-[#606338]">{item.price} DH</span>
                   {canEdit && (
-                    <div className="relative">
-                      <button onClick={(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === item.id ? null : item.id); }} className="p-1.5 bg-transparent border-none rounded-md cursor-pointer text-muted-foreground hover:text-foreground">
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-                      {activeDropdown === item.id && (
-                        <div onClick={(e) => e.stopPropagation()} className="absolute top-full right-0 mt-1 bg-card border border-border rounded-lg overflow-hidden z-10 min-w-[150px] shadow-2xl">
-                          <button onClick={() => handleOpenModal(item)} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary"><Pencil className="w-3.5 h-3.5" />{mp.edit}</button>
-                          <button onClick={() => toggleAvailability(item)} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary">{item.is_available ? <><EyeOff className="w-3.5 h-3.5" />{mp.markUnavailable}</> : <><Eye className="w-3.5 h-3.5" />{mp.markAvailable}</>}</button>
-                          <button onClick={() => handleDelete(item.id)} disabled={deleting === item.id} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-red-500 text-[13px] cursor-pointer text-left hover:bg-red-500/10"><Trash2 className="w-3.5 h-3.5" />{deleting === item.id ? mp.deleting : mp.delete}</button>
-                        </div>
-                      )}
+                    <div className="relative" onClick={(e) => e.stopPropagation()}>
+                      <RowMenu width={160}>
+                        {(close) => (
+                          <>
+                            <button onClick={() => { handleOpenModal(item); close(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary"><Pencil className="w-3.5 h-3.5" />{mp.edit}</button>
+                            <button onClick={() => { toggleAvailability(item); close(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-foreground text-[13px] cursor-pointer text-left hover:bg-secondary">{item.is_available ? <><EyeOff className="w-3.5 h-3.5" />{mp.markUnavailable}</> : <><Eye className="w-3.5 h-3.5" />{mp.markAvailable}</>}</button>
+                            <button onClick={() => { handleDelete(item.id); close(); }} disabled={deleting === item.id} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-transparent border-none text-red-500 text-[13px] cursor-pointer text-left hover:bg-red-500/10"><Trash2 className="w-3.5 h-3.5" />{deleting === item.id ? mp.deleting : mp.delete}</button>
+                          </>
+                        )}
+                      </RowMenu>
                     </div>
                   )}
                 </div>
