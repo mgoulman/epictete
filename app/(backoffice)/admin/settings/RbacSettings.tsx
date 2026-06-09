@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Shield, Plus, Trash2, Save, Loader2, X, Check, AlertTriangle, Users } from 'lucide-react';
+import {
+  Shield, Plus, Trash2, Save, Loader2, X, Check, AlertTriangle,
+  Users, ChevronDown, Lock,
+} from 'lucide-react';
 
 interface Role {
   id: string;
@@ -26,6 +29,15 @@ const RESOURCE_ORDER = [
   'personnel', 'transport', 'marketing', 'users', 'audit', 'settings',
 ];
 const ACTION_ORDER = ['read', 'write', 'delete', 'manage', 'serve'];
+const RESOURCE_LABELS: Record<string, string> = {
+  menu: 'Menu', recipes: 'Fiches techniques', salle: 'Salle', finance: 'Finance',
+  inventory: 'Inventaire', reports: 'Rapports', personnel: 'Personnel',
+  transport: 'Transport', marketing: 'Marketing', users: 'Utilisateurs',
+  audit: 'Audit', settings: 'Paramètres',
+};
+const ACTION_LABELS: Record<string, string> = {
+  read: 'Voir', write: 'Modifier', delete: 'Supprimer', manage: 'Gérer', serve: 'Service',
+};
 
 export function RbacSettings() {
   const [roles, setRoles] = useState<Role[]>([]);
@@ -34,6 +46,7 @@ export function RbacSettings() {
   const [loading, setLoading] = useState(true);
   const [savingRole, setSavingRole] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newRole, setNewRole] = useState({ name: '', display_name: '', description: '' });
   const [creating, setCreating] = useState(false);
@@ -59,25 +72,22 @@ export function RbacSettings() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Permissions grouped by resource, both ordered deterministically.
+  // Permissions grouped by resource, deterministically ordered.
   const grouped = useMemo(() => {
     const byResource = new Map<string, Permission[]>();
     for (const p of permissions) {
       if (!byResource.has(p.resource)) byResource.set(p.resource, []);
       byResource.get(p.resource)!.push(p);
     }
-    const resources = [...byResource.keys()].sort(
-      (a, b) => (RESOURCE_ORDER.indexOf(a) + 1 || 99) - (RESOURCE_ORDER.indexOf(b) + 1 || 99)
-    );
-    return resources.map(resource => ({
-      resource,
-      perms: byResource.get(resource)!.sort(
-        (a, b) => (ACTION_ORDER.indexOf(a.action) + 1 || 99) - (ACTION_ORDER.indexOf(b.action) + 1 || 99)
-      ),
-    }));
+    return [...byResource.keys()]
+      .sort((a, b) => (RESOURCE_ORDER.indexOf(a) + 1 || 99) - (RESOURCE_ORDER.indexOf(b) + 1 || 99))
+      .map(resource => ({
+        resource,
+        perms: byResource.get(resource)!.sort(
+          (a, b) => (ACTION_ORDER.indexOf(a.action) + 1 || 99) - (ACTION_ORDER.indexOf(b.action) + 1 || 99)
+        ),
+      }));
   }, [permissions]);
-
-  const orderedPerms = useMemo(() => grouped.flatMap(g => g.perms), [grouped]);
 
   const isDirty = (role: Role) => {
     const cur = edited[role.id];
@@ -159,24 +169,24 @@ export function RbacSettings() {
   }
 
   return (
-    <div className="bg-secondary border border-border rounded-xl p-6">
+    <div className="bg-secondary border border-border rounded-xl p-6 min-w-0">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
+      <div className="flex items-start justify-between mb-5 gap-4 flex-wrap">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-lg bg-[#606338]/10 flex items-center justify-center shrink-0">
             <Shield className="w-5 h-5 text-[#606338]" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-foreground">Rôles &amp; Permissions</h2>
-            <p className="text-[13px] text-muted-foreground mt-1">
-              Cochez les permissions de chaque rôle. Les changements prennent effet à la
-              prochaine requête de l&apos;utilisateur. Le rôle <strong>admin</strong> a toujours tous les droits.
+            <p className="text-[13px] text-muted-foreground mt-1 max-w-xl">
+              Choisissez un rôle pour gérer ses accès. Les changements prennent effet à la
+              prochaine connexion de l&apos;utilisateur.
             </p>
           </div>
         </div>
         <button
           onClick={() => setShowCreate(v => !v)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#606338] text-white rounded-lg text-sm font-medium hover:bg-[#4d4f2e] transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-[#606338] text-white rounded-lg text-sm font-medium hover:bg-[#4d4f2e] transition-colors shrink-0"
         >
           <Plus className="w-4 h-4" /> Nouveau rôle
         </button>
@@ -238,109 +248,114 @@ export function RbacSettings() {
         </div>
       )}
 
-      {/* Matrix */}
-      <div className="overflow-x-auto border border-border rounded-lg">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="bg-card">
-              <th className="sticky left-0 z-10 bg-card text-left p-3 font-semibold text-foreground border-b border-r border-border min-w-[200px]">
-                Rôle
-              </th>
-              {grouped.map(g => (
-                <th
-                  key={g.resource}
-                  colSpan={g.perms.length}
-                  className="p-2 text-center font-semibold text-foreground capitalize border-b border-l border-border whitespace-nowrap"
-                >
-                  {g.resource}
-                </th>
-              ))}
-              <th className="p-3 border-b border-l border-border" />
-            </tr>
-            <tr className="bg-card/60">
-              <th className="sticky left-0 z-10 bg-card/60 border-b border-r border-border" />
-              {orderedPerms.map(p => (
-                <th
-                  key={p.id}
-                  title={p.description || p.name}
-                  className="p-2 text-center text-[11px] font-medium text-muted-foreground capitalize border-b border-l border-border whitespace-nowrap"
-                >
-                  {p.action}
-                </th>
-              ))}
-              <th className="p-2 text-[11px] text-muted-foreground border-b border-l border-border text-center">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {roles.map(role => {
-              const isAdminRole = role.name === 'admin';
-              const set = edited[role.id] ?? new Set<string>();
-              const dirty = isDirty(role);
-              return (
-                <tr key={role.id} className="hover:bg-card/40">
-                  <td className="sticky left-0 z-10 bg-secondary p-3 border-b border-r border-border align-top">
-                    <div className="font-medium text-foreground flex items-center gap-2">
-                      {role.display_name}
-                      {role.is_system && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#606338]/15 text-[#606338] font-medium">système</span>
-                      )}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">{role.name}</div>
-                    <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
-                      <Users className="w-3 h-3" /> {role.user_count}
-                    </div>
-                  </td>
+      {/* Role accordion */}
+      <div className="flex flex-col gap-2">
+        {roles.map(role => {
+          const isAdminRole = role.name === 'admin';
+          const set = edited[role.id] ?? new Set<string>();
+          const dirty = isDirty(role);
+          const isOpen = expanded === role.id;
+          const count = isAdminRole ? permissions.length : set.size;
 
-                  {orderedPerms.map(p => {
-                    const checked = isAdminRole ? true : set.has(p.name);
-                    return (
-                      <td key={p.id} className="p-2 text-center border-b border-l border-border">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={isAdminRole}
-                          onChange={() => togglePerm(role.id, p.name)}
-                          className="w-4 h-4 accent-[#606338] cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-                        />
-                      </td>
-                    );
-                  })}
+          return (
+            <div key={role.id} className="border border-border rounded-lg overflow-hidden">
+              {/* Card header */}
+              <button
+                onClick={() => setExpanded(isOpen ? null : role.id)}
+                className={`w-full flex items-center gap-3 p-4 text-left transition-colors ${isOpen ? 'bg-card' : 'hover:bg-card/50'}`}
+              >
+                <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-foreground">{role.display_name}</span>
+                    {role.is_system && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#606338]/15 text-[#606338] font-medium">système</span>
+                    )}
+                    {isAdminRole && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500 font-medium flex items-center gap-1">
+                        <Lock className="w-3 h-3" /> tous les droits
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-3">
+                    <span>{role.name}</span>
+                    <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {role.user_count}</span>
+                  </div>
+                </div>
+                <span className="text-xs text-muted-foreground shrink-0">
+                  {count} permission{count > 1 ? 's' : ''}
+                </span>
+              </button>
 
-                  <td className="p-2 border-b border-l border-border align-middle">
-                    <div className="flex items-center gap-1.5 justify-center">
-                      {!isAdminRole && dirty && (
-                        <button
-                          onClick={() => saveRole(role)}
-                          disabled={savingRole === role.id}
-                          title="Enregistrer"
-                          className="flex items-center gap-1 px-2 py-1 bg-[#606338] text-white rounded text-[11px] font-medium disabled:opacity-50"
-                        >
-                          {savingRole === role.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                        </button>
-                      )}
-                      {!role.is_system && (
-                        <button
-                          onClick={() => deleteRole(role)}
-                          title="Supprimer le rôle"
-                          className="flex items-center justify-center w-7 h-7 rounded text-red-500 hover:bg-red-500/10"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+              {/* Card body */}
+              {isOpen && (
+                <div className="p-4 border-t border-border bg-background/40">
+                  {isAdminRole ? (
+                    <p className="text-[13px] text-muted-foreground flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-amber-500" />
+                      Le rôle administrateur possède toujours toutes les permissions et ne peut pas être modifié.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                      {grouped.map(g => (
+                        <div key={g.resource}>
+                          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                            {RESOURCE_LABELS[g.resource] || g.resource}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {g.perms.map(p => {
+                              const active = set.has(p.name);
+                              return (
+                                <button
+                                  key={p.id}
+                                  onClick={() => togglePerm(role.id, p.name)}
+                                  title={p.description || p.name}
+                                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium border transition-colors ${
+                                    active
+                                      ? 'bg-[#606338] border-[#606338] text-white'
+                                      : 'bg-card border-border text-muted-foreground hover:border-[#606338]/40'
+                                  }`}
+                                >
+                                  {active ? <Check className="w-3 h-3" /> : <span className="w-3 h-3 rounded-sm border border-current opacity-50" />}
+                                  {ACTION_LABELS[p.action] || p.action}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                  )}
+
+                  {/* Footer actions */}
+                  {!isAdminRole && (
+                    <div className="flex items-center justify-between gap-3 mt-5 pt-4 border-t border-border">
+                      <div>
+                        {!role.is_system && (
+                          <button
+                            onClick={() => deleteRole(role)}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[13px] text-red-500 hover:bg-red-500/10"
+                          >
+                            <Trash2 className="w-4 h-4" /> Supprimer le rôle
+                          </button>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => saveRole(role)}
+                        disabled={!dirty || savingRole === role.id}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#606338] text-white rounded-lg text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {savingRole === role.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        {dirty ? 'Enregistrer' : 'Enregistré'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
-
-      <p className="text-[11px] text-muted-foreground mt-3">
-        Astuce : survolez l&apos;en-tête d&apos;une colonne pour voir la description de la permission.
-        Les rôles « système » ne peuvent pas être supprimés ; un rôle assigné à des utilisateurs doit
-        être vidé avant suppression.
-      </p>
     </div>
   );
 }

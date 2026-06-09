@@ -61,7 +61,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Content */}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           {activeTab === 'profile' && <ProfileSettings user={user} />}
           {activeTab === 'categories' && <CategoriesSettings />}
           {activeTab === 'notifications' && <NotificationSettings />}
