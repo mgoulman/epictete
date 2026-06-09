@@ -1,21 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getServerSession } from '@/lib/auth/supabase-server';
+import { applyDailyPurchase, type DailyPurchaseBody } from '@/lib/inventory-actions';
+import { approvalRequiredFor, submitApprovalRequest } from '@/lib/approvals';
 
-interface PurchaseLine {
-  inventory_item_id: string;
-  quantity: number;
-  unit_cost: number;
-  notes?: string;
-  pack_size?: number;
-}
-
-// POST — batch-save daily purchases: update quantities + create movements
+// POST — batch-save daily purchases: update quantities + create movements.
+// Subject to the inventory approval rule: requester roles get held for review.
 export async function POST(request: NextRequest) {
     const denied = await enforce('inventory.write'); if (denied) return denied;
   try {
+    const session = (await getServerSession())!; // enforce() guarantees a session
     const supabase = await createSupabaseServerClient();
-    const body = await request.json();
-    const { items, date }: { items: PurchaseLine[]; date: string } = body;
+    const body = await request.json() as DailyPurchaseBody;
+    const { items, date } = body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'Items array is required' }, { status: 400 });
@@ -24,113 +20,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Date is required' }, { status: 400 });
     }
 
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
-
-    // Fetch current state of all items in one query
-    const itemIds = items.map(i => i.inventory_item_id);
-    const { data: currentItems, error: fetchError } = await supabase
-      .from('inventory_items')
-      .select('id, quantity, cost_per_unit, last_purchase_price, name')
-      .in('id', itemIds);
-
-    if (fetchError) throw fetchError;
-
-    const currentMap = new Map(
-      ((currentItems || []) as Array<Record<string, unknown>>).map(item => [item.id, item])
-    );
-
-    const newMovements: Array<Record<string, unknown>> = [];
-    let processedCount = 0;
-
-    for (const line of items) {
-      const current = currentMap.get(line.inventory_item_id);
-      if (!current) continue;
-
-      // Check if a movement already exists for this product on this date
-      const { data: existing } = await supabase
-        .from('inventory_movements')
-        .select('id, quantity_change')
-        .eq('inventory_item_id', line.inventory_item_id)
-        .eq('reference_type', 'daily_purchase')
-        .eq('reference_id', date)
-        .single();
-
-      const quantityBefore = Number(current.quantity) || 0;
-      const currentCost = Number(current.cost_per_unit) || 0;
-
-      if (existing) {
-        // UPDATE existing movement — adjust inventory by the delta
-        const oldQty = Number(existing.quantity_change) || 0;
-        const qtyDelta = line.quantity - oldQty;
-        const quantityAfter = quantityBefore + qtyDelta;
-
-        const weightedAvgCost = quantityAfter > 0
-          ? (quantityBefore * currentCost - oldQty * currentCost + line.quantity * line.unit_cost) / quantityAfter
-          : line.unit_cost;
-
-        // Update the movement
-        await supabase.from('inventory_movements').update({
-          quantity_change: line.quantity,
-          quantity_after: quantityAfter,
-          unit_cost: line.unit_cost,
-          notes: line.notes || `Achat du ${date}`,
-        }).eq('id', existing.id);
-
-        // Update inventory item
-        const updateFields: Record<string, unknown> = {
-          quantity: Math.max(0, quantityAfter),
-          cost_per_unit: Math.round(weightedAvgCost * 100) / 100,
-          last_purchase_price: line.unit_cost,
-          updated_at: new Date().toISOString(),
-        };
-        if (line.pack_size && line.pack_size > 1) updateFields.pack_size = line.pack_size;
-        await supabase.from('inventory_items').update(updateFields).eq('id', line.inventory_item_id);
-      } else {
-        // INSERT new movement
-        const quantityAfter = quantityBefore + line.quantity;
-        const weightedAvgCost = quantityAfter > 0
-          ? (quantityBefore * currentCost + line.quantity * line.unit_cost) / quantityAfter
-          : line.unit_cost;
-
-        const updateFields: Record<string, unknown> = {
-          quantity: quantityAfter,
-          cost_per_unit: Math.round(weightedAvgCost * 100) / 100,
-          last_purchase_price: line.unit_cost,
-          updated_at: new Date().toISOString(),
-        };
-        if (line.pack_size && line.pack_size > 1) updateFields.pack_size = line.pack_size;
-        await supabase.from('inventory_items').update(updateFields).eq('id', line.inventory_item_id);
-
-        newMovements.push({
-          inventory_item_id: line.inventory_item_id,
-          movement_type: 'invoice_receive',
-          quantity_change: line.quantity,
-          quantity_before: quantityBefore,
-          quantity_after: quantityAfter,
-          unit_cost: line.unit_cost,
-          reference_type: 'daily_purchase',
-          reference_id: date,
-          notes: line.notes || `Achat du ${date}`,
-          created_by: user?.id || null,
-          created_at: `${date}T12:00:00`,
-        });
-      }
-      processedCount++;
+    // Approval gate: if this user's inventory writes need review, hold it.
+    const rule = await approvalRequiredFor('inventory', session);
+    if (rule) {
+      await submitApprovalRequest({
+        module: 'inventory',
+        action: 'inventory_daily_purchase',
+        payload: { body, userId: session.id },
+        summary: `Achat du ${date} — ${items.length} produit(s)`,
+        session,
+        rule,
+      });
+      return NextResponse.json({ pending: true, message: "Soumis pour approbation" });
     }
 
-    // Insert only new movements
-    if (newMovements.length > 0) {
-      const { error: movError } = await supabase
-        .from('inventory_movements')
-        .insert(newMovements);
-      if (movError) throw movError;
-    }
-
-    return NextResponse.json({
-      success: true,
-      count: processedCount,
-    });
+    const count = await applyDailyPurchase(supabase, body, session.id);
+    return NextResponse.json({ success: true, count });
   } catch (error) {
     console.error('Daily purchase error:', error);
     return NextResponse.json({ error: 'Failed to save purchases' }, { status: 500 });

@@ -11,6 +11,8 @@ interface NotificationRow {
   severity: string;
   link: string | null;
   required_permission: string | null;
+  target_roles: string[] | null;
+  target_users: string[] | null;
   is_read: boolean;
   created_at: string;
 }
@@ -24,14 +26,19 @@ export async function GET() {
   try { await generateLowStockNotifications(); } catch { /* best-effort */ }
 
   const { rows } = await db.query<NotificationRow>(
-    `SELECT id, type, title, message, severity, link, required_permission, is_read, created_at
+    `SELECT id, type, title, message, severity, link, required_permission, target_roles, target_users, is_read, created_at
      FROM notifications ORDER BY created_at DESC LIMIT 50`
   );
 
   const isAdmin = session.role === 'admin';
-  const visible = rows.filter(
-    n => !n.required_permission || isAdmin || session.permissions.includes(n.required_permission as never)
-  );
+  const visible = rows.filter(n => {
+    if (isAdmin) return true;
+    const hasTargets = (n.target_roles && n.target_roles.length) || (n.target_users && n.target_users.length);
+    if (hasTargets) {
+      return (n.target_roles || []).includes(session.role) || (n.target_users || []).includes(session.id);
+    }
+    return !n.required_permission || session.permissions.includes(n.required_permission as never);
+  });
   const unread = visible.filter(n => !n.is_read).length;
 
   return NextResponse.json({ notifications: visible, unread });

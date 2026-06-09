@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Save, User, Bell, Shield, Palette, Sun, Moon, Monitor, UtensilsCrossed, KeyRound } from 'lucide-react';
+import { Save, User, Bell, Shield, Palette, Sun, Moon, Monitor, UtensilsCrossed, KeyRound, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/lib/auth/hooks';
 import { PermissionGate, AdminOnly } from '@/components/backoffice/auth/PermissionGate';
 import { useTheme } from '@/components/theme-provider';
@@ -9,6 +9,7 @@ import { useTranslation } from '@/lib/i18n/useTranslation';
 import { CategoriesSettings } from './CategoriesSettings';
 import { RbacSettings } from './RbacSettings';
 import { NotificationSettings } from './NotificationSettings';
+import { ApprovalSettings } from './ApprovalSettings';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -22,6 +23,7 @@ export default function SettingsPage() {
     { id: 'notifications', label: s.tabs.notifications, icon: Bell },
     { id: 'appearance', label: s.tabs.appearance, icon: Palette },
     { id: 'rbac', label: 'Rôles & Permissions', icon: KeyRound, adminOnly: true },
+    { id: 'approvals', label: 'Validations', icon: ShieldCheck, adminOnly: true },
     { id: 'security', label: s.tabs.security, icon: Shield, adminOnly: true }
   ];
 
@@ -70,6 +72,11 @@ export default function SettingsPage() {
           {activeTab === 'rbac' && (
             <PermissionGate permission="users.manage">
               <RbacSettings />
+            </PermissionGate>
+          )}
+          {activeTab === 'approvals' && (
+            <PermissionGate permission="settings.write">
+              <ApprovalSettings />
             </PermissionGate>
           )}
           {activeTab === 'security' && (
