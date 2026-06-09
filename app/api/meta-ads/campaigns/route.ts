@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCampaigns, getCampaignDetails, createCampaign, updateCampaign, CampaignStatus, CampaignObjective } from '@/lib/meta-ads/campaigns';
 import { GraphAPIError } from '@/lib/meta-ads/api';
+import { enforce } from '@/lib/auth/supabase-server';
 
 function getAccessToken(request: NextRequest): string {
   const authHeader = request.headers.get('authorization');
@@ -11,6 +12,7 @@ function getAccessToken(request: NextRequest): string {
 }
 
 export async function GET(request: NextRequest) {
+  const denied = await enforce('marketing.read'); if (denied) return denied;
   const { searchParams } = new URL(request.url);
   const accountId = searchParams.get('account_id');
   const campaignId = searchParams.get('campaign_id');
@@ -49,6 +51,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await enforce('marketing.write'); if (denied) return denied;
   const accessToken = getAccessToken(request);
   if (!accessToken) {
     return NextResponse.json({ error: 'Access token is required' }, { status: 401 });
@@ -81,6 +84,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const denied = await enforce('marketing.write'); if (denied) return denied;
   const accessToken = getAccessToken(request);
   if (!accessToken) {
     return NextResponse.json({ error: 'Access token is required' }, { status: 401 });

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
 
 // GET - Fetch menus or menu details
 export async function GET(request: NextRequest) {
+  const denied = await enforce('menu.read'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
@@ -90,6 +91,7 @@ export async function GET(request: NextRequest) {
 
 // POST - Create menu or add item to menu
 export async function POST(request: NextRequest) {
+  const denied = await enforce('menu.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
@@ -157,6 +159,7 @@ export async function POST(request: NextRequest) {
 
 // PATCH - Update menu or menu item
 export async function PATCH(request: NextRequest) {
+  const denied = await enforce('menu.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
@@ -226,6 +229,7 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE - Remove menu or item from menu
 export async function DELETE(request: NextRequest) {
+  const denied = await enforce('menu.delete'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);

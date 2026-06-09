@@ -2,6 +2,7 @@
 // Provides the same interface so API routes need minimal changes
 
 import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
 import { SignJWT, jwtVerify } from 'jose';
 import db from '@/lib/db';
 import type { AuthUser, PermissionName, RoleName, ProfileWithRole } from '@/lib/types/auth';
@@ -10,18 +11,22 @@ const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'epictete-
 
 // ─── JWT helpers ────────────────────────────────────────────────────────────
 
-export async function createJWT(userId: string): Promise<string> {
-  return new SignJWT({ sub: userId })
+export async function createJWT(userId: string, role?: RoleName): Promise<string> {
+  // Embed the role so edge middleware can authorize routes without a DB call.
+  // Live permission checks (API routes, getServerSession) still read the DB,
+  // so a role change takes effect on the user's next request there; the JWT
+  // role is only used for coarse route gating and refreshes on next login.
+  return new SignJWT({ sub: userId, role })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('7d')
     .sign(JWT_SECRET);
 }
 
-export async function verifyJWT(token: string): Promise<{ sub: string } | null> {
+export async function verifyJWT(token: string): Promise<{ sub: string; role?: RoleName } | null> {
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload as { sub: string };
+    return payload as { sub: string; role?: RoleName };
   } catch {
     return null;
   }
@@ -118,4 +123,26 @@ export async function requirePermission(permission: PermissionName): Promise<Aut
   const session = await requireAuth();
   if (!session.permissions.includes(permission)) throw new Error('Forbidden');
   return session;
+}
+
+// ─── Route-handler guard ─────────────────────────────────────────────────────
+// Returns a 401/403 NextResponse when the caller is not allowed, or null when
+// access is granted. Usage inside an API route handler:
+//   const denied = await enforce('finance.write'); if (denied) return denied;
+// Pass no permission to require only authentication.
+export async function enforce(permission?: PermissionName): Promise<NextResponse | null> {
+  const session = await getServerSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (permission && !session.permissions.includes(permission)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  return null;
+}
+
+// Admin-only guard for sensitive endpoints with no dedicated permission.
+export async function enforceAdmin(): Promise<NextResponse | null> {
+  const session = await getServerSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (session.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  return null;
 }

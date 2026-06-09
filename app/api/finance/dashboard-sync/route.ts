@@ -8,8 +8,10 @@ import {
   getDashboardConfig,
   resolveCaisseId,
 } from '@/lib/lacaisse/dashboard';
+import { enforce } from '@/lib/auth/supabase-server';
 
 export async function POST(request: NextRequest) {
+    const denied = await enforce('finance.write'); if (denied) return denied;
   try {
     const body = await request.json().catch(() => ({}));
 

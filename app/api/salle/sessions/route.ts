@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
 
 export async function GET(request: NextRequest) {
+  const denied = await enforce('salle.read'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await enforce('salle.serve'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
@@ -78,6 +80,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const denied = await enforce('salle.serve'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const body = await request.json();

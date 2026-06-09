@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforceAdmin } from '@/lib/auth/supabase-server';
 
 // Generic DB query proxy for client-side components
 // Only authenticated users can use this endpoint
@@ -33,6 +33,7 @@ const ALLOWED_TABLES = new Set([
 const PUBLIC_READ_TABLES = new Set(['menu_items', 'menu_categories', 'site_content']);
 
 export async function POST(request: NextRequest) {
+  const denied = await enforceAdmin(); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
 

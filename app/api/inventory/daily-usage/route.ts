@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
 
 interface UsageLine {
   inventory_item_id: string;
@@ -10,6 +10,7 @@ interface UsageLine {
 
 // POST — batch-save daily stock outgoing: subtract quantities + create movements
 export async function POST(request: NextRequest) {
+    const denied = await enforce('inventory.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
@@ -98,6 +99,7 @@ export async function POST(request: NextRequest) {
 
 // GET — fetch usage history
 export async function GET(request: NextRequest) {
+    const denied = await enforce('inventory.read'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);

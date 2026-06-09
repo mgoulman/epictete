@@ -8,6 +8,7 @@ import {
   estimateAudienceSize,
 } from '@/lib/meta-ads/targeting';
 import { GraphAPIError } from '@/lib/meta-ads/api';
+import { enforce } from '@/lib/auth/supabase-server';
 
 function getAccessToken(request: NextRequest): string {
   const authHeader = request.headers.get('authorization');
@@ -18,6 +19,7 @@ function getAccessToken(request: NextRequest): string {
 }
 
 export async function GET(request: NextRequest) {
+  const denied = await enforce('marketing.read'); if (denied) return denied;
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type');
   const query = searchParams.get('query') || '';
@@ -78,6 +80,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await enforce('marketing.write'); if (denied) return denied;
   const accessToken = getAccessToken(request);
   if (!accessToken) {
     return NextResponse.json({ error: 'Access token is required' }, { status: 401 });

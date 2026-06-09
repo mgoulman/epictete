@@ -58,20 +58,34 @@ export function ItemDetailModal({ item, isOpen, onClose }: ItemDetailModalProps)
                        md:max-w-lg md:w-full md:max-h-[85vh]
                        bg-card border border-border rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col"
           >
-            {/* Sticky close bar */}
-            <div className="flex items-center justify-end px-3 pt-3">
-              <button
-                onClick={onClose}
-                className="p-2 rounded-full bg-secondary/80 hover:bg-secondary
-                           text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Fermer"
-              >
-                <X size={20} />
-              </button>
-            </div>
+            {/* Hero image (when present) — close button sits on top */}
+            {item.image ? (
+              <div className="relative w-full aspect-[4/3] bg-secondary overflow-hidden shrink-0">
+                <img src={item.image} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/0 to-black/40 pointer-events-none" />
+                <button
+                  onClick={onClose}
+                  className="absolute top-3 right-3 p-2 rounded-full bg-black/50 backdrop-blur-sm text-white hover:bg-black/70 transition-colors"
+                  aria-label="Fermer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-end px-3 pt-3">
+                <button
+                  onClick={onClose}
+                  className="p-2 rounded-full bg-secondary/80 hover:bg-secondary
+                             text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Fermer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            )}
 
             {/* Header */}
-            <div className="px-6 pb-4">
+            <div className="px-6 pt-4 pb-4">
               {/* Region badge */}
               {regionInfo && (
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent/10

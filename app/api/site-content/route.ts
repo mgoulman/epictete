@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
 import db from '@/lib/db';
 
 // GET - Fetch site content (public, no auth needed)
@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
 
 // PATCH - Update a section's content (requires auth)
 export async function PATCH(request: NextRequest) {
+  const denied = await enforce('marketing.write'); if (denied) return denied;
   try {
     const serverSupabase = await createSupabaseServerClient();
 

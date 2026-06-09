@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { PermissionGate } from '@/components/backoffice/auth/PermissionGate';
 import { usePermissions } from '@/lib/auth/hooks';
@@ -326,8 +326,14 @@ export default function FinancePage() {
     }
   }, [startDate, endDate]);
 
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
   const fetchSales = useCallback(async () => {
-    setLoading(true);
+    // offset === 0 is a reload (filters changed). Anything else is a
+    // "load more" trigger from the infinite-scroll sentinel.
+    const isAppending = offset > 0;
+    if (isAppending) setIsLoadingMore(true);
+    else setLoading(true);
     try {
       const params = new URLSearchParams({
         limit: String(limit),
@@ -341,14 +347,33 @@ export default function FinancePage() {
       const res = await fetch(`/api/finance/sales?${params}`);
       if (res.ok) {
         const data = await res.json();
-        setSalesItems(data.items || []);
+        const items = data.items || [];
+        setSalesItems(prev => (isAppending ? [...prev, ...items] : items));
         setTotal(data.total || 0);
       }
     } catch (err) {
       console.error('Sales fetch error:', err);
     }
-    setLoading(false);
+    if (isAppending) setIsLoadingMore(false);
+    else setLoading(false);
   }, [offset, startDate, endDate, category, searchQuery]);
+
+  // Infinite-scroll sentinel: when this element scrolls into view, load
+  // the next page by bumping the offset (fetchSales appends when offset > 0).
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const hasMoreSales = salesItems.length < total;
+  useEffect(() => {
+    if (activeTab !== 'sales' || !hasMoreSales || loading || isLoadingMore) return;
+    const node = loadMoreRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) {
+        setOffset(prev => prev + limit);
+      }
+    }, { rootMargin: '300px' });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [activeTab, hasMoreSales, loading, isLoadingMore, salesItems.length, limit]);
 
   const fetchInventory = useCallback(async (showLoader = true) => {
     if (showLoader) setInventoryLoading(true);
@@ -1130,9 +1155,6 @@ export default function FinancePage() {
     return new Intl.NumberFormat('fr-MA', { style: 'decimal', minimumFractionDigits: 2 }).format(value) + ' DH';
   };
 
-  const totalPages = Math.ceil(total / limit);
-  const currentPage = Math.floor(offset / limit) + 1;
-
   return (
     <PermissionGate
       permission="finance.read"
@@ -1499,29 +1521,24 @@ export default function FinancePage() {
                     </table>
                   </div>
 
-                  {/* Pagination */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                      <p className="text-sm text-muted-foreground">
-                        {fn.showing} {offset + 1} {fn.to} {Math.min(offset + limit, total)} {fn.of} {total}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setOffset(Math.max(0, offset - limit))}
-                          disabled={currentPage === 1}
-                          className="p-2 rounded-lg text-foreground disabled:opacity-50"
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <span className="text-sm text-foreground">{fn.page} {currentPage} {fn.of} {totalPages}</span>
-                        <button
-                          onClick={() => setOffset(offset + limit)}
-                          disabled={currentPage === totalPages}
-                          className="p-2 rounded-lg text-foreground disabled:opacity-50"
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
+                  {/* Infinite-scroll sentinel + loading indicator */}
+                  {hasMoreSales && (
+                    <div ref={loadMoreRef} className="flex items-center justify-center py-4 border-t border-border">
+                      {isLoadingMore ? (
+                        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Chargement...
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          {salesItems.length} / {total}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {!hasMoreSales && salesItems.length > 0 && (
+                    <div className="flex items-center justify-center py-3 border-t border-border text-xs text-muted-foreground">
+                      {salesItems.length} {fn.of} {total}
                     </div>
                   )}
                 </>

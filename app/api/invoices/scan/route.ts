@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 import db from '@/lib/db';
+import { enforce } from '@/lib/auth/supabase-server';
 
 const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
 
@@ -40,6 +41,7 @@ interface InventoryMatch {
 }
 
 export async function POST(request: NextRequest) {
+    const denied = await enforce('finance.write'); if (denied) return denied;
   try {
     if (!anthropicApiKey) {
       return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
+import { enforce } from "@/lib/auth/supabase-server";
 
 const MARKETING_DIR = path.join(process.cwd(), "marketing");
 
@@ -34,6 +35,7 @@ const ALLOWED_PATHS = [
 ];
 
 export async function GET(request: NextRequest) {
+  const denied = await enforce('marketing.read'); if (denied) return denied;
   try {
     const { searchParams } = new URL(request.url);
     const filePath = searchParams.get("path");

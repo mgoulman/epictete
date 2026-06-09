@@ -117,7 +117,7 @@ interface InventoryMovement {
   created_at: string;
 }
 
-type TabType = 'daily' | 'suivi' | 'recap' | 'expenses' | 'movements' | 'frais-divers';
+type TabType = 'daily' | 'suivi' | 'recap' | 'expenses' | 'movements' | 'frais-divers' | 'paie';
 
 interface MiscExpense {
   id: string;
@@ -127,6 +127,21 @@ interface MiscExpense {
   justification: string | null;
   receipt_url: string | null;
   receipt_path: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface PayrollEntry {
+  id: string;
+  pay_month: string;
+  employee_name: string;
+  working_days: number;
+  day_offs: number;
+  holidays: number;
+  cnss: number;
+  tac: number;
+  total: number;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -169,7 +184,7 @@ export default function ReportsPage() {
   const rp = t.backoffice.reportsPage;
 
   const tabParam = searchParams.get('tab') as TabType | null;
-  const validTabs: TabType[] = ['daily', 'suivi', 'recap', 'expenses', 'movements', 'frais-divers'];
+  const validTabs: TabType[] = ['daily', 'suivi', 'recap', 'expenses', 'movements', 'frais-divers', 'paie'];
   const activeTab: TabType = tabParam && validTabs.includes(tabParam) ? tabParam : 'daily';
   const setActiveTab = (tab: TabType) => router.push(`/admin/reports?tab=${tab}`, { scroll: false });
 
@@ -232,6 +247,22 @@ export default function ReportsPage() {
   const [editingMiscId, setEditingMiscId] = useState<string | null>(null);
   const [miscForm, setMiscForm] = useState<{ expense_date: string; amount: number; description: string; justification: string }>({
     expense_date: today, amount: 0, description: '', justification: '',
+  });
+
+  // ── Payroll (La Paie) State ──
+  // Standalone payroll table — not joined to staff_members yet.
+  const [payrollEntries, setPayrollEntries] = useState<PayrollEntry[]>([]);
+  const [payrollLoading, setPayrollLoading] = useState(false);
+  const [showPayrollModal, setShowPayrollModal] = useState(false);
+  const [editingPayrollId, setEditingPayrollId] = useState<string | null>(null);
+  const [payrollForm, setPayrollForm] = useState<{
+    employee_name: string;
+    working_days: number; day_offs: number; holidays: number;
+    cnss: number; tac: number; total: number;
+    notes: string;
+  }>({
+    employee_name: '', working_days: 0, day_offs: 0, holidays: 0,
+    cnss: 0, tac: 0, total: 0, notes: '',
   });
 
   // ── Movements State ──
@@ -772,6 +803,148 @@ export default function ReportsPage() {
     URL.revokeObjectURL(url);
   };
 
+  // ── Payroll fetchers + handlers ──
+  const fetchPayroll = useCallback(async () => {
+    setPayrollLoading(true);
+    try {
+      const res = await fetch(`/api/reports/payroll?month=${selectedMonth}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPayrollEntries(data.entries || []);
+      }
+    } catch (err) {
+      console.error('Fetch payroll error:', err);
+    }
+    setPayrollLoading(false);
+  }, [selectedMonth]);
+
+  const openPayrollModal = (entry?: PayrollEntry) => {
+    if (entry) {
+      setEditingPayrollId(entry.id);
+      setPayrollForm({
+        employee_name: entry.employee_name,
+        working_days: Number(entry.working_days) || 0,
+        day_offs: Number(entry.day_offs) || 0,
+        holidays: Number(entry.holidays) || 0,
+        cnss: Number(entry.cnss) || 0,
+        tac: Number(entry.tac) || 0,
+        total: Number(entry.total) || 0,
+        notes: entry.notes || '',
+      });
+    } else {
+      setEditingPayrollId(null);
+      setPayrollForm({ employee_name: '', working_days: 0, day_offs: 0, holidays: 0, cnss: 0, tac: 0, total: 0, notes: '' });
+    }
+    setShowPayrollModal(true);
+  };
+
+  const savePayroll = async () => {
+    if (!payrollForm.employee_name.trim()) return;
+    try {
+      const payload = { ...payrollForm, pay_month: `${selectedMonth}-01` };
+      if (editingPayrollId) {
+        await fetch(`/api/reports/payroll?id=${editingPayrollId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await fetch('/api/reports/payroll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+      setShowPayrollModal(false);
+      fetchPayroll();
+    } catch (err) {
+      console.error('Save payroll error:', err);
+    }
+  };
+
+  const deletePayroll = async (id: string) => {
+    if (!confirm('Supprimer cette ligne de paie ?')) return;
+    try {
+      await fetch(`/api/reports/payroll?id=${id}`, { method: 'DELETE' });
+      fetchPayroll();
+    } catch (err) {
+      console.error('Delete payroll error:', err);
+    }
+  };
+
+  const exportPayrollExcel = async () => {
+    if (!payrollEntries.length) return;
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Epictète Restaurant';
+    const ws = wb.addWorksheet('La Paie');
+
+    try {
+      const logoRes = await fetch('/logos/logo-full.png');
+      const logoBuf = await logoRes.arrayBuffer();
+      const imageId = wb.addImage({ buffer: logoBuf, extension: 'png' });
+      ws.addImage(imageId, { tl: { col: 0, row: 0 }, ext: { width: 120, height: 60 } });
+    } catch { /* ignore */ }
+
+    ws.getRow(1).height = 24; ws.getRow(2).height = 24; ws.getRow(3).height = 24;
+    const titleCell = ws.getCell('C2');
+    titleCell.value = `La Paie — ${monthLabel(selectedMonth)}`;
+    titleCell.font = { bold: true, size: 16, color: { argb: '606338' } };
+    ws.mergeCells('C2:H2');
+    titleCell.alignment = { vertical: 'middle' };
+
+    const headerFill: ExcelJS.FillPattern = { type: 'pattern', pattern: 'solid', fgColor: { argb: '606338' } };
+    const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
+    const thinBorder: Partial<ExcelJS.Borders> = {
+      top: { style: 'thin', color: { argb: 'D0D0D0' } },
+      bottom: { style: 'thin', color: { argb: 'D0D0D0' } },
+      left: { style: 'thin', color: { argb: 'D0D0D0' } },
+      right: { style: 'thin', color: { argb: 'D0D0D0' } },
+    };
+    const currencyFmt = '#,##0.00 "DH"';
+
+    const hRow = ws.getRow(5);
+    hRow.values = ['Employé', 'Jours travaillés', 'Jours de repos', 'Jours fériés', 'CNSS', 'TAC', 'Total'];
+    hRow.eachCell(c => { c.fill = headerFill; c.font = headerFont; c.border = thinBorder; c.alignment = { horizontal: 'center' }; });
+    hRow.height = 20;
+
+    let tCnss = 0, tTac = 0, tTotal = 0, tWork = 0, tDayOff = 0, tHol = 0;
+    const sorted = [...payrollEntries].sort((a, b) => a.employee_name.localeCompare(b.employee_name));
+    for (const e of sorted) {
+      tCnss += Number(e.cnss); tTac += Number(e.tac); tTotal += Number(e.total);
+      tWork += Number(e.working_days); tDayOff += Number(e.day_offs); tHol += Number(e.holidays);
+      const r = ws.addRow([
+        e.employee_name,
+        Number(e.working_days),
+        Number(e.day_offs),
+        Number(e.holidays),
+        Number(e.cnss),
+        Number(e.tac),
+        Number(e.total),
+      ]);
+      r.eachCell(c => { c.border = thinBorder; });
+      for (let col = 2; col <= 4; col++) r.getCell(col).alignment = { horizontal: 'right' };
+      for (let col = 5; col <= 7; col++) { r.getCell(col).numFmt = currencyFmt; r.getCell(col).alignment = { horizontal: 'right' }; }
+      r.getCell(7).font = { bold: true, color: { argb: '606338' } };
+    }
+
+    const totalRow = ws.addRow(['TOTAL', tWork, tDayOff, tHol, tCnss, tTac, tTotal]);
+    totalRow.eachCell(c => { c.fill = headerFill; c.font = headerFont; c.border = thinBorder; });
+    for (let col = 2; col <= 4; col++) totalRow.getCell(col).alignment = { horizontal: 'right' };
+    for (let col = 5; col <= 7; col++) { totalRow.getCell(col).numFmt = currencyFmt; totalRow.getCell(col).alignment = { horizontal: 'right' }; }
+
+    ws.columns = [{ width: 28 }, { width: 14 }, { width: 14 }, { width: 14 }, { width: 14 }, { width: 14 }, { width: 16 }];
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Paie_${selectedMonth}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // ── Effects ──
   useEffect(() => {
     if (activeTab === 'daily') {
@@ -788,7 +961,8 @@ export default function ReportsPage() {
     if (activeTab === 'expenses') fetchExpenses();
     if (activeTab === 'movements') fetchMovements();
     if (activeTab === 'frais-divers') fetchMiscExpenses();
-  }, [activeTab, selectedMonth, fetchMonthEntries, fetchRecap, fetchExpenses, fetchMovements, fetchMiscExpenses]);
+    if (activeTab === 'paie') fetchPayroll();
+  }, [activeTab, selectedMonth, fetchMonthEntries, fetchRecap, fetchExpenses, fetchMovements, fetchMiscExpenses, fetchPayroll]);
 
   // ── Handlers ──
   const handleSaveEntry = async (status: 'draft' | 'validated' = 'draft') => {
@@ -923,6 +1097,7 @@ export default function ReportsPage() {
             { id: 'expenses' as TabType, label: rp.tabs.expenses, icon: Receipt },
             { id: 'movements' as TabType, label: rp.tabs.movements, icon: ArrowUpDown },
             { id: 'frais-divers' as TabType, label: 'Frais Divers', icon: DollarSign },
+            { id: 'paie' as TabType, label: 'La Paie', icon: Receipt },
           ]).map(tab => (
             <button
               key={tab.id}
@@ -1886,6 +2061,188 @@ export default function ReportsPage() {
                   className="px-4 py-2 rounded-lg bg-gradient-to-br from-[#606338] to-[#4d4f2e] text-white text-sm font-medium disabled:opacity-50"
                 >
                   {editingMiscId ? 'Enregistrer' : 'Créer'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════ */}
+        {/* TAB: LA PAIE                                */}
+        {/* ═══════════════════════════════════════════ */}
+        {activeTab === 'paie' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-2">
+                <button onClick={() => navigateMonth(-1)} className="p-2 bg-secondary border border-border rounded-lg hover:bg-card">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm font-medium text-foreground capitalize min-w-[160px] text-center">
+                  {monthLabel(selectedMonth)}
+                </span>
+                <button onClick={() => navigateMonth(1)} className="p-2 bg-secondary border border-border rounded-lg hover:bg-card">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={exportPayrollExcel}
+                  disabled={!payrollEntries.length}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-secondary border border-border rounded-lg text-xs font-medium text-foreground hover:bg-card disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  Exporter Excel
+                </button>
+                <button
+                  onClick={() => openPayrollModal()}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-xs font-medium"
+                >
+                  <Plus className="w-4 h-4" />
+                  Nouvel employé
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-xl p-4 text-sm flex flex-wrap gap-x-6 gap-y-2">
+              <div><span className="text-muted-foreground">Total CNSS:</span> <span className="font-semibold text-foreground">{payrollEntries.reduce((s, e) => s + Number(e.cnss), 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DH</span></div>
+              <div><span className="text-muted-foreground">Total TAC:</span> <span className="font-semibold text-foreground">{payrollEntries.reduce((s, e) => s + Number(e.tac), 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DH</span></div>
+              <div><span className="text-muted-foreground">Total paie du mois:</span> <span className="font-semibold text-[#606338]">{payrollEntries.reduce((s, e) => s + Number(e.total), 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DH</span></div>
+            </div>
+
+            <div className="bg-secondary border border-border rounded-xl overflow-hidden">
+              {payrollLoading ? (
+                <div className="flex items-center justify-center h-48">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#606338]" />
+                </div>
+              ) : payrollEntries.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+                  <Receipt className="w-10 h-10 mb-3 opacity-50" />
+                  <p className="text-sm">Aucune fiche de paie pour ce mois</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-secondary text-xs text-muted-foreground uppercase tracking-wide">
+                        <th className="px-4 py-3 text-left font-semibold">Employé</th>
+                        <th className="px-4 py-3 text-right font-semibold">Jours travaillés</th>
+                        <th className="px-4 py-3 text-right font-semibold">Jours de repos</th>
+                        <th className="px-4 py-3 text-right font-semibold">Jours fériés</th>
+                        <th className="px-4 py-3 text-right font-semibold">CNSS</th>
+                        <th className="px-4 py-3 text-right font-semibold">TAC</th>
+                        <th className="px-4 py-3 text-right font-semibold">Total</th>
+                        <th className="px-4 py-3 text-right font-semibold">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...payrollEntries].sort((a, b) => a.employee_name.localeCompare(b.employee_name)).map(e => (
+                        <tr key={e.id} className="border-t border-border hover:bg-card/40">
+                          <td className="px-4 py-3 text-foreground font-medium whitespace-nowrap">{e.employee_name}</td>
+                          <td className="px-4 py-3 text-right text-foreground">{Number(e.working_days).toLocaleString('fr-FR')}</td>
+                          <td className="px-4 py-3 text-right text-foreground">{Number(e.day_offs).toLocaleString('fr-FR')}</td>
+                          <td className="px-4 py-3 text-right text-foreground">{Number(e.holidays).toLocaleString('fr-FR')}</td>
+                          <td className="px-4 py-3 text-right text-foreground whitespace-nowrap">{Number(e.cnss).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DH</td>
+                          <td className="px-4 py-3 text-right text-foreground whitespace-nowrap">{Number(e.tac).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DH</td>
+                          <td className="px-4 py-3 text-right text-[#606338] font-semibold whitespace-nowrap">{Number(e.total).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DH</td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            <button onClick={() => openPayrollModal(e)} className="p-1.5 text-muted-foreground hover:text-foreground" aria-label="Modifier">
+                              <FileText className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => deletePayroll(e.id)} className="p-1.5 text-muted-foreground hover:text-red-500" aria-label="Supprimer">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {showPayrollModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowPayrollModal(false)}>
+            <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-foreground">
+                  {editingPayrollId ? 'Modifier la fiche de paie' : 'Nouvelle fiche de paie'}
+                </h2>
+                <button onClick={() => setShowPayrollModal(false)} className="p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1.5">Employé *</label>
+                  <input
+                    type="text"
+                    value={payrollForm.employee_name}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, employee_name: e.target.value })}
+                    className="w-full py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50"
+                    placeholder="Nom de l'employé"
+                    autoFocus
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1.5">Jours travaillés</label>
+                    <input type="number" value={payrollForm.working_days} onChange={(e) => setPayrollForm({ ...payrollForm, working_days: Number(e.target.value) || 0 })}
+                      className="w-full py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1.5">Jours de repos</label>
+                    <input type="number" value={payrollForm.day_offs} onChange={(e) => setPayrollForm({ ...payrollForm, day_offs: Number(e.target.value) || 0 })}
+                      className="w-full py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1.5">Jours fériés</label>
+                    <input type="number" value={payrollForm.holidays} onChange={(e) => setPayrollForm({ ...payrollForm, holidays: Number(e.target.value) || 0 })}
+                      className="w-full py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1.5">CNSS (DH)</label>
+                    <input type="number" step="0.01" value={payrollForm.cnss} onChange={(e) => setPayrollForm({ ...payrollForm, cnss: Number(e.target.value) || 0 })}
+                      className="w-full py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1.5">TAC (DH)</label>
+                    <input type="number" step="0.01" value={payrollForm.tac} onChange={(e) => setPayrollForm({ ...payrollForm, tac: Number(e.target.value) || 0 })}
+                      className="w-full py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1.5">Total (DH)</label>
+                    <input type="number" step="0.01" value={payrollForm.total} onChange={(e) => setPayrollForm({ ...payrollForm, total: Number(e.target.value) || 0 })}
+                      className="w-full py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1.5">Notes</label>
+                  <textarea
+                    value={payrollForm.notes}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, notes: e.target.value })}
+                    rows={2}
+                    className="w-full py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50 resize-none"
+                    placeholder="Observations..."
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 mt-5">
+                <button
+                  onClick={() => setShowPayrollModal(false)}
+                  className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={savePayroll}
+                  disabled={!payrollForm.employee_name.trim()}
+                  className="px-4 py-2 rounded-lg bg-gradient-to-br from-[#606338] to-[#4d4f2e] text-white text-sm font-medium disabled:opacity-50"
+                >
+                  {editingPayrollId ? 'Enregistrer' : 'Créer'}
                 </button>
               </div>
             </div>
