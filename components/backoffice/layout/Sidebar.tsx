@@ -32,7 +32,8 @@ import {
   Receipt,
   ArrowUpDown,
   Bus,
-  ShoppingCart
+  ShoppingCart,
+  ChefHat
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth, usePermissions } from '@/lib/auth/hooks';
@@ -64,7 +65,8 @@ const iconMap: Record<string, React.ElementType> = {
   Receipt,
   ArrowUpDown,
   Bus,
-  ShoppingCart
+  ShoppingCart,
+  ChefHat
 };
 
 interface SidebarProps {

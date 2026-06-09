@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getServerSession } from '@/lib/auth/supabase-server';
 
 export async function GET(request: NextRequest) {
   const denied = await enforce('salle.read'); if (denied) return denied;
@@ -32,6 +32,30 @@ export async function GET(request: NextRequest) {
       const { data, error } = await query;
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       return NextResponse.json({ tables: data });
+    }
+
+    if (type === 'my-tables') {
+      // Tables assigned to the logged-in user's staff member. Falls back to all
+      // tables when the account isn't linked to a staff member.
+      const session = await getServerSession();
+      let staffId: string | null = null;
+      if (session) {
+        const { data: staff } = await supabase
+          .from('staff_members')
+          .select('id')
+          .eq('profile_id', session.id)
+          .maybeSingle();
+        staffId = (staff as { id?: string } | null)?.id ?? null;
+      }
+      let query = supabase
+        .from('tables')
+        .select('*, assigned_waiter:staff_members!tables_assigned_waiter_id_fkey(id, first_name, last_name)')
+        .order('table_number', { ascending: true });
+      if (staffId) query = query.eq('assigned_waiter_id', staffId);
+
+      const { data, error } = await query;
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ tables: data, staffId });
     }
 
     if (type === 'tables-with-sessions') {
@@ -70,6 +94,18 @@ export async function GET(request: NextRequest) {
       }));
 
       return NextResponse.json({ tables: tablesWithSessions });
+    }
+
+    if (type === 'menu-items') {
+      // Available menu items for taking orders (salle.read — no menu.read needed).
+      const { data, error } = await supabase
+        .from('menu_items')
+        .select('id, name, name_fr, price, category_id')
+        .eq('is_available', true)
+        .order('name_fr', { ascending: true });
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ items: data });
     }
 
     if (type === 'menu-categories') {

@@ -192,7 +192,7 @@ export const ROLE_PERMISSIONS: Record<RoleName, PermissionName[]> = {
   cuisine: [
     'menu.read', 'menu.write',
     'recipes.read', 'recipes.write',
-    'inventory.read',
+    'inventory.read', 'inventory.write',
   ],
   // HR / personnel & transport
   rh: [
@@ -217,11 +217,13 @@ export const ROLE_PERMISSIONS: Record<RoleName, PermissionName[]> = {
 // wins, so more specific routes (e.g. /admin/salle/service) are listed first.
 // Routes not listed here (e.g. /admin dashboard) require only authentication.
 export const ROUTE_PERMISSIONS: ReadonlyArray<readonly [string, PermissionName]> = [
+  ['/admin/salle/mes-tables', 'salle.serve'],
   ['/admin/salle/service', 'salle.serve'],
   ['/admin/salle', 'salle.write'],
   ['/admin/menus', 'menu.read'],
   ['/admin/menu', 'menu.read'],
   ['/admin/recipes', 'recipes.read'],
+  ['/admin/cuisine', 'inventory.read'],
   ['/admin/inventory', 'inventory.read'],
   ['/admin/finance', 'finance.read'],
   ['/admin/reports', 'reports.read'],
@@ -277,9 +279,11 @@ export const BACKOFFICE_NAV: NavItem[] = [
     permission: 'salle.read',
     children: [
       { key: 'floorPlan', label: 'Plan de Salle', href: '/admin/salle', icon: 'Map', permission: 'salle.write' },
-      { key: 'service', label: 'Service', href: '/admin/salle/service', icon: 'ClipboardList', permission: 'salle.serve' }
+      { key: 'service', label: 'Service', href: '/admin/salle/service', icon: 'ClipboardList', permission: 'salle.serve' },
+      { key: 'myTables', label: 'Mes Tables', href: '/admin/salle/mes-tables', icon: 'Armchair', permission: 'salle.serve' }
     ]
   },
+  { key: 'cuisine', label: 'Cuisine', href: '/admin/cuisine', icon: 'ChefHat', permission: 'inventory.read' },
   { key: 'users', label: 'Users', href: '/admin/users', icon: 'Users', permission: 'users.manage' },
   { key: 'personnel', label: 'Personnel', href: '/admin/personnel', icon: 'UserCog', permission: 'personnel.read' },
   { key: 'transport', label: 'Transport', href: '/admin/transport', icon: 'Bus', permission: 'transport.read' },
