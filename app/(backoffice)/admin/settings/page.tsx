@@ -8,6 +8,7 @@ import { useTheme } from '@/components/theme-provider';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { CategoriesSettings } from './CategoriesSettings';
 import { RbacSettings } from './RbacSettings';
+import { NotificationSettings } from './NotificationSettings';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -182,71 +183,6 @@ function ProfileSettings({ user }: { user: import('@/lib/types/auth').AuthUser |
           {isSaving ? p.saving : p.saveChanges}
         </button>
       </div>
-    </div>
-  );
-}
-
-function NotificationSettings() {
-  const { t } = useTranslation();
-  const n = t.backoffice.settings.notifications;
-
-  return (
-    <div className="bg-secondary border border-border rounded-xl p-6">
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold text-foreground">{n.title}</h2>
-        <p className="text-[13px] text-muted-foreground mt-1">{n.subtitle}</p>
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <NotificationToggle
-          label={n.emailNotifications}
-          description={n.emailNotificationsDesc}
-          defaultChecked={true}
-        />
-        <NotificationToggle
-          label={n.systemAlerts}
-          description={n.systemAlertsDesc}
-          defaultChecked={true}
-        />
-        <NotificationToggle
-          label={n.marketingUpdates}
-          description={n.marketingUpdatesDesc}
-          defaultChecked={false}
-        />
-      </div>
-    </div>
-  );
-}
-
-function NotificationToggle({
-  label,
-  description,
-  defaultChecked
-}: {
-  label: string;
-  description: string;
-  defaultChecked: boolean;
-}) {
-  const [checked, setChecked] = useState(defaultChecked);
-
-  return (
-    <div className="flex items-center justify-between p-4 bg-card rounded-lg">
-      <div>
-        <p className="font-medium text-foreground">{label}</p>
-        <p className="text-[13px] text-muted mt-1">{description}</p>
-      </div>
-      <button
-        onClick={() => setChecked(!checked)}
-        className={`relative w-12 h-6 rounded-full border-none cursor-pointer transition-colors ${
-          checked ? 'bg-[#606338]' : 'bg-border'
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${
-            checked ? 'left-[26px]' : 'left-0.5'
-          }`}
-        />
-      </button>
     </div>
   );
 }
