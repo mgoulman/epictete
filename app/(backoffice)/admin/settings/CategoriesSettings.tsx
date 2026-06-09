@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, X, Pencil } from 'lucide-react';
+import { Plus, Trash2, X, Pencil, UtensilsCrossed, Package } from 'lucide-react';
 import { createSupabaseBrowserClient } from '@/lib/auth/supabase-browser';
 import type { MenuCategory } from '@/lib/supabase';
 import { PermissionGate } from '@/components/backoffice/auth/PermissionGate';
@@ -13,6 +13,40 @@ const slugify = (s: string) => s
   .replace(/[^a-z0-9]+/g, '-')
   .replace(/^-|-$/g, '');
 
+export function CategoriesSettings() {
+  const [view, setView] = useState<'menu' | 'inventory'>('menu');
+
+  return (
+    <div className="space-y-4">
+      {/* Menu / Inventaire toggle */}
+      <div className="inline-flex rounded-lg border border-border bg-secondary p-1">
+        {([
+          { id: 'menu', label: 'Menu', icon: UtensilsCrossed },
+          { id: 'inventory', label: 'Inventaire', icon: Package },
+        ] as const).map(opt => {
+          const Icon = opt.icon;
+          const active = view === opt.id;
+          return (
+            <button
+              key={opt.id}
+              onClick={() => setView(opt.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                active ? 'bg-[#606338] text-white' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Icon className="w-4 h-4" /> {opt.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {view === 'menu' ? <MenuCategoriesSection /> : <InventoryCategoriesSection />}
+    </div>
+  );
+}
+
+// ─── Menu categories ─────────────────────────────────────────────────────────
+
 interface CategoryForm {
   name_fr: string;
   name: string;
@@ -22,7 +56,7 @@ interface CategoryForm {
 
 const emptyForm: CategoryForm = { name_fr: '', name: '', icon: '🍽️', description: '' };
 
-export function CategoriesSettings() {
+function MenuCategoriesSection() {
   const [supabase] = useState(() => createSupabaseBrowserClient());
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
@@ -140,7 +174,7 @@ export function CategoriesSettings() {
   };
 
   return (
-    <PermissionGate permission="menu.write" fallback={<p className="text-muted-foreground">Vous n&apos;avez pas la permission de gérer les catégories.</p>}>
+    <PermissionGate permission="menu.write" fallback={<p className="text-muted-foreground">Vous n&apos;avez pas la permission de gérer les catégories du menu.</p>}>
       <div className="bg-secondary border border-border rounded-xl p-5 space-y-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
@@ -254,6 +288,188 @@ export function CategoriesSettings() {
               <button
                 onClick={handleSave}
                 disabled={saving || !form.name_fr.trim()}
+                className="px-4 py-2 rounded-lg bg-gradient-to-br from-[#606338] to-[#4d4f2e] text-white text-sm font-medium disabled:opacity-50"
+              >
+                {saving ? 'Enregistrement...' : editingId ? 'Enregistrer' : 'Créer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </PermissionGate>
+  );
+}
+
+// ─── Inventory categories ────────────────────────────────────────────────────
+
+interface InventoryCategory {
+  id: string;
+  name: string;
+}
+
+function InventoryCategoriesSection() {
+  const [supabase] = useState(() => createSupabaseBrowserClient());
+  const [categories, setCategories] = useState<InventoryCategory[]>([]);
+  const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const refresh = async () => {
+    setLoading(true);
+    const [catsRes, itemsRes] = await Promise.all([
+      supabase.from('inventory_categories').select('id, name').order('name'),
+      supabase.from('inventory_items').select('id, category_id'),
+    ]);
+    if (catsRes.data) setCategories(catsRes.data as InventoryCategory[]);
+    if (itemsRes.data) {
+      const counts: Record<string, number> = {};
+      for (const item of itemsRes.data as { category_id: string | null }[]) {
+        if (item.category_id) counts[item.category_id] = (counts[item.category_id] || 0) + 1;
+      }
+      setItemCounts(counts);
+    }
+    setLoading(false);
+  };
+
+  const openCreate = () => { setEditingId(null); setName(''); setShowModal(true); };
+  const openEdit = (cat: InventoryCategory) => { setEditingId(cat.id); setName(cat.name); setShowModal(true); };
+
+  const handleSave = async () => {
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      if (editingId) {
+        const { error } = await supabase.from('inventory_categories').update({ name: name.trim() }).eq('id', editingId);
+        if (error) { alert(`Erreur: ${error.message}`); return; }
+      } else {
+        if (categories.some(c => c.name.toLowerCase() === name.trim().toLowerCase())) {
+          alert(`La catégorie "${name.trim()}" existe déjà.`);
+          return;
+        }
+        const { error } = await supabase.from('inventory_categories').insert({ name: name.trim() });
+        if (error) { alert(`Erreur: ${error.message}`); return; }
+      }
+      await refresh();
+      setShowModal(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (cat: InventoryCategory) => {
+    const count = itemCounts[cat.id] || 0;
+    if (count > 0) {
+      alert(`Impossible de supprimer "${cat.name}" : ${count} produit(s) sont rattaché(s) à cette catégorie.`);
+      return;
+    }
+    if (!confirm(`Supprimer la catégorie "${cat.name}" ?`)) return;
+    setDeleting(cat.id);
+    try {
+      const { error } = await supabase.from('inventory_categories').delete().eq('id', cat.id);
+      if (error) {
+        alert(`Impossible de supprimer cette catégorie : elle est peut-être utilisée par un fournisseur ou un produit.`);
+        return;
+      }
+      await refresh();
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  return (
+    <PermissionGate permission="inventory.write" fallback={<p className="text-muted-foreground">Vous n&apos;avez pas la permission de gérer les catégories d&apos;inventaire.</p>}>
+      <div className="bg-secondary border border-border rounded-xl p-5 space-y-5">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Catégories d&apos;inventaire</h2>
+            <p className="text-sm text-muted-foreground mt-1">Créer, renommer ou supprimer les catégories des produits du stock.</p>
+          </div>
+          <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium">
+            <Plus className="w-4 h-4" />Nouvelle catégorie
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="py-8 text-center text-muted-foreground text-sm">Chargement...</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {categories.map(cat => {
+              const count = itemCounts[cat.id] || 0;
+              return (
+                <div key={cat.id} className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg">
+                  <span className="w-9 h-9 rounded-lg bg-[#606338]/10 flex items-center justify-center shrink-0">
+                    <Package className="w-4 h-4 text-[#606338]" />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{cat.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{count} produit{count !== 1 ? 's' : ''}</p>
+                  </div>
+                  <button
+                    onClick={() => openEdit(cat)}
+                    className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    aria-label="Modifier"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(cat)}
+                    disabled={deleting === cat.id || count > 0}
+                    className="p-2 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed"
+                    aria-label="Supprimer"
+                    title={count > 0 ? `${count} produit(s) doivent être déplacés d'abord` : 'Supprimer'}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => !saving && setShowModal(false)}>
+          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground">
+                {editingId ? 'Modifier la catégorie' : 'Nouvelle catégorie'}
+              </h3>
+              <button onClick={() => setShowModal(false)} className="p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1.5">Nom *</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50"
+                placeholder="ex: Épicerie"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
+              />
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button
+                onClick={() => setShowModal(false)}
+                disabled={saving}
+                className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving || !name.trim()}
                 className="px-4 py-2 rounded-lg bg-gradient-to-br from-[#606338] to-[#4d4f2e] text-white text-sm font-medium disabled:opacity-50"
               >
                 {saving ? 'Enregistrement...' : editingId ? 'Enregistrer' : 'Créer'}
