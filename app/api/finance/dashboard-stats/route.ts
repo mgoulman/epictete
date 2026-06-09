@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { enforce } from '@/lib/auth/supabase-server';
 
 export async function GET(request: NextRequest) {
+    const denied = await enforce('finance.read'); if (denied) return denied;
   try {
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate');

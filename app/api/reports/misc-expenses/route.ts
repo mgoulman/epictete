@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { getCurrentUserId } from '@/lib/auth/supabase-server';
+import { getCurrentUserId, enforce } from '@/lib/auth/supabase-server';
 
 // GET /api/reports/misc-expenses?month=YYYY-MM
 //   or /api/reports/misc-expenses?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
 export async function GET(request: NextRequest) {
+  const denied = await enforce('reports.read'); if (denied) return denied;
   try {
     const { searchParams } = new URL(request.url);
     const month = searchParams.get('month');
@@ -39,6 +40,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await enforce('reports.write'); if (denied) return denied;
   try {
     const userId = await getCurrentUserId();
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -72,6 +74,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const denied = await enforce('reports.write'); if (denied) return denied;
   try {
     const userId = await getCurrentUserId();
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -112,6 +115,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const denied = await enforce('reports.write'); if (denied) return denied;
   try {
     const userId = await getCurrentUserId();
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

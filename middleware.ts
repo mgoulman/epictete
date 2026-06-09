@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
+import { ROLE_PERMISSIONS, requiredPermissionForPath } from "@/lib/types/auth";
+import type { RoleName } from "@/lib/types/auth";
 
 const MENU_HOST = "menu.epictetelerestaurant.ma";
 const PREVIEW_HOST_PATTERN = /^menu-[a-z0-9-]+\.vercel\.app$/;
@@ -41,12 +43,14 @@ export default async function middleware(request: NextRequest) {
 
   // Check JWT from cookie — no network call needed
   const token = request.cookies.get("auth_token")?.value;
-  let user: { id: string } | null = null;
+  let user: { id: string; role?: RoleName } | null = null;
 
   if (token) {
     try {
       const { payload } = await jwtVerify(token, JWT_SECRET);
-      if (payload.sub) user = { id: payload.sub };
+      if (payload.sub) {
+        user = { id: payload.sub, role: payload.role as RoleName | undefined };
+      }
     } catch {
       // Invalid/expired token
     }
@@ -62,6 +66,21 @@ export default async function middleware(request: NextRequest) {
     const redirectTo =
       request.nextUrl.searchParams.get("redirect") || "/admin";
     return NextResponse.redirect(new URL(redirectTo, request.url));
+  }
+
+  // Route-level authorization: block access to protected admin pages the
+  // user's role lacks the permission for. The dashboard (/admin) and any
+  // route not in the map require only authentication. A missing role claim
+  // (e.g. a token issued before roles were embedded) grants no permissions,
+  // so the user keeps dashboard access and re-login restores the rest.
+  if (isProtectedRoute && user) {
+    const required = requiredPermissionForPath(pathname);
+    if (required) {
+      const granted = user.role ? ROLE_PERMISSIONS[user.role] ?? [] : [];
+      if (!granted.includes(required)) {
+        return NextResponse.redirect(new URL("/admin?denied=1", request.url));
+      }
+    }
   }
 
   return NextResponse.next();

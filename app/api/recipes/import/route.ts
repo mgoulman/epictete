@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
 import * as XLSX from 'xlsx';
 
 interface ParsedRecipe {
@@ -19,6 +19,7 @@ interface ParsedRecipe {
 
 // POST - Import recipes from Excel file
 export async function POST(request: NextRequest) {
+  const denied = await enforce('recipes.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const formData = await request.formData();

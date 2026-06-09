@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
 
 interface OrderItem {
   id?: string;
@@ -15,6 +15,7 @@ interface OrderItem {
 
 // GET — list orders, optionally filtered by vendor or status
 export async function GET(request: NextRequest) {
+    const denied = await enforce('inventory.read'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
@@ -55,6 +56,7 @@ export async function GET(request: NextRequest) {
 
 // POST — create order or validate (receive) an order
 export async function POST(request: NextRequest) {
+    const denied = await enforce('inventory.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
@@ -269,6 +271,7 @@ export async function POST(request: NextRequest) {
 
 // PATCH — update order details/status, or update a single line item
 export async function PATCH(request: NextRequest) {
+    const denied = await enforce('inventory.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
@@ -306,6 +309,7 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE — cancel/delete an order
 export async function DELETE(request: NextRequest) {
+    const denied = await enforce('inventory.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);

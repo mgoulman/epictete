@@ -80,8 +80,8 @@ export function BackofficeShell({ children }: BackofficeShellProps) {
     if (!isLoading && !user && pathname !== '/login') {
       router.push('/login');
     }
-    // Redirect waiters to service view when they hit the dashboard
-    if (!isLoading && user && user.role === 'waiter' && pathname === '/admin') {
+    // Redirect waiters (serveur) to service view when they hit the dashboard
+    if (!isLoading && user && user.role === 'serveur' && pathname === '/admin') {
       router.push('/admin/salle/service');
     }
   }, [user, isLoading, router, pathname]);

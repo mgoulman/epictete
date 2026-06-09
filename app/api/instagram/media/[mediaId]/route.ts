@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { InstagramClient } from '@/lib/instagram/client';
+import { enforce } from '@/lib/auth/supabase-server';
 
 const getClient = (accessToken?: string) => {
   return new InstagramClient({
@@ -11,6 +12,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ mediaId: string }> }
 ) {
+  const denied = await enforce('marketing.read'); if (denied) return denied;
   const { mediaId } = await params;
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action') || 'details';
@@ -57,6 +59,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ mediaId: string }> }
 ) {
+  const denied = await enforce('marketing.write'); if (denied) return denied;
   const { mediaId: _mediaId } = await params; // Available for future use
   const accessToken = request.headers.get('x-access-token') || undefined;
   const client = getClient(accessToken);

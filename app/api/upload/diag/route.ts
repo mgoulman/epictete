@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
+import { enforceAdmin } from '@/lib/auth/supabase-server';
 
 // Diagnostic endpoint to verify what the deployed function actually sees for
 // Vercel Blob env vars. Returns presence + length only — never the secret.
 export async function GET() {
+  const denied = await enforceAdmin(); if (denied) return denied;
   const blob = process.env.BLOB_READ_WRITE_TOKEN;
   const webhook = process.env.BLOB_WEBHOOK_PUBLIC_KEY;
   const storeId = process.env.BLOB_STORE_ID;

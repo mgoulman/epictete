@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdAccounts, getAccountInfo, getAccountPages, getUserPages } from '@/lib/meta-ads/accounts';
 import { GraphAPIError } from '@/lib/meta-ads/api';
+import { enforce } from '@/lib/auth/supabase-server';
 
 function getAccessToken(request: NextRequest): string {
   const authHeader = request.headers.get('authorization');
@@ -11,6 +12,7 @@ function getAccessToken(request: NextRequest): string {
 }
 
 export async function GET(request: NextRequest) {
+  const denied = await enforce('marketing.read'); if (denied) return denied;
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action');
   const accessToken = getAccessToken(request);

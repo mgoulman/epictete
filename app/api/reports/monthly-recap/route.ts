@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
 
 export async function GET(request: NextRequest) {
+  const denied = await enforce('reports.read'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);

@@ -6,7 +6,9 @@ export {
   getServerSession,
   checkServerPermission,
   requireAuth,
-  requirePermission
+  requirePermission,
+  enforce,
+  enforceAdmin
 } from './supabase-server';
 
 // Client-side utilities

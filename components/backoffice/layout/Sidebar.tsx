@@ -117,11 +117,20 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
     router.refresh();
   };
 
-  const filteredNav = BACKOFFICE_NAV.filter(item => {
+  const canSee = (item: NavItem) => {
     if (!item.permission) return true;
     if (isAdmin()) return true;
     return hasPermission(item.permission as PermissionName);
-  });
+  };
+
+  // Filter top-level items by permission, filter each item's children too, and
+  // drop any parent group whose children all got filtered out.
+  const filteredNav = BACKOFFICE_NAV
+    .filter(canSee)
+    .map(item =>
+      item.children ? { ...item, children: item.children.filter(canSee) } : item
+    )
+    .filter(item => !item.children || item.children.length > 0);
 
   // Check if a nav item or any of its children are active
   const isItemActive = (item: NavItem): boolean => {

@@ -1,0 +1,11 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ viewport: { width: 360, height: 740 }, deviceScaleFactor: 2 });
+const page = await ctx.newPage();
+await page.goto('http://localhost:3000/', { waitUntil: 'networkidle' });
+await page.waitForTimeout(3500);
+await page.click('[aria-controls="mobile-menu"]');
+await page.waitForTimeout(500);
+await page.screenshot({ path: '/tmp/menu_open.png' });
+console.log('saved /tmp/menu_open.png');
+await browser.close();

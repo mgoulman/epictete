@@ -1,13 +1,14 @@
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { del } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUserId } from '@/lib/auth/supabase-server';
+import { getCurrentUserId, enforce } from '@/lib/auth/supabase-server';
 
 // POST — handle client-direct uploads to Vercel Blob.
 // The browser calls @vercel/blob/client `upload()` which exchanges with this
 // route to get a short-lived token, then uploads the file *directly* to Blob
 // storage. That bypasses the 4.5MB Vercel function payload limit entirely.
 export async function POST(request: NextRequest) {
+  const denied = await enforce(); if (denied) return denied;
   const body = (await request.json()) as HandleUploadBody;
 
   try {
@@ -49,6 +50,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const denied = await enforce(); if (denied) return denied;
   try {
     const userId = await getCurrentUserId();
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
 import { query } from '@/lib/db';
 
 // GET - Fetch vendors or transactions
 export async function GET(request: NextRequest) {
+    const denied = await enforce('finance.read'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
@@ -107,6 +108,7 @@ export async function GET(request: NextRequest) {
 
 // POST - Create vendor or transaction
 export async function POST(request: NextRequest) {
+    const denied = await enforce('finance.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
@@ -191,6 +193,7 @@ export async function POST(request: NextRequest) {
 
 // PATCH - Update vendor or transaction
 export async function PATCH(request: NextRequest) {
+    const denied = await enforce('finance.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
@@ -233,6 +236,7 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE - Remove vendor or transaction
 export async function DELETE(request: NextRequest) {
+    const denied = await enforce('finance.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);

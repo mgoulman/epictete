@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
 
 interface PurchaseLine {
   inventory_item_id: string;
@@ -11,6 +11,7 @@ interface PurchaseLine {
 
 // POST — batch-save daily purchases: update quantities + create movements
 export async function POST(request: NextRequest) {
+    const denied = await enforce('inventory.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
@@ -138,6 +139,7 @@ export async function POST(request: NextRequest) {
 
 // PATCH — edit a movement's quantity/price and adjust inventory
 export async function PATCH(request: NextRequest) {
+    const denied = await enforce('inventory.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const { id, quantity, unit_cost } = await request.json();
@@ -189,6 +191,7 @@ export async function PATCH(request: NextRequest) {
 
 // GET — fetch purchase history grouped by date
 export async function GET(request: NextRequest) {
+    const denied = await enforce('inventory.read'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
@@ -220,6 +223,7 @@ export async function GET(request: NextRequest) {
 // DELETE — revert movements and restore quantities
 // Supports: ?id=<movement_id> for single item, or ?date=<date>&type=<ref_type> for full day
 export async function DELETE(request: NextRequest) {
+    const denied = await enforce('inventory.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
