@@ -265,7 +265,8 @@ export const BACKOFFICE_NAV: NavItem[] = [
     permission: 'menu.read',
     children: [
       { key: 'menuItems', label: 'Menu Items', href: '/admin/menu', icon: 'UtensilsCrossed', permission: 'menu.read' },
-      { key: 'menus', label: 'Menus', href: '/admin/menus', icon: 'FileText', permission: 'menu.read' }
+      { key: 'menus', label: 'Menus', href: '/admin/menus', icon: 'FileText', permission: 'menu.read' },
+      { key: 'recipes', label: 'Fiches Techniques', href: '/admin/recipes', icon: 'BookOpen', permission: 'recipes.read' }
     ]
   },
   {
@@ -279,7 +280,6 @@ export const BACKOFFICE_NAV: NavItem[] = [
       { key: 'service', label: 'Service', href: '/admin/salle/service', icon: 'ClipboardList', permission: 'salle.serve' }
     ]
   },
-  { key: 'inventory', label: 'Inventaire', href: '/admin/inventory', icon: 'Package', permission: 'inventory.read' },
   { key: 'users', label: 'Users', href: '/admin/users', icon: 'Users', permission: 'users.manage' },
   { key: 'personnel', label: 'Personnel', href: '/admin/personnel', icon: 'UserCog', permission: 'personnel.read' },
   { key: 'transport', label: 'Transport', href: '/admin/transport', icon: 'Bus', permission: 'transport.read' },
@@ -295,6 +295,7 @@ export const BACKOFFICE_NAV: NavItem[] = [
     children: [
       { key: 'overview', label: 'Overview', href: '/admin/finance?tab=overview', icon: 'BarChart3', permission: 'finance.read' },
       { key: 'sales', label: 'Sales', href: '/admin/finance?tab=sales', icon: 'TrendingUp', permission: 'finance.read' },
+      { key: 'dailyPurchases', label: 'Achats & Stock', href: '/admin/inventory', icon: 'ShoppingCart', permission: 'inventory.read' },
       { key: 'inventory', label: 'Inventory', href: '/admin/finance?tab=inventory', icon: 'Package', permission: 'finance.read' },
       { key: 'vendors', label: 'Vendors', href: '/admin/finance?tab=vendors', icon: 'Users', permission: 'finance.read' },
       { key: 'import', label: 'Import', href: '/admin/finance?tab=import', icon: 'Upload', permission: 'finance.read' }

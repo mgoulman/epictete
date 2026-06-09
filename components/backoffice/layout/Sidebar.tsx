@@ -117,20 +117,24 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
     router.refresh();
   };
 
-  const canSee = (item: NavItem) => {
-    if (!item.permission) return true;
+  const canSee = (permission?: PermissionName) => {
+    if (!permission) return true;
     if (isAdmin()) return true;
-    return hasPermission(item.permission as PermissionName);
+    return hasPermission(permission);
   };
 
-  // Filter top-level items by permission, filter each item's children too, and
-  // drop any parent group whose children all got filtered out.
+  // Filter children (a child with no permission inherits the parent's), then
+  // show a parent group whenever at least one child is visible — independent of
+  // the parent's own permission, so e.g. an intern with only inventory.read
+  // still sees the Finance group containing "Achats & Stock". Leaf items use
+  // their own permission.
   const filteredNav = BACKOFFICE_NAV
-    .filter(canSee)
     .map(item =>
-      item.children ? { ...item, children: item.children.filter(canSee) } : item
+      item.children
+        ? { ...item, children: item.children.filter(c => canSee((c.permission ?? item.permission) as PermissionName)) }
+        : item
     )
-    .filter(item => !item.children || item.children.length > 0);
+    .filter(item => (item.children ? item.children.length > 0 : canSee(item.permission)));
 
   // Check if a nav item or any of its children are active
   const isItemActive = (item: NavItem): boolean => {
