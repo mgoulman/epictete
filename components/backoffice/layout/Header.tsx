@@ -3,10 +3,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LogOut, Settings, Menu, Search, Bell, ChevronRight, Home, Download, Globe } from 'lucide-react';
+import { LogOut, Settings, Menu, Search, ChevronRight, Home, Download, Globe } from 'lucide-react';
 import { useAuth } from '@/lib/auth/hooks';
 import { usePWA } from '@/components/backoffice/PWAProvider';
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import { NotificationBell } from './NotificationBell';
 
 interface HeaderProps {
   sidebarCollapsed: boolean;
@@ -194,10 +195,7 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
         </button>
 
         {/* Notifications */}
-        <button className="hidden md:flex relative items-center justify-center w-10 h-10 rounded-lg border border-border bg-transparent text-muted-foreground hover:bg-card hover:border-muted hover:text-foreground transition-all">
-          <Bell className="w-[18px] h-[18px]" />
-          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#606338]" />
-        </button>
+        <NotificationBell />
 
         {/* Profile dropdown */}
         <div className="relative" ref={profileRef}>

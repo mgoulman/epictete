@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import twilio from "twilio";
+import { createNotification } from "@/lib/notifications";
 
 interface ReservationData {
   name: string;
@@ -38,6 +39,18 @@ export async function POST(request: Request) {
       month: "long",
       year: "numeric"
     });
+
+    // In-app alert for the backoffice (best-effort, never blocks the response)
+    try {
+      await createNotification({
+        type: 'new_reservation',
+        title: 'Nouvelle réservation',
+        message: `${body.name} — ${totalGuests} couvert${totalGuests > 1 ? 's' : ''}, ${formattedDate} à ${body.time}.`,
+        severity: 'info',
+        link: '/admin',
+        dedupKey: `new_reservation:${body.date}:${body.time}:${body.phone}`,
+      });
+    } catch { /* ignore */ }
 
     // Baby chairs text
     const babyChairsText = body.babyChairs && body.babyChairs > 0
