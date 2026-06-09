@@ -155,9 +155,11 @@ class QueryBuilder<T = Record<string, unknown>> {
     const plainCols: string[] = [];
 
     for (const part of parts) {
-      const relationMatch = part.match(/^(\w+):(\w+)\((.+)\)$/);
+      // Supports both `alias:table(cols)` and the disambiguating
+      // `alias:table!constraint_fkey(cols)` hint syntax.
+      const relationMatch = part.match(/^(\w+):(\w+)(?:!(\w+))?\((.+)\)$/);
       if (relationMatch) {
-        const [, alias, relTable, relCols] = relationMatch;
+        const [, alias, relTable, fkHint, relCols] = relationMatch;
         // Detect relationship type and FK column
         const isSimplePlural = relTable === `${alias}s` || relTable === `${alias}es`;
         const parentSingular = this._table.replace(/s$/, '');
@@ -191,7 +193,14 @@ class QueryBuilder<T = Record<string, unknown>> {
         } else {
           // Many-to-one: FK on this table points to related table.
           let fkColumn: string;
-          if (isSimplePlural) {
+          if (fkHint) {
+            // Explicit constraint hint, e.g. tables_assigned_waiter_id_fkey →
+            // strip the "<thisTable>_" prefix and "_fkey" suffix for the FK column.
+            fkColumn = fkHint.replace(/_fkey$/, '');
+            if (fkColumn.startsWith(this._table + '_')) {
+              fkColumn = fkColumn.slice(this._table.length + 1);
+            }
+          } else if (isSimplePlural) {
             fkColumn = `${alias}_id`;
           } else {
             const lastPart = alias.includes('_') ? alias.split('_').pop()! : alias;

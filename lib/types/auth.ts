@@ -265,8 +265,7 @@ export const BACKOFFICE_NAV: NavItem[] = [
     permission: 'menu.read',
     children: [
       { key: 'menuItems', label: 'Menu Items', href: '/admin/menu', icon: 'UtensilsCrossed', permission: 'menu.read' },
-      { key: 'menus', label: 'Menus', href: '/admin/menus', icon: 'FileText', permission: 'menu.read' },
-      { key: 'recipes', label: 'Fiches Techniques', href: '/admin/recipes', icon: 'BookOpen', permission: 'recipes.read' }
+      { key: 'menus', label: 'Menus', href: '/admin/menus', icon: 'FileText', permission: 'menu.read' }
     ]
   },
   {
