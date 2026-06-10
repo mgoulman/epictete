@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePermissions } from '@/lib/auth/hooks';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { supabase } from '@/lib/supabase';
+import { PresenceCard } from '@/components/backoffice/PresenceCard';
 import Link from 'next/link';
 import {
   UtensilsCrossed,
@@ -154,6 +155,9 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-8">
+      {/* Presence check-in (only shows for a linked staff member scheduled today) */}
+      <PresenceCard />
+
       {/* Main Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         {/* Menu Items */}

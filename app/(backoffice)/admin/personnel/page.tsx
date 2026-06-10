@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Users, Calendar, Clock, DollarSign, Plus, Search, Edit2, Trash2, X, Check,
-  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, UserPlus, Briefcase, Bus, Phone, Mail, MapPin, Download, XCircle
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, UserPlus, Briefcase, Bus, Phone, Mail, MapPin, Download, XCircle, CalendarCheck
 } from 'lucide-react';
 import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared/SortHeader';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import ScheduleTable from '@/components/backoffice/personnel/ScheduleTable';
+import { plannedShiftFor } from '@/lib/schedule';
 import jsPDF from 'jspdf';
 
 interface StaffType {
@@ -150,7 +151,7 @@ interface SalaryRecord {
   paid_at: string | null;
 }
 
-type TabType = 'staff' | 'schedule' | 'time-off' | 'salary';
+type TabType = 'staff' | 'schedule' | 'presence' | 'time-off' | 'salary';
 
 export default function PersonnelPage() {
   const { t } = useTranslation();
@@ -185,6 +186,18 @@ export default function PersonnelPage() {
 
   // Schedule view filter
   const [scheduleView, setScheduleView] = useState<ScheduleView>('combined');
+
+  // Presence / attendance
+  const [presenceDate, setPresenceDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [presenceRecords, setPresenceRecords] = useState<{ staff_id: string; check_in_time: string; scheduled_start: string; status: string }[]>([]);
+
+  useEffect(() => {
+    if (activeTab !== 'presence') return;
+    fetch(`/api/presence?date=${presenceDate}`)
+      .then(r => r.json())
+      .then(d => setPresenceRecords(d.records || []))
+      .catch(() => setPresenceRecords([]));
+  }, [activeTab, presenceDate]);
 
   // Selected shift for detail modal
   const [selectedShift, setSelectedShift] = useState<ComputedShift | null>(null);
@@ -689,6 +702,7 @@ export default function PersonnelPage() {
   const tabs = [
     { id: 'staff' as TabType, label: pn.tabs.staff, icon: Users },
     { id: 'schedule' as TabType, label: pn.tabs.schedule, icon: Calendar },
+    { id: 'presence' as TabType, label: 'Présence', icon: CalendarCheck },
     { id: 'time-off' as TabType, label: pn.tabs.timeOff, icon: Clock },
     { id: 'salary' as TabType, label: pn.tabs.salary, icon: DollarSign },
   ];
@@ -963,6 +977,73 @@ export default function PersonnelPage() {
           </div>
         </div>
       )}
+
+      {/* Presence Tab */}
+      {activeTab === 'presence' && (() => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+        const recByStaff = new Map(presenceRecords.map(r => [r.staff_id, r]));
+        const rows = staffMembers
+          .filter(s => s.is_active)
+          .map(s => ({ staff: s, planned: plannedShiftFor(s.schedule_config, presenceDate) }))
+          .filter(r => r.planned !== null);
+
+        return (
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <button onClick={() => { const d = new Date(presenceDate); d.setDate(d.getDate() - 1); setPresenceDate(d.toISOString().split('T')[0]); }} className="p-2 hover:bg-card rounded-lg"><ChevronLeft className="w-5 h-5" /></button>
+              <input type="date" value={presenceDate} onChange={e => setPresenceDate(e.target.value)} className="px-3 py-2 bg-secondary border border-border rounded-lg text-sm" />
+              <button onClick={() => { const d = new Date(presenceDate); d.setDate(d.getDate() + 1); setPresenceDate(d.toISOString().split('T')[0]); }} className="p-2 hover:bg-card rounded-lg"><ChevronRight className="w-5 h-5" /></button>
+            </div>
+
+            <div className="bg-card border border-border rounded-xl overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-secondary">
+                  <tr>
+                    <th className="text-left p-3 font-medium text-muted-foreground min-w-[180px]">{pn.staff}</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground">Prévu</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground">Pointage</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground">Statut</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(({ staff, planned }) => {
+                    const rec = recByStaff.get(staff.id);
+                    let label: string, cls: string;
+                    if (rec) {
+                      const isLate = rec.status === 'late';
+                      label = isLate ? 'En retard' : 'À l’heure';
+                      cls = isLate ? 'bg-amber-500/15 text-amber-500' : 'bg-green-500/15 text-green-500';
+                    } else {
+                      const startMin = parseInt(planned!.start_time.slice(0, 2)) * 60 + parseInt(planned!.start_time.slice(3, 5));
+                      const pastStart = presenceDate < todayStr || (presenceDate === todayStr && nowMin > startMin);
+                      if (pastStart) { label = 'Absent'; cls = 'bg-red-500/15 text-red-500'; }
+                      else { label = 'À venir'; cls = 'bg-secondary text-muted-foreground'; }
+                    }
+                    const arrival = rec?.check_in_time ? new Date(rec.check_in_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—';
+                    return (
+                      <tr key={staff.id} className="border-t border-border">
+                        <td className="p-3">
+                          <div className="flex items-center gap-2">
+                            <span className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: staff.staff_type?.color || '#606338' }}>{staff.first_name[0]}{staff.last_name[0]}</span>
+                            <span className="font-medium text-foreground">{staff.first_name} {staff.last_name}</span>
+                          </div>
+                        </td>
+                        <td className="p-3 text-foreground">{planned!.start_time.slice(0, 5)}–{planned!.end_time.slice(0, 5)}</td>
+                        <td className="p-3 text-foreground">{arrival}</td>
+                        <td className="p-3"><span className={`text-xs font-medium px-2 py-1 rounded-full ${cls}`}>{label}</span></td>
+                      </tr>
+                    );
+                  })}
+                  {rows.length === 0 && (
+                    <tr><td colSpan={4} className="p-8 text-center text-muted-foreground">Aucun personnel planifié ce jour.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Time Off Tab */}
       {activeTab === 'time-off' && (
