@@ -301,6 +301,7 @@ export default function FinancePage() {
 
   // Pagination
   const [total, setTotal] = useState(0);
+  const [totalAmount, setTotalAmount] = useState(0);
   const [offset, setOffset] = useState(0);
   const limit = 50;
 
@@ -350,6 +351,7 @@ export default function FinancePage() {
         const items = data.items || [];
         setSalesItems(prev => (isAppending ? [...prev, ...items] : items));
         setTotal(data.total || 0);
+        setTotalAmount(data.totalAmount || 0);
       }
     } catch (err) {
       console.error('Sales fetch error:', err);
@@ -1078,29 +1080,52 @@ export default function FinancePage() {
 
   const totalOwedToVendors = vendors.reduce((sum, v) => sum + Math.max(0, v.balance), 0);
 
-  const exportCSV = () => {
-    if (!salesItems.length) return;
+  const [exporting, setExporting] = useState(false);
 
-    const headers = ['Date', 'Time', 'Ticket', 'Category', 'Product', 'Qty', 'Price', 'Total', 'Profit'];
-    const rows = salesItems.map(item => [
-      item.sale_date,
-      item.sale_time || '',
-      item.ticket_number || '',
-      item.category || '',
-      item.product_name,
-      item.quantity,
-      item.selling_price,
-      item.selling_price * item.quantity,
-      item.profit * item.quantity
-    ]);
+  const exportCSV = async () => {
+    setExporting(true);
+    try {
+      // Export ALL rows matching the current filters (not just the loaded page).
+      const params = new URLSearchParams({ limit: '100000', offset: '0' });
+      if (startDate) params.set('startDate', startDate);
+      if (endDate) params.set('endDate', endDate);
+      if (category) params.set('category', category);
+      if (searchQuery) params.set('product', searchQuery);
+      const res = await fetch(`/api/finance/sales?${params}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const rows: SalesItem[] = data.items || [];
+      if (!rows.length) return;
 
-    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `sales_export_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
+      // Excel-friendly: UTF-8 BOM, ';' separator, quoted fields, CRLF.
+      const esc = (v: unknown) => {
+        const s = String(v ?? '');
+        return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const headers = ['Date', 'Heure', 'Ticket', 'Catégorie', 'Produit', 'Qté', 'Prix unitaire', 'Total', 'Bénéfice'];
+      const body = rows.map(it => [
+        it.sale_date, it.sale_time || '', it.ticket_number || '', it.category || '', it.product_name,
+        it.quantity, Number(it.selling_price).toFixed(2),
+        (it.selling_price * it.quantity).toFixed(2), ((it.profit || 0) * it.quantity).toFixed(2),
+      ].map(esc).join(';'));
+
+      const totQty = rows.reduce((s, it) => s + (it.quantity || 0), 0);
+      const totAmount = rows.reduce((s, it) => s + it.selling_price * it.quantity, 0);
+      const totProfit = rows.reduce((s, it) => s + (it.profit || 0) * it.quantity, 0);
+      const totalRow = ['TOTAL', '', '', '', '', totQty, '', totAmount.toFixed(2), totProfit.toFixed(2)].map(esc).join(';');
+
+      const csv = '﻿' + [headers.join(';'), ...body, totalRow].join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const range = startDate || endDate ? `_${startDate || '...'}_${endDate || '...'}` : '';
+      a.download = `ventes${range}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
   };
 
   // Vendor matching — random inventory item one at a time
@@ -1446,11 +1471,29 @@ export default function FinancePage() {
               </select>
               <button
                 onClick={exportCSV}
-                className="flex items-center gap-2 px-4 py-2.5 bg-secondary border border-border rounded-lg text-foreground text-sm hover:bg-card"
+                disabled={exporting || total === 0}
+                className="flex items-center gap-2 px-4 py-2.5 bg-secondary border border-border rounded-lg text-foreground text-sm hover:bg-card disabled:opacity-50"
               >
-                <Download className="w-4 h-4" /> {fn.export}
+                <Download className="w-4 h-4" /> {exporting ? '…' : fn.export}
               </button>
             </div>
+
+            {/* Totals for the current filter */}
+            {!loading && total > 0 && (
+              <div className="flex flex-wrap items-center gap-4 px-4 py-3 bg-card border border-border rounded-xl">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-lg font-bold text-[#606338]">{totalAmount.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}</span>
+                  <span className="text-xs text-muted-foreground">MAD</span>
+                </div>
+                <span className="text-muted-foreground text-sm">·</span>
+                <span className="text-sm text-muted-foreground">{total.toLocaleString('fr-FR')} lignes</span>
+                {(startDate || endDate) && (
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {startDate || '…'} → {endDate || '…'}
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Table */}
             <div className="bg-secondary border border-border rounded-xl overflow-hidden">
