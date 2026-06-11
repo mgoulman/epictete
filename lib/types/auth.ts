@@ -204,9 +204,9 @@ export const ROLE_PERMISSIONS: Record<RoleName, PermissionName[]> = {
   serveur: [
     'salle.read', 'salle.serve',
   ],
-  // Intern / stagiaire — read-only observer (menu, salle, inventory), no recipes
+  // Intern / stagiaire — observer + can record stock (achat / sortie)
   intern: [
-    'menu.read', 'salle.read', 'inventory.read',
+    'menu.read', 'salle.read', 'inventory.read', 'inventory.write',
   ],
   // Zero-access fallback (no role assigned / legacy)
   regular: [],
