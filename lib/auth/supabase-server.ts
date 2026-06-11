@@ -142,6 +142,15 @@ export async function enforce(permission?: PermissionName): Promise<NextResponse
   return null;
 }
 
+// Allow if the user holds ANY of the given permissions (admin bypasses).
+export async function enforceAny(permissions: PermissionName[]): Promise<NextResponse | null> {
+  const session = await getServerSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (session.role === 'admin') return null;
+  if (permissions.some(p => session.permissions.includes(p))) return null;
+  return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+}
+
 // Admin-only guard for sensitive endpoints with no dedicated permission.
 export async function enforceAdmin(): Promise<NextResponse | null> {
   const session = await getServerSession();
