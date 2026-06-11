@@ -20,11 +20,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Date is required' }, { status: 400 });
     }
 
-    // Approval gate: if this user's inventory writes need review, hold it.
-    const rule = await approvalRequiredFor('inventory', session);
+    // Approval gate: an achat touches both inventory and finance, so hold it if
+    // EITHER module's approval rule applies to this user.
+    let approvalModule = 'inventory';
+    let rule = await approvalRequiredFor('inventory', session);
+    if (!rule) { rule = await approvalRequiredFor('finance', session); approvalModule = 'finance'; }
     if (rule) {
       await submitApprovalRequest({
-        module: 'inventory',
+        module: approvalModule,
         action: 'inventory_daily_purchase',
         payload: { body, userId: session.id },
         summary: `Achat du ${date} — ${items.length} produit(s)`,
