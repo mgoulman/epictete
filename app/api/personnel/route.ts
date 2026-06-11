@@ -1,6 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, enforce, getServerSession } from '@/lib/auth/supabase-server';
 
+type SupabaseLike = Awaited<ReturnType<typeof createSupabaseServerClient>>;
+
+// Create a login account (users + profile) for a staff member and link it via
+// profile_id. Returns { userId } on success, or { error } message on failure.
+async function createLinkedAccount(
+  supabase: SupabaseLike,
+  opts: { staffId: string; email: string; first_name?: unknown; last_name?: unknown; password: string; role_id?: string | null },
+): Promise<{ userId?: string; error?: string }> {
+  try {
+    const { query } = await import('@/lib/db');
+    // Prevent privilege escalation: only an admin may grant the admin role.
+    let roleId = opts.role_id || null;
+    if (roleId) {
+      const { rows: rr } = await query<{ name: string }>('SELECT name FROM roles WHERE id = $1', [roleId]);
+      if (rr[0]?.name === 'admin') {
+        const session = await getServerSession();
+        if (session?.role !== 'admin') roleId = null;
+      }
+    }
+    const { rows } = await query<{ id: string }>(
+      "INSERT INTO users (email, password_hash) VALUES ($1, crypt($2, gen_salt('bf'))) RETURNING id",
+      [opts.email, opts.password]
+    );
+    const userId = rows[0].id;
+    await supabase.from('profiles').insert({
+      id: userId,
+      email: opts.email,
+      full_name: `${opts.first_name || ''} ${opts.last_name || ''}`.trim(),
+      role_id: roleId,
+      is_active: true,
+    });
+    await supabase.from('staff_members').update({ profile_id: userId }).eq('id', opts.staffId);
+    return { userId };
+  } catch (e) {
+    const m = (e as Error).message;
+    return { error: m.includes('duplicate') || m.includes('unique') ? 'Un compte existe déjà avec cet email.' : "Le compte n'a pas pu être créé." };
+  }
+}
+
 // GET - Fetch staff members, types, or specific data
 export async function GET(request: NextRequest) {
   const denied = await enforce('personnel.read'); if (denied) return denied;
@@ -146,37 +185,13 @@ export async function POST(request: NextRequest) {
 
       let accountError: string | null = null;
       if (account?.create && staffData.email && account.password) {
-        try {
-          const { query } = await import('@/lib/db');
-          // Prevent privilege escalation: only an admin may grant the admin role.
-          let roleId = account.role_id || null;
-          if (roleId) {
-            const { rows: rr } = await query<{ name: string }>('SELECT name FROM roles WHERE id = $1', [roleId]);
-            if (rr[0]?.name === 'admin') {
-              const session = await getServerSession();
-              if (session?.role !== 'admin') roleId = null;
-            }
-          }
-          const { rows } = await query<{ id: string }>(
-            "INSERT INTO users (email, password_hash) VALUES ($1, crypt($2, gen_salt('bf'))) RETURNING id",
-            [staffData.email as string, account.password]
-          );
-          const userId = rows[0].id;
-          await supabase.from('profiles').insert({
-            id: userId,
-            email: staffData.email,
-            full_name: `${staffData.first_name || ''} ${staffData.last_name || ''}`.trim(),
-            role_id: roleId,
-            is_active: true,
-          });
-          await supabase.from('staff_members').update({ profile_id: userId }).eq('id', result.id);
-          result.profile_id = userId;
-        } catch (e) {
-          // Staff is created; surface the account problem (e.g. email already used).
-          accountError = (e as Error).message.includes('duplicate') || (e as Error).message.includes('unique')
-            ? 'Un compte existe déjà avec cet email.'
-            : "Le compte n'a pas pu être créé.";
-        }
+        const r = await createLinkedAccount(supabase, {
+          staffId: result.id, email: staffData.email as string,
+          first_name: staffData.first_name, last_name: staffData.last_name,
+          password: account.password, role_id: account.role_id,
+        });
+        accountError = r.error || null;
+        if (r.userId) result.profile_id = r.userId;
       }
 
       return NextResponse.json({ success: true, staff: result, accountError });
@@ -249,15 +264,30 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (type === 'staff') {
+      // Optional: also create a login account while editing (if not linked yet).
+      const { account, ...staffData } = data as { account?: { create?: boolean; password?: string; role_id?: string } } & Record<string, unknown>;
+
       const { data: result, error } = await supabase
         .from('staff_members')
-        .update(data)
+        .update(staffData)
         .eq('id', id)
         .select(`*, staff_type:staff_types(*)`)
         .single();
 
       if (error) throw error;
-      return NextResponse.json({ success: true, staff: result });
+
+      let accountError: string | null = null;
+      if (account?.create && staffData.email && account.password) {
+        const r = await createLinkedAccount(supabase, {
+          staffId: id, email: staffData.email as string,
+          first_name: staffData.first_name, last_name: staffData.last_name,
+          password: account.password, role_id: account.role_id,
+        });
+        accountError = r.error || null;
+        if (r.userId) result.profile_id = r.userId;
+      }
+
+      return NextResponse.json({ success: true, staff: result, accountError });
     }
 
     if (type === 'staff-type') {
