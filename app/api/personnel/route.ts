@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getServerSession } from '@/lib/auth/supabase-server';
 
 // GET - Fetch staff members, types, or specific data
 export async function GET(request: NextRequest) {
@@ -41,6 +41,17 @@ export async function GET(request: NextRequest) {
 
       if (error) throw error;
       return NextResponse.json({ profiles: data });
+    }
+
+    if (type === 'roles') {
+      // Roles, so the personnel form can assign one when creating an account.
+      const { data, error } = await supabase
+        .from('roles')
+        .select('id, name, display_name')
+        .order('display_name', { ascending: true });
+
+      if (error) throw error;
+      return NextResponse.json({ roles: data });
     }
 
     if (type === 'schedules') {
@@ -122,14 +133,53 @@ export async function POST(request: NextRequest) {
     const { type, ...data } = body;
 
     if (type === 'staff') {
+      // Optional: also create a login account for this staff member.
+      const { account, ...staffData } = data as { account?: { create?: boolean; password?: string; role_id?: string } } & Record<string, unknown>;
+
       const { data: result, error } = await supabase
         .from('staff_members')
-        .insert(data)
+        .insert(staffData)
         .select(`*, staff_type:staff_types(*)`)
         .single();
 
       if (error) throw error;
-      return NextResponse.json({ success: true, staff: result });
+
+      let accountError: string | null = null;
+      if (account?.create && staffData.email && account.password) {
+        try {
+          const { query } = await import('@/lib/db');
+          // Prevent privilege escalation: only an admin may grant the admin role.
+          let roleId = account.role_id || null;
+          if (roleId) {
+            const { rows: rr } = await query<{ name: string }>('SELECT name FROM roles WHERE id = $1', [roleId]);
+            if (rr[0]?.name === 'admin') {
+              const session = await getServerSession();
+              if (session?.role !== 'admin') roleId = null;
+            }
+          }
+          const { rows } = await query<{ id: string }>(
+            "INSERT INTO users (email, password_hash) VALUES ($1, crypt($2, gen_salt('bf'))) RETURNING id",
+            [staffData.email as string, account.password]
+          );
+          const userId = rows[0].id;
+          await supabase.from('profiles').insert({
+            id: userId,
+            email: staffData.email,
+            full_name: `${staffData.first_name || ''} ${staffData.last_name || ''}`.trim(),
+            role_id: roleId,
+            is_active: true,
+          });
+          await supabase.from('staff_members').update({ profile_id: userId }).eq('id', result.id);
+          result.profile_id = userId;
+        } catch (e) {
+          // Staff is created; surface the account problem (e.g. email already used).
+          accountError = (e as Error).message.includes('duplicate') || (e as Error).message.includes('unique')
+            ? 'Un compte existe déjà avec cet email.'
+            : "Le compte n'a pas pu être créé.";
+        }
+      }
+
+      return NextResponse.json({ success: true, staff: result, accountError });
     }
 
     if (type === 'staff-type') {

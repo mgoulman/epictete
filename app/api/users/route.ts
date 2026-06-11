@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   try {
     const currentUser = await requirePermission('users.manage');
 
-    const { email, password, full_name, role_id, is_active = true } = await request.json();
+    const { email, password, full_name, role_id, is_active = true, create_staff = false } = await request.json();
 
     if (!email || !password) {
       return NextResponse.json(
@@ -72,6 +72,21 @@ export async function POST(request: Request) {
       role_id: role_id || null,
       is_active,
     });
+
+    // Optional: also create a linked staff member (personnel) for this account.
+    if (create_staff) {
+      const name = String(full_name || '').trim();
+      const parts = name.split(/\s+/).filter(Boolean);
+      const first = parts[0] || newUser.email.split('@')[0];
+      const last = parts.slice(1).join(' ') || first;
+      await supabase.from('staff_members').insert({
+        first_name: first,
+        last_name: last,
+        email: newUser.email,
+        profile_id: newUser.id,
+        is_active: true,
+      });
+    }
 
     // Create audit log
     const meta = getRequestMeta(request);
