@@ -11,22 +11,22 @@ const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'epictete-
 
 // ─── JWT helpers ────────────────────────────────────────────────────────────
 
-export async function createJWT(userId: string, role?: RoleName): Promise<string> {
-  // Embed the role so edge middleware can authorize routes without a DB call.
-  // Live permission checks (API routes, getServerSession) still read the DB,
-  // so a role change takes effect on the user's next request there; the JWT
-  // role is only used for coarse route gating and refreshes on next login.
-  return new SignJWT({ sub: userId, role })
+export async function createJWT(userId: string, role?: RoleName, perms?: string[]): Promise<string> {
+  // Embed the role and the user's permissions so edge middleware can authorize
+  // routes without a DB call — and so it works for custom/legacy roles, not just
+  // the built-in ones. Live checks (API routes, getServerSession) still read the
+  // DB; the JWT claims refresh on next login.
+  return new SignJWT({ sub: userId, role, perms })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('7d')
     .sign(JWT_SECRET);
 }
 
-export async function verifyJWT(token: string): Promise<{ sub: string; role?: RoleName } | null> {
+export async function verifyJWT(token: string): Promise<{ sub: string; role?: RoleName; perms?: string[] } | null> {
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload as { sub: string; role?: RoleName };
+    return payload as { sub: string; role?: RoleName; perms?: string[] };
   } catch {
     return null;
   }

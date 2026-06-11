@@ -43,13 +43,17 @@ export default async function middleware(request: NextRequest) {
 
   // Check JWT from cookie — no network call needed
   const token = request.cookies.get("auth_token")?.value;
-  let user: { id: string; role?: RoleName } | null = null;
+  let user: { id: string; role?: RoleName; perms?: string[] } | null = null;
 
   if (token) {
     try {
       const { payload } = await jwtVerify(token, JWT_SECRET);
       if (payload.sub) {
-        user = { id: payload.sub, role: payload.role as RoleName | undefined };
+        user = {
+          id: payload.sub,
+          role: payload.role as RoleName | undefined,
+          perms: Array.isArray(payload.perms) ? (payload.perms as string[]) : undefined,
+        };
       }
     } catch {
       // Invalid/expired token
@@ -68,15 +72,14 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(redirectTo, request.url));
   }
 
-  // Route-level authorization: block access to protected admin pages the
-  // user's role lacks the permission for. The dashboard (/admin) and any
-  // route not in the map require only authentication. A missing role claim
-  // (e.g. a token issued before roles were embedded) grants no permissions,
-  // so the user keeps dashboard access and re-login restores the rest.
+  // Route-level authorization. Prefer the user's real permissions embedded in
+  // the JWT (works for custom/legacy roles too); fall back to the static
+  // role→permission map for older tokens. The dashboard (/admin) and routes not
+  // in the map need only authentication. Admins bypass entirely.
   if (isProtectedRoute && user && user.role !== "admin") {
     const required = requiredPermissionForPath(pathname);
     if (required) {
-      const granted = user.role ? ROLE_PERMISSIONS[user.role] ?? [] : [];
+      const granted = user.perms ?? (user.role ? ROLE_PERMISSIONS[user.role] ?? [] : []);
       if (!granted.includes(required)) {
         return NextResponse.redirect(new URL("/admin?denied=1", request.url));
       }

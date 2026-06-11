@@ -69,8 +69,13 @@ export async function POST(request: Request) {
       [profile.role_id]
     );
 
-    // Create JWT and set cookie (role embedded for edge route authorization)
-    const token = await createJWT(user.id as string, (profile.role_name as RoleName) || 'regular');
+    // Create JWT and set cookie (role + real permissions embedded for edge
+    // route authorization — works for custom/legacy roles too).
+    const token = await createJWT(
+      user.id as string,
+      (profile.role_name as RoleName) || 'regular',
+      perms.map(p => p.name as string),
+    );
     const cookieStore = await cookies();
     cookieStore.set('auth_token', token, {
       httpOnly: true,
