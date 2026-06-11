@@ -80,9 +80,9 @@ export function BackofficeShell({ children }: BackofficeShellProps) {
     if (!isLoading && !user && pathname !== '/login') {
       router.push('/login');
     }
-    // Redirect waiters (serveur) to service view when they hit the dashboard
+    // Role-based landing: send waiters to their own "Mes tables" workspace.
     if (!isLoading && user && user.role === 'serveur' && pathname === '/admin') {
-      router.push('/admin/salle/service');
+      router.push('/admin/salle/mes-tables');
     }
   }, [user, isLoading, router, pathname]);
 
