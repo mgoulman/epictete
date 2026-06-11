@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import db from '@/lib/db';
 
 export async function GET(request: NextRequest) {
     const denied = await enforce('finance.read'); if (denied) return denied;
   try {
-    const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
@@ -13,39 +13,37 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '100');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    let query = supabase
-      .from('sales_items')
-      .select('*', { count: 'exact' })
-      .order('sale_date', { ascending: false })
-      .order('sale_time', { ascending: false });
+    // Build a shared WHERE clause so the page, the exact count and the total
+    // amount all use the same filter. (The compat query builder can't compute
+    // an exact count, which is why infinite scroll was stuck — use raw SQL.)
+    const where: string[] = [];
+    const params: unknown[] = [];
+    let p = 1;
+    if (startDate) { where.push(`sale_date >= $${p++}`); params.push(startDate); }
+    if (endDate)   { where.push(`sale_date <= $${p++}`); params.push(endDate); }
+    if (category)  { where.push(`category = $${p++}`); params.push(category); }
+    if (product)   { where.push(`product_name ILIKE $${p++}`); params.push(`%${product}%`); }
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
-    if (startDate) {
-      query = query.gte('sale_date', startDate);
-    }
-    if (endDate) {
-      query = query.lte('sale_date', endDate);
-    }
-    if (category) {
-      query = query.eq('category', category);
-    }
-    if (product) {
-      query = query.ilike('product_name', `%${product}%`);
-    }
+    const { rows: agg } = await db.query<{ total: number; total_amount: number }>(
+      `SELECT count(*)::int AS total, COALESCE(SUM(selling_price * quantity), 0)::float AS total_amount
+       FROM sales_items ${whereSql}`,
+      params
+    );
 
-    query = query.range(offset, offset + limit - 1);
-
-    const { data, error, count } = await query;
-
-    if (error) {
-      console.error('Query error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    const { rows: items } = await db.query(
+      `SELECT * FROM sales_items ${whereSql}
+       ORDER BY sale_date DESC, sale_time DESC NULLS LAST
+       LIMIT $${p++} OFFSET $${p++}`,
+      [...params, limit, offset]
+    );
 
     return NextResponse.json({
-      items: data,
-      total: count,
+      items,
+      total: agg[0]?.total ?? 0,
+      totalAmount: agg[0]?.total_amount ?? 0,
       limit,
-      offset
+      offset,
     });
   } catch (error) {
     console.error('Sales fetch error:', error);
