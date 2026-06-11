@@ -8,6 +8,7 @@ export {
   requireAuth,
   requirePermission,
   enforce,
+  enforceAny,
   enforceAdmin
 } from './supabase-server';
 
