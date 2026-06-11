@@ -44,6 +44,7 @@ export default function UsersPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<ProfileWithRole | null>(null);
   const [formData, setFormData] = useState<UserFormData>(emptyForm);
+  const [makeStaff, setMakeStaff] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -109,6 +110,7 @@ export default function UsersPage() {
     setShowModal(false);
     setEditingUser(null);
     setFormData(emptyForm);
+    setMakeStaff(false);
     setFormError(null);
   };
 
@@ -144,7 +146,7 @@ export default function UsersPage() {
         const response = await fetch('/api/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
+          body: JSON.stringify({ ...formData, create_staff: makeStaff })
         });
         if (!response.ok) {
           const result = await response.json();
@@ -543,6 +545,18 @@ export default function UsersPage() {
                 />
                 <span className="text-sm text-foreground">{u.accountActive}</span>
               </label>
+
+              {!editingUser && (
+                <label className="flex items-center gap-2.5 cursor-pointer mt-3">
+                  <input
+                    type="checkbox"
+                    checked={makeStaff}
+                    onChange={(e) => setMakeStaff(e.target.checked)}
+                    className="w-4 h-4 accent-[#606338]"
+                  />
+                  <span className="text-sm text-foreground">Ajouter aussi comme membre du personnel</span>
+                </label>
+              )}
             </div>
 
             <div className="flex justify-end gap-3 px-5 py-4 border-t border-border sticky bottom-0 bg-secondary">

@@ -1338,16 +1338,29 @@ function StaffModal({
 
   const [saving, setSaving] = useState(false);
   const [profiles, setProfiles] = useState<{ id: string; full_name: string | null; email: string }[]>([]);
+  // Optional account creation (create mode only)
+  const [makeUser, setMakeUser] = useState(false);
+  const [accountPassword, setAccountPassword] = useState('');
+  const [accountRoleId, setAccountRoleId] = useState('');
+  const [roles, setRoles] = useState<{ id: string; display_name: string }[]>([]);
 
   useEffect(() => {
     fetch('/api/personnel?type=profiles')
       .then(r => r.json())
       .then(d => setProfiles(d.profiles || []))
       .catch(() => {});
+    fetch('/api/personnel?type=roles')
+      .then(r => r.json())
+      .then(d => setRoles((d.roles || []).filter((r: { name: string }) => r.name !== 'admin')))
+      .catch(() => {});
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (makeUser && (!formData.email || !accountPassword)) {
+      alert('Email et mot de passe requis pour créer un compte.');
+      return;
+    }
     setSaving(true);
 
     const payload = {
@@ -1358,14 +1371,17 @@ function StaffModal({
       transport_pickup: formData.transport_pickup,
       transport_dropoff: formData.transport_dropoff,
       profile_id: formData.profile_id || null,
-      ...(editingStaff && { id: editingStaff.id })
+      ...(editingStaff && { id: editingStaff.id }),
+      ...(!editingStaff && makeUser && { account: { create: true, password: accountPassword, role_id: accountRoleId || null } }),
     };
 
-    await fetch('/api/personnel', {
+    const res = await fetch('/api/personnel', {
       method: editingStaff ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+    const data = await res.json().catch(() => ({}));
+    if (data.accountError) alert(data.accountError);
 
     setSaving(false);
     onSave();
@@ -1495,22 +1511,65 @@ function StaffModal({
                 </p>
               </div>
 
-              {/* Linked user account */}
-              <div>
-                <label className="block text-sm font-medium mb-1">Compte utilisateur</label>
-                <select
-                  value={formData.profile_id}
-                  onChange={(e) => setFormData({ ...formData, profile_id: e.target.value })}
-                  className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
-                >
-                  <option value="">— Aucun compte lié —</option>
-                  {profiles.map(p => (
-                    <option key={p.id} value={p.id}>{p.full_name || p.email}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Liez ce membre à un compte de connexion (ex. un serveur verra « Mes tables »).
-                </p>
+              {/* User account: create a new login, or link an existing one */}
+              <div className="space-y-2">
+                {!editingStaff && (
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={makeUser}
+                      onChange={(e) => { setMakeUser(e.target.checked); if (e.target.checked) setFormData({ ...formData, profile_id: '' }); }}
+                      className="w-4 h-4 accent-[#606338]"
+                    />
+                    <span className="text-sm text-foreground">Créer un compte de connexion</span>
+                  </label>
+                )}
+
+                {makeUser && !editingStaff ? (
+                  <div className="space-y-2 p-3 bg-secondary/50 border border-border rounded-lg">
+                    <p className="text-xs text-muted-foreground">
+                      L&apos;email du membre ({formData.email || '—'}) servira d&apos;identifiant.
+                    </p>
+                    <div>
+                      <label className="block text-xs font-medium mb-1">Mot de passe *</label>
+                      <input
+                        type="text"
+                        value={accountPassword}
+                        onChange={(e) => setAccountPassword(e.target.value)}
+                        placeholder="Mot de passe"
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium mb-1">Rôle *</label>
+                      <select
+                        value={accountRoleId}
+                        onChange={(e) => setAccountRoleId(e.target.value)}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
+                      >
+                        <option value="">— Choisir un rôle —</option>
+                        {roles.map(r => <option key={r.id} value={r.id}>{r.display_name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Compte utilisateur</label>
+                    <select
+                      value={formData.profile_id}
+                      onChange={(e) => setFormData({ ...formData, profile_id: e.target.value })}
+                      className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#606338]/50"
+                    >
+                      <option value="">— Aucun compte lié —</option>
+                      {profiles.map(p => (
+                        <option key={p.id} value={p.id}>{p.full_name || p.email}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Liez ce membre à un compte de connexion existant (ex. un serveur verra « Mes tables »).
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Transport Beneficiary Toggle */}
