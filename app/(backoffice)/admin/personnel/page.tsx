@@ -1372,7 +1372,7 @@ function StaffModal({
       transport_dropoff: formData.transport_dropoff,
       profile_id: formData.profile_id || null,
       ...(editingStaff && { id: editingStaff.id }),
-      ...(!editingStaff && makeUser && { account: { create: true, password: accountPassword, role_id: accountRoleId || null } }),
+      ...(makeUser && { account: { create: true, password: accountPassword, role_id: accountRoleId || null } }),
     };
 
     const res = await fetch('/api/personnel', {
@@ -1513,7 +1513,7 @@ function StaffModal({
 
               {/* User account: create a new login, or link an existing one */}
               <div className="space-y-2">
-                {!editingStaff && (
+                {(!editingStaff || !editingStaff.profile_id) && (
                   <label className="flex items-center gap-2.5 cursor-pointer">
                     <input
                       type="checkbox"
@@ -1525,7 +1525,7 @@ function StaffModal({
                   </label>
                 )}
 
-                {makeUser && !editingStaff ? (
+                {makeUser ? (
                   <div className="space-y-2 p-3 bg-secondary/50 border border-border rounded-lg">
                     <p className="text-xs text-muted-foreground">
                       L&apos;email du membre ({formData.email || '—'}) servira d&apos;identifiant.
