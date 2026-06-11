@@ -5,6 +5,7 @@
 import db from '@/lib/db';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { createNotification } from '@/lib/notifications';
+import { createAuditLog } from '@/lib/auth/audit';
 import { applyDailyPurchase } from '@/lib/inventory-actions';
 import type { AuthUser } from '@/lib/types/auth';
 
@@ -70,6 +71,12 @@ export async function submitApprovalRequest(opts: {
     link: '/admin/approvals',
     targetRoles: opts.rule.approver_roles,
     system: true,
+  });
+
+  await createAuditLog({
+    userId: opts.session.id, userEmail: opts.session.email,
+    action: 'approval_requested', resourceType: 'approval', resourceId: rows[0].id,
+    newValues: { module: opts.module, action: opts.action, summary: opts.summary },
   });
 
   return rows[0].id;
@@ -165,6 +172,13 @@ export async function reviewApproval(
      WHERE id = $1`,
     [id, decision, note, session.id, session.full_name || session.email]
   );
+
+  await createAuditLog({
+    userId: session.id, userEmail: session.email,
+    action: decision === 'approved' ? 'approval_approved' : 'approval_rejected',
+    resourceType: 'approval', resourceId: id,
+    newValues: { module: req.module, action: req.action, summary: req.summary, note },
+  });
 
   if (req.requested_by) {
     await createNotification({
