@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { getCurrentUserId, enforce } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 // GET /api/reports/misc-expenses?month=YYYY-MM
 //   or /api/reports/misc-expenses?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
       ]
     );
 
+    await createAuditLog({ userId, action: 'create', resourceType: 'misc_expense', resourceId: rows[0]?.id as string, newValues: rows[0] });
     return NextResponse.json({ success: true, entry: rows[0] });
   } catch (error) {
     console.error('Misc expenses POST error:', error);
@@ -107,6 +109,7 @@ export async function PATCH(request: NextRequest) {
     );
 
     if (rows.length === 0) return NextResponse.json({ error: 'not found' }, { status: 404 });
+    await createAuditLog({ userId, action: 'update', resourceType: 'misc_expense', resourceId: id, newValues: rows[0] });
     return NextResponse.json({ success: true, entry: rows[0] });
   } catch (error) {
     console.error('Misc expenses PATCH error:', error);
@@ -127,6 +130,7 @@ export async function DELETE(request: NextRequest) {
     const { rowCount } = await db.query(`DELETE FROM misc_expenses WHERE id = $1`, [id]);
     if (rowCount === 0) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
+    await createAuditLog({ userId, action: 'delete', resourceType: 'misc_expense', resourceId: id });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Misc expenses DELETE error:', error);

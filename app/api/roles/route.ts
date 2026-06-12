@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { enforce } from '@/lib/auth/supabase-server';
+import { enforce, getServerSession } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 import db from '@/lib/db';
 
 // RBAC management API — admin only (users.manage).
@@ -49,11 +50,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `A role named "${slug}" already exists` }, { status: 409 });
     }
 
-    const { rows } = await db.query(
+    const { rows } = await db.query<{ id: string }>(
       `INSERT INTO roles (name, display_name, description, is_system)
        VALUES ($1, $2, $3, false) RETURNING *`,
       [slug, display_name, description || null]
     );
+    const actor = await getServerSession();
+    await createAuditLog({ userId: actor?.id, userEmail: actor?.email, action: 'create', resourceType: 'role', resourceId: rows[0].id, newValues: { name: slug, display_name } });
     return NextResponse.json({ role: rows[0] });
   } catch (err) {
     console.error('Roles POST error:', err);
@@ -102,6 +105,8 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
+    const actor = await getServerSession();
+    await createAuditLog({ userId: actor?.id, userEmail: actor?.email, action: 'update', resourceType: 'role', resourceId: id, newValues: { display_name, description, permissions } });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('Roles PATCH error:', err);
@@ -134,6 +139,8 @@ export async function DELETE(request: NextRequest) {
 
     await db.query('DELETE FROM role_permissions WHERE role_id = $1', [id]);
     await db.query('DELETE FROM roles WHERE id = $1', [id]);
+    const actor = await getServerSession();
+    await createAuditLog({ userId: actor?.id, userEmail: actor?.email, action: 'delete', resourceType: 'role', resourceId: id, oldValues: { name: rows[0].name } });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('Roles DELETE error:', err);
