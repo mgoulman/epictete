@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, enforce, getServerSession } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 type SupabaseLike = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
@@ -33,6 +34,8 @@ async function createLinkedAccount(
       is_active: true,
     });
     await supabase.from('staff_members').update({ profile_id: userId }).eq('id', opts.staffId);
+    const actor = await getServerSession();
+    await createAuditLog({ userId: actor?.id, userEmail: actor?.email, action: 'create', resourceType: 'user', resourceId: userId, newValues: { email: opts.email, role_id: roleId, via: 'personnel' } });
     return { userId };
   } catch (e) {
     const m = (e as Error).message;

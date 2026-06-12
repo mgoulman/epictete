@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { enforce } from '@/lib/auth/supabase-server';
+import { enforce, getServerSession } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 interface SettingRow {
   type: string;
@@ -31,5 +32,7 @@ export async function PATCH(request: NextRequest) {
      WHERE type = $1`,
     [type, typeof enabled === 'boolean' ? enabled : null, config ? JSON.stringify(config) : null]
   );
+  const actor = await getServerSession();
+  await createAuditLog({ userId: actor?.id, userEmail: actor?.email, action: 'update', resourceType: 'notification_setting', resourceId: type, newValues: { enabled, config } });
   return NextResponse.json({ success: true });
 }

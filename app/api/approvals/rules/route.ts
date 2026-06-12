@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { enforce } from '@/lib/auth/supabase-server';
+import { enforce, getServerSession } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 // GET /api/approvals/rules → all module rules (admin: settings.write)
 export async function GET() {
@@ -31,5 +32,7 @@ export async function PATCH(request: NextRequest) {
       Array.isArray(approver_roles) ? approver_roles : null,
     ]
   );
+  const actor = await getServerSession();
+  await createAuditLog({ userId: actor?.id, userEmail: actor?.email, action: 'update', resourceType: 'approval_rule', resourceId: module, newValues: { enabled, requester_roles, approver_roles } });
   return NextResponse.json({ success: true });
 }

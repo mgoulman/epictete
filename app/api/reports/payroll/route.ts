@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { getCurrentUserId, enforce } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 // GET /api/reports/payroll?month=YYYY-MM
 export async function GET(request: NextRequest) {
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
       ]
     );
 
+    await createAuditLog({ userId, action: 'create', resourceType: 'payroll_entry', resourceId: rows[0]?.id as string, newValues: rows[0] });
     return NextResponse.json({ success: true, entry: rows[0] });
   } catch (error) {
     console.error('Payroll POST error:', error);
@@ -102,6 +104,7 @@ export async function PATCH(request: NextRequest) {
     );
 
     if (rows.length === 0) return NextResponse.json({ error: 'not found' }, { status: 404 });
+    await createAuditLog({ userId, action: 'update', resourceType: 'payroll_entry', resourceId: id, newValues: rows[0] });
     return NextResponse.json({ success: true, entry: rows[0] });
   } catch (error) {
     console.error('Payroll PATCH error:', error);
@@ -122,6 +125,7 @@ export async function DELETE(request: NextRequest) {
     const { rowCount } = await db.query(`DELETE FROM payroll_entries WHERE id = $1`, [id]);
     if (rowCount === 0) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
+    await createAuditLog({ userId, action: 'delete', resourceType: 'payroll_entry', resourceId: id });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Payroll DELETE error:', error);
