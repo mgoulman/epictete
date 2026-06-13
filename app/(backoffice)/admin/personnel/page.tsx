@@ -721,7 +721,7 @@ export default function PersonnelPage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-t-lg transition-colors ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-t-lg transition-colors shrink-0 ${
               activeTab === tab.id
                 ? 'bg-[#606338] text-white'
                 : 'text-muted-foreground hover:text-foreground hover:bg-card'
@@ -761,16 +761,16 @@ export default function PersonnelPage() {
           ) : (
             <div className="grid gap-4">
               {filteredStaff.map(staff => (
-                <div key={staff.id} className="bg-card border border-border rounded-lg p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
+                <div key={staff.id} className="bg-card border border-border rounded-lg p-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-4 min-w-0">
                     <div
-                      className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold"
+                      className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold shrink-0"
                       style={{ backgroundColor: staff.staff_type?.color || '#606338' }}
                     >
                       {staff.first_name[0]}{staff.last_name[0]}
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-foreground">{staff.first_name} {staff.last_name}</h3>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-foreground truncate">{staff.first_name} {staff.last_name}</h3>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span
                           className="text-xs px-2 py-0.5 rounded-full text-white"
@@ -790,12 +790,12 @@ export default function PersonnelPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-6">
-                    <div className="text-right text-sm">
+                  <div className="flex items-center gap-3 sm:gap-6 shrink-0">
+                    <div className="hidden md:block text-right text-sm">
                       {staff.email && <p className="text-muted-foreground">{staff.email}</p>}
                       {staff.phone && <p className="text-muted-foreground">{staff.phone}</p>}
                     </div>
-                    <div className="text-right text-sm">
+                    <div className="hidden sm:block text-right text-sm">
                       <p className="text-foreground font-medium">
                         {staff.monthly_salary
                           ? `${staff.monthly_salary.toLocaleString()} DH/mo`
