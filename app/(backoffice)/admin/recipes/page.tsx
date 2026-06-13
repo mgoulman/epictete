@@ -321,7 +321,7 @@ export default function RecipesPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-6">
+      <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground">{rc.title}</h1>
           <p className="text-muted-foreground mt-1">{rc.subtitle}</p>
@@ -404,7 +404,7 @@ export default function RecipesPage() {
       </div>
 
       {/* Recipes List */}
-      <div className="bg-secondary border border-border rounded-xl overflow-hidden">
+      <div className="bg-secondary border border-border rounded-xl overflow-x-auto">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="w-8 h-8 border-2 border-[#606338] border-t-transparent rounded-full animate-spin" />
@@ -1018,7 +1018,7 @@ export default function RecipesPage() {
       {/* Add/Edit Ingredient Modal */}
       {(showIngredientModal || editingIngredient) && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-          <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl">
+          <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <h2 className="text-lg font-semibold text-foreground">
                 {editingIngredient ? rc.editIngredient : rc.addIngredient}
@@ -1078,7 +1078,7 @@ export default function RecipesPage() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1.5">{rc.quantity}</label>
                   <input

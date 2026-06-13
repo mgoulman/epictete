@@ -169,7 +169,7 @@ function UsageModal({ items, onClose, onSaved }: { items: Item[]; onClose: () =>
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-card border border-border rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+      <div className="bg-card border border-border rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-foreground">Sortie de stock</h3>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-secondary text-muted-foreground"><X className="w-5 h-5" /></button>

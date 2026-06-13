@@ -297,7 +297,7 @@ export default function UsersPage() {
         )}
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {[
             { label: u.totalUsers, value: totalUsers, colorClass: 'text-[#606338]', bgClass: 'bg-[#606338]/10', icon: Users },
             { label: u.active, value: activeUsers, colorClass: 'text-green-500', bgClass: 'bg-green-500/10', icon: UserCheck },

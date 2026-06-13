@@ -132,7 +132,7 @@ function ReserveModal({ table, onClose, onSaved }: { table: Table; onClose: () =
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-card border border-border rounded-2xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+      <div className="bg-card border border-border rounded-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-foreground">Réserver — Table {table.table_number}</h3>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-secondary text-muted-foreground"><X className="w-5 h-5" /></button>
@@ -280,7 +280,7 @@ function OrderModal({ table, staffId, onClose, onChanged }: { table: Table; staf
             {/* Add items */}
             <div className="mb-4">
               <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">Ajouter</p>
-              <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-48 overflow-y-auto">
                 {menu.map(m => (
                   <button key={m.id} onClick={() => addItem(m)} disabled={busy} className="flex items-center justify-between px-3 py-2 bg-secondary rounded-lg text-left hover:bg-[#606338]/10 disabled:opacity-50">
                     <span className="text-[13px] text-foreground truncate">{m.name_fr || m.name}</span>

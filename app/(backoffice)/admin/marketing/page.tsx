@@ -183,7 +183,7 @@ function FeaturedDishesTab() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-orange-500/10 flex items-center justify-center">
             <Flame className="w-5 h-5 text-orange-500" />

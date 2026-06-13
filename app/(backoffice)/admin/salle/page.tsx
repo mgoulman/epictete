@@ -369,9 +369,9 @@ export default function SallePlanPage() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="sm:p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Map className="w-6 h-6" />
@@ -400,7 +400,7 @@ export default function SallePlanPage() {
       </div>
 
       {/* Zone tabs */}
-      <div className="flex items-center gap-2 mb-4 border-b border-border pb-2">
+      <div className="flex items-center gap-2 mb-4 border-b border-border pb-2 overflow-x-auto">
         {zones.map(zone => (
           <div key={zone.id} className="flex items-center">
             <button
@@ -439,7 +439,7 @@ export default function SallePlanPage() {
         </div>
       )}
 
-      <div className="flex gap-6">
+      <div className="flex flex-col lg:flex-row gap-6">
         {/* Canvas */}
         <div className="flex-1 min-w-0">
           <div
@@ -513,7 +513,7 @@ export default function SallePlanPage() {
 
         {/* ─── Properties panel ─────────────────────────────────────────── */}
         {selectedTable && (
-          <div className="w-72 bg-card border border-border rounded-xl p-4 self-start shrink-0 space-y-4">
+          <div className="w-full lg:w-72 bg-card border border-border rounded-xl p-4 self-start shrink-0 space-y-4">
             {/* Header: editable number + delete */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">

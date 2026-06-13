@@ -543,7 +543,7 @@ export default function ServicePage() {
       {/* Seat Guests Modal */}
       {showSeatModal && selectedTable && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center">
-          <div className="bg-card border border-border rounded-t-2xl md:rounded-xl w-full max-w-sm p-6">
+          <div className="bg-card border border-border rounded-t-2xl md:rounded-xl w-full max-w-sm p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">{sv.seatGuestsAt} {selectedTable.table_number}</h3>
               <button onClick={() => setShowSeatModal(false)} className="p-2 hover:bg-secondary rounded-lg">
@@ -860,7 +860,7 @@ export default function ServicePage() {
 
             {/* Items grid */}
             <div className="flex-1 overflow-y-auto p-4">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {filteredMenuItems.map(item => (
                   <button
                     key={item.id}

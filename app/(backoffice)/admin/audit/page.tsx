@@ -310,7 +310,7 @@ export default function AuditPage() {
                 </button>
               </div>
               <div className="p-4 overflow-y-auto max-h-[60vh]">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <p className="text-[13px] text-muted-foreground mb-1">{a.timestamp}</p>
                     <p className="text-foreground">{formatDate(selectedLog.created_at)}</p>

@@ -2325,7 +2325,7 @@ export default function FinancePage() {
         {/* Add Vendor Modal */}
         {showVendorModal && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                 <h2 className="text-lg font-semibold text-foreground">{fn.addVendor}</h2>
                 <button onClick={() => setShowVendorModal(false)} className="p-2 text-muted-foreground hover:text-foreground">
@@ -2471,7 +2471,7 @@ export default function FinancePage() {
         {/* Edit Vendor Modal */}
         {editingVendor && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                 <h2 className="text-lg font-semibold text-foreground">{fn.editVendor}</h2>
                 <button onClick={() => setEditingVendor(null)} className="p-2 text-muted-foreground hover:text-foreground">
@@ -2620,7 +2620,7 @@ export default function FinancePage() {
         {/* Add Transaction Modal */}
         {showTransactionModal && selectedVendorForTransaction && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">
@@ -2720,7 +2720,7 @@ export default function FinancePage() {
       {/* Add Inventory Modal */}
       {showInventoryModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl">
+          <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <h2 className="text-lg font-semibold text-foreground">{fn.addInventoryItem}</h2>
               <button onClick={() => setShowInventoryModal(false)} className="p-2 text-muted-foreground hover:text-foreground">
@@ -2850,7 +2850,7 @@ export default function FinancePage() {
       {/* Edit Inventory Modal */}
       {editingInventory && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl">
+          <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <h2 className="text-lg font-semibold text-foreground">{fn.editInventoryItem}</h2>
               <button onClick={() => setEditingInventory(null)} className="p-2 text-muted-foreground hover:text-foreground">
@@ -2979,7 +2979,7 @@ export default function FinancePage() {
       {/* Auto Import Modal */}
       {showAutoImportModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl">
+          <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <h2 className="text-lg font-semibold text-foreground">{fn.syncTitle}</h2>
               <button onClick={() => { setShowAutoImportModal(false); setAutoImportResult(null); }} className="p-2 text-muted-foreground hover:text-foreground">
@@ -3058,7 +3058,7 @@ export default function FinancePage() {
 
       {showAddModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl">
+          <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <h2 className="text-lg font-semibold text-foreground">{fn.addSaleTitle}</h2>
               <button onClick={() => setShowAddModal(false)} className="p-2 text-muted-foreground hover:text-foreground">
@@ -3643,7 +3643,7 @@ export default function FinancePage() {
                 <div className="flex items-center justify-center h-40"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
               ) : (
                 <div className="p-5 space-y-6">
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div className="bg-secondary rounded-xl p-3 text-center">
                       <p className="text-xs text-muted-foreground">Stock</p>
                       <p className="text-xl font-bold">{dp?.quantity || 0}</p>
