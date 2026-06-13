@@ -215,7 +215,7 @@ function AppearanceSettings() {
       <div className="flex flex-col gap-5">
         <div>
           <label className="block text-[13px] font-medium text-foreground mb-3">{a.theme}</label>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {themeOptions.map(option => {
               const Icon = option.icon;
               const isActive = theme === option.id;

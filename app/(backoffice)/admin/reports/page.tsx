@@ -1154,7 +1154,7 @@ export default function ReportsPage() {
               {/* ═══════════ FEUILLE DE CAISSE (Step 1) ═══════════ */}
               {showCashSheet && (
                 <div className="bg-secondary border border-border rounded-xl p-5 space-y-4">
-                  <div className="flex items-center justify-between border-b border-border pb-3">
+                  <div className="flex items-center justify-between flex-wrap gap-3 border-b border-border pb-3">
                     <div>
                       <h3 className="font-bold text-foreground flex items-center gap-2">
                         <FileText className="w-4 h-4 text-[#606338]" />
@@ -1629,7 +1629,7 @@ export default function ReportsPage() {
                 </div>
 
                 {/* Breakdown Table */}
-                <div className="bg-secondary border border-border rounded-xl overflow-hidden">
+                <div className="bg-secondary border border-border rounded-xl overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-card text-xs text-muted-foreground uppercase">
@@ -1712,7 +1712,7 @@ export default function ReportsPage() {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {PAYMENT_METHODS.map(method => {
                 const total = expenses.filter(e => e.payment_method === method).reduce((s, e) => s + Number(e.amount), 0);
                 return (
@@ -1840,7 +1840,7 @@ export default function ReportsPage() {
         {/* ═══════════════════════════════════════════ */}
         {showExpenseModal && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-secondary border border-border rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="bg-secondary border border-border rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl">
               <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                 <h3 className="text-lg font-semibold text-foreground">{rp.addExpense}</h3>
                 <button onClick={() => setShowExpenseModal(false)} className="p-2 text-muted-foreground hover:text-foreground rounded-lg">
@@ -1998,7 +1998,7 @@ export default function ReportsPage() {
 
         {showMiscModal && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowMiscModal(false)}>
-            <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-foreground">
                   {editingMiscId ? 'Modifier le frais divers' : 'Nouveau frais divers'}
@@ -2164,7 +2164,7 @@ export default function ReportsPage() {
 
         {showPayrollModal && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowPayrollModal(false)}>
-            <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-foreground">
                   {editingPayrollId ? 'Modifier la fiche de paie' : 'Nouvelle fiche de paie'}
@@ -2185,7 +2185,7 @@ export default function ReportsPage() {
                     autoFocus
                   />
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs text-muted-foreground mb-1.5">Jours travaillés</label>
                     <input type="number" value={payrollForm.working_days} onChange={(e) => setPayrollForm({ ...payrollForm, working_days: Number(e.target.value) || 0 })}
@@ -2202,7 +2202,7 @@ export default function ReportsPage() {
                       className="w-full py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50" />
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs text-muted-foreground mb-1.5">CNSS (DH)</label>
                     <input type="number" step="0.01" value={payrollForm.cnss} onChange={(e) => setPayrollForm({ ...payrollForm, cnss: Number(e.target.value) || 0 })}

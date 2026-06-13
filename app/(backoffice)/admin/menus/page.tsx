@@ -293,7 +293,7 @@ export default function MenusPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-6">
+      <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground">{mn.title}</h1>
           <p className="text-muted-foreground mt-1">{mn.subtitle}</p>
@@ -481,7 +481,7 @@ export default function MenusPage() {
               </button>
             </div>
             <div className="p-5 space-y-4 overflow-y-auto">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1.5">{mn.name} *</label>
                   <input
@@ -526,7 +526,7 @@ export default function MenusPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1.5">{mn.validFrom}</label>
                   <input
@@ -587,7 +587,7 @@ export default function MenusPage() {
               </button>
             </div>
             <div className="p-5 space-y-4 overflow-y-auto">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1.5">{mn.name} *</label>
                   <input
@@ -631,7 +631,7 @@ export default function MenusPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1.5">{mn.validFrom}</label>
                   <input

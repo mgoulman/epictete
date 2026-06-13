@@ -1563,7 +1563,7 @@ export default function InventoryPage() {
       {/* ─── Purchase Tab ──────────────────────────────────────────────── */}
       {tab === 'purchase' && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto p-4">
-          <div className="max-w-6xl mx-auto bg-card border border-border rounded-2xl shadow-2xl">
+          <div className="w-full max-w-6xl mx-auto bg-card border border-border rounded-2xl shadow-2xl">
             <div className="sticky top-0 bg-secondary border-b border-border px-5 py-4 flex items-center justify-between rounded-t-2xl z-10">
               <h2 className="text-lg font-semibold flex items-center gap-2"><ShoppingCart className="w-5 h-5 text-emerald-600" />{tt('tabs.purchase', 'Achats du jour')}</h2>
               <button onClick={() => setTab('history')} className="p-2 text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
@@ -1814,7 +1814,7 @@ export default function InventoryPage() {
       {/* ─── Usage Modal ───────────────────────────────────────────────── */}
       {tab === 'usage' && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto p-4">
-          <div className="max-w-6xl mx-auto bg-card border border-border rounded-2xl shadow-2xl">
+          <div className="w-full max-w-6xl mx-auto bg-card border border-border rounded-2xl shadow-2xl">
             <div className="sticky top-0 bg-secondary border-b border-border px-5 py-4 flex items-center justify-between rounded-t-2xl z-10">
               <h2 className="text-lg font-semibold flex items-center gap-2"><TrendingDown className="w-5 h-5 text-red-500" />{tt('tabs.usage', 'Sorties du jour')}</h2>
               <button onClick={() => setTab('history')} className="p-2 text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
@@ -1917,7 +1917,7 @@ export default function InventoryPage() {
       {tab === 'orders' && (
         <div className="space-y-4">
           {/* Header */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">
                 {orders.filter(o => o.status === 'pending').length} {tt('pendingOrders', 'en attente')}
@@ -2185,7 +2185,7 @@ export default function InventoryPage() {
               <div className="flex items-center justify-center h-40"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
             ) : (
               <div className="p-5 space-y-6">
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div className="bg-secondary rounded-xl p-3 text-center">
                     <p className="text-xs text-muted-foreground">Stock</p>
                     <p className="text-xl font-bold">{detailProduct?.quantity || 0}</p>

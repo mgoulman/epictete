@@ -738,7 +738,7 @@ export default function MenuPage() {
               </div>
 
               {/* Names */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1.5">{mp.nameFr}</label>
                   <input type="text" value={formData.name_fr} onChange={(e) => setFormData({ ...formData, name_fr: e.target.value })} className="w-full py-2.5 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50" placeholder={mp.nameFrPlaceholder} />
@@ -914,7 +914,7 @@ export default function MenuPage() {
                     {/* New Recipe Form */}
                     {formData.recipe_mode === 'new' && (
                       <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <label className="block text-xs text-muted-foreground mb-1.5">{mp.recipeName}</label>
                             <input

@@ -581,7 +581,7 @@ export default function TransportPage() {
           {/* Transport Settings Tab */}
           {activeTab === 'settings' && (
             <div>
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex flex-wrap gap-3 justify-between items-center mb-4">
                 <div className="relative">
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input
@@ -597,7 +597,7 @@ export default function TransportPage() {
                 </p>
               </div>
 
-              <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="bg-card border border-border rounded-lg overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-secondary">
                     <tr>
@@ -677,7 +677,7 @@ export default function TransportPage() {
           {/* Generated Schedule Tab */}
           {activeTab === 'schedule' && (
             <div>
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex flex-wrap gap-3 justify-between items-center mb-4">
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() => navigateWeek(-1)}
@@ -774,7 +774,7 @@ function PlanningTab({
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap gap-3 justify-between items-center mb-4">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigateWeek(-1)}
@@ -878,7 +878,7 @@ function DriverModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-md">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-lg font-semibold">{editingDriver ? tp.editDriver : tp.addDriver}</h2>
           <button onClick={onClose} className="p-2 hover:bg-secondary rounded-lg">
@@ -886,7 +886,7 @@ function DriverModal({
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">{tp.firstNameRequired}</label>
               <input
@@ -1004,7 +1004,7 @@ function VehicleModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-md">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-lg font-semibold">{editingVehicle ? tp.editVehicle : tp.addVehicle}</h2>
           <button onClick={onClose} className="p-2 hover:bg-secondary rounded-lg">

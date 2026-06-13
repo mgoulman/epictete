@@ -716,7 +716,7 @@ export default function PersonnelPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b border-border pb-2">
+      <div className="flex gap-2 mb-6 border-b border-border pb-2 overflow-x-auto whitespace-nowrap">
         {tabs.map(tab => (
           <button
             key={tab.id}
@@ -736,7 +736,7 @@ export default function PersonnelPage() {
       {/* Staff Tab */}
       {activeTab === 'staff' && (
         <div>
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-wrap gap-3 justify-between items-center mb-4">
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -855,8 +855,8 @@ export default function PersonnelPage() {
               </button>
             </div>
             {/* View Filter & Download */}
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2 overflow-x-auto">
                 {(['combined', 'cuisine', 'salle', 'transport'] as ScheduleView[]).map(view => (
                   <button
                     key={view}
@@ -1130,7 +1130,7 @@ export default function PersonnelPage() {
       {/* Salary Tab */}
       {activeTab === 'salary' && (
         <div>
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-wrap gap-3 justify-between items-center mb-4">
             <div className="flex items-center gap-4">
               <select
                 value={salaryMonth}
@@ -1163,7 +1163,7 @@ export default function PersonnelPage() {
             </button>
           </div>
 
-          <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <div className="bg-card border border-border rounded-lg overflow-x-auto">
             <table className="w-full">
               <thead className="bg-secondary">
                 <tr>
@@ -1397,7 +1397,7 @@ function StaffModal({
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">{pn.firstName}</label>
               <input
@@ -1434,7 +1434,7 @@ function StaffModal({
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">{pn.email}</label>
               <input
@@ -1721,7 +1721,7 @@ function TimeOffModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-md">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-lg font-semibold">{pn.requestTimeOff}</h2>
           <button onClick={onClose} className="p-2 hover:bg-secondary rounded-lg">
@@ -1745,7 +1745,7 @@ function TimeOffModal({
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">{pn.startDate}</label>
               <input
@@ -1884,7 +1884,7 @@ function SalaryModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-md">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-lg font-semibold">{editingRecord ? pn.editSalaryRecord : pn.addSalaryRecord}</h2>
           <button onClick={onClose} className="p-2 hover:bg-secondary rounded-lg">
@@ -1909,7 +1909,7 @@ function SalaryModal({
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">{pn.month}</label>
               <select
@@ -1951,7 +1951,7 @@ function SalaryModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">{pn.bonusesDH}</label>
               <input
@@ -2060,7 +2060,7 @@ function ShiftDetailModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-md">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-lg font-semibold">{pn.shiftDetails}</h2>
           <button onClick={onClose} className="p-2 hover:bg-secondary rounded-lg">
