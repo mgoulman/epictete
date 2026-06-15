@@ -29,6 +29,7 @@ export type PermissionName =
   | 'inventory.write'
   | 'reports.read'
   | 'reports.write'
+  | 'memos.write'
   | 'personnel.read'
   | 'personnel.write'
   | 'transport.read'
@@ -50,6 +51,7 @@ export type ResourceType =
   | 'finance'
   | 'inventory'
   | 'reports'
+  | 'memos'
   | 'personnel'
   | 'transport'
   | 'marketing'
@@ -150,6 +152,7 @@ export const ALL_PERMISSIONS: PermissionName[] = [
   'finance.read', 'finance.write',
   'inventory.read', 'inventory.write',
   'reports.read', 'reports.write',
+  'memos.write',
   'personnel.read', 'personnel.write',
   'transport.read', 'transport.write',
   'marketing.read', 'marketing.write',
@@ -169,6 +172,7 @@ export const ROLE_PERMISSIONS: Record<RoleName, PermissionName[]> = {
     'finance.read', 'finance.write',
     'inventory.read', 'inventory.write',
     'reports.read', 'reports.write',
+    'memos.write',
     'personnel.read', 'personnel.write',
     'transport.read', 'transport.write',
     'marketing.read', 'marketing.write',
@@ -319,6 +323,9 @@ export const BACKOFFICE_NAV: NavItem[] = [
       { key: 'stockMovements', label: 'Mouvements Stock', href: '/admin/reports?tab=movements', icon: 'ArrowUpDown' }
     ]
   },
+  // Open to all authenticated users — recipients read reports addressed to them
+  // here; authoring is gated by memos.write inside the page.
+  { key: 'memos', label: 'Rapports', href: '/admin/memos', icon: 'Send' },
   { key: 'approvals', label: 'Approbations', href: '/admin/approvals', icon: 'ClipboardList' },
   { key: 'auditLogs', label: 'Audit Logs', href: '/admin/audit', icon: 'ScrollText', permission: 'audit.read' },
   { key: 'settings', label: 'Settings', href: '/admin/settings', icon: 'Settings', permission: 'settings.read' }
