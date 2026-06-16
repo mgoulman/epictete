@@ -325,7 +325,7 @@ export const BACKOFFICE_NAV: NavItem[] = [
   },
   // Open to all authenticated users — recipients read reports addressed to them
   // here; authoring is gated by memos.write inside the page.
-  { key: 'memos', label: 'Rapports', href: '/admin/memos', icon: 'Send' },
+  { key: 'memos', label: 'Mémos', href: '/admin/memos', icon: 'Send' },
   { key: 'approvals', label: 'Approbations', href: '/admin/approvals', icon: 'ClipboardList' },
   { key: 'auditLogs', label: 'Audit Logs', href: '/admin/audit', icon: 'ScrollText', permission: 'audit.read' },
   { key: 'settings', label: 'Settings', href: '/admin/settings', icon: 'Settings', permission: 'settings.read' }
