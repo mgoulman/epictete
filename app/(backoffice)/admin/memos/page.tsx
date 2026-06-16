@@ -22,10 +22,10 @@ interface MemoLink { id?: string; ref_type: LinkType; ref_id: string; label: str
 type LinkType = 'inventory' | 'sales' | 'menu' | 'personnel';
 
 const LINK_META: Record<LinkType, { label: string; icon: React.ElementType; href: (id: string) => string }> = {
-  inventory: { label: 'Inventaire', icon: Boxes, href: () => '/admin/inventory' },
-  sales: { label: 'Ventes', icon: ShoppingCart, href: () => '/admin/finance?tab=sales' },
-  menu: { label: 'Menu', icon: UtensilsCrossed, href: () => '/admin/menu' },
-  personnel: { label: 'Personnel', icon: UserCog, href: () => '/admin/personnel' },
+  inventory: { label: 'Inventaire', icon: Boxes, href: id => `/admin/inventory?focus=${id}` },
+  sales: { label: 'Ventes', icon: ShoppingCart, href: id => `/admin/finance?tab=sales&focus=${id}` },
+  menu: { label: 'Menu', icon: UtensilsCrossed, href: id => `/admin/menu?focus=${id}` },
+  personnel: { label: 'Personnel', icon: UserCog, href: id => `/admin/personnel?focus=${id}` },
 };
 const isImg = (m?: string | null) => !!m && m.startsWith('image/');
 

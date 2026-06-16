@@ -9,6 +9,7 @@ import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import ScheduleTable from '@/components/backoffice/personnel/ScheduleTable';
 import { plannedShiftFor } from '@/lib/schedule';
+import { useFocusRow } from '@/lib/hooks/use-focus-row';
 import jsPDF from 'jspdf';
 
 interface StaffType {
@@ -154,6 +155,7 @@ interface SalaryRecord {
 type TabType = 'staff' | 'schedule' | 'presence' | 'time-off' | 'salary';
 
 export default function PersonnelPage() {
+  useFocusRow();
   const { t } = useTranslation();
   const pn = t.backoffice.personnelPage;
   const [activeTab, setActiveTab] = useState<TabType>('staff');
@@ -761,7 +763,7 @@ export default function PersonnelPage() {
           ) : (
             <div className="grid gap-4">
               {filteredStaff.map(staff => (
-                <div key={staff.id} className="bg-card border border-border rounded-lg p-4 flex items-center justify-between gap-3">
+                <div key={staff.id} data-focus={staff.id} className="bg-card border border-border rounded-lg p-4 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-4 min-w-0">
                     <div
                       className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold shrink-0"

@@ -5,6 +5,7 @@ import { createSupabaseBrowserClient } from '@/lib/auth/supabase-browser';
 import type { MenuItem, MenuCategory, Recipe, RecipeIngredient } from '@/lib/supabase';
 import { PermissionGate, CanEditMenu } from '@/components/backoffice/auth/PermissionGate';
 import { usePermissions } from '@/lib/auth/hooks';
+import { useFocusRow } from '@/lib/hooks/use-focus-row';
 import {
   Plus, Pencil, Trash2, X, UtensilsCrossed, Search, Image, Images,
   LayoutGrid, List, Star, Eye, EyeOff, Filter,
@@ -53,6 +54,7 @@ const emptyForm: MenuItemForm = {
 };
 
 export default function MenuPage() {
+  useFocusRow();
   const [supabase] = useState(() => createSupabaseBrowserClient());
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -537,7 +539,7 @@ export default function MenuPage() {
         {viewMode === 'grid' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
             {sortedItems.map(item => (
-              <div key={item.id} onClick={() => { setViewingItem(item); loadRecipeForView(item); }} className={`bg-secondary border border-border rounded-xl overflow-hidden transition-all hover:border-[#606338]/30 cursor-pointer flex flex-col ${!item.is_available ? 'opacity-60' : ''}`}>
+              <div key={item.id} data-focus={item.id} onClick={() => { setViewingItem(item); loadRecipeForView(item); }} className={`bg-secondary border border-border rounded-xl overflow-hidden transition-all hover:border-[#606338]/30 cursor-pointer flex flex-col ${!item.is_available ? 'opacity-60' : ''}`}>
                 <div className="h-40 shrink-0 bg-card relative flex items-center justify-center overflow-hidden">
                   {item.image_url ? <img src={item.image_url} alt={item.name} className="absolute inset-0 w-full h-full object-cover" /> : <Image className="w-8 h-8 text-muted" />}
                   <div className="absolute top-2.5 left-2.5 flex gap-1.5">
@@ -589,7 +591,7 @@ export default function MenuPage() {
               <SortHeader label={mp.priceLabel} field="price" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="right" className="text-xs font-semibold text-muted uppercase" />
             </div>
             {sortedItems.map((item, index) => (
-              <div key={item.id} onClick={() => { setViewingItem(item); loadRecipeForView(item); }} className={`grid grid-cols-1 md:grid-cols-[1fr_120px_140px_100px] gap-4 px-4 py-3 items-center cursor-pointer hover:bg-card transition-colors ${index > 0 ? 'border-t border-border' : ''} ${!item.is_available ? 'opacity-60' : ''}`}>
+              <div key={item.id} data-focus={item.id} onClick={() => { setViewingItem(item); loadRecipeForView(item); }} className={`grid grid-cols-1 md:grid-cols-[1fr_120px_140px_100px] gap-4 px-4 py-3 items-center cursor-pointer hover:bg-card transition-colors ${index > 0 ? 'border-t border-border' : ''} ${!item.is_available ? 'opacity-60' : ''}`}>
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-11 h-11 rounded-lg bg-card overflow-hidden shrink-0 flex items-center justify-center">
                     {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-cover" /> : <Image className="w-4 h-4 text-muted" />}

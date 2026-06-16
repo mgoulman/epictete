@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Package, Plus, Trash2, Search, Calendar,
   ChevronLeft, ChevronRight, Loader2, ShoppingCart,
@@ -361,6 +362,12 @@ export default function InventoryPage() {
   const [editingMovement, setEditingMovement] = useState<{ id: string; quantity: number; unit_cost: number } | null>(null);
   const [detailProductId, setDetailProductId] = useState<string | null>(null);
   const [detailMovements, setDetailMovements] = useState<Movement[]>([]);
+  // Row-level deep-link: open a product's detail when arriving with ?focus=<id>.
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const f = searchParams.get('focus');
+    if (f && items.some(i => i.id === f)) setDetailProductId(f);
+  }, [searchParams, items]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
