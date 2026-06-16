@@ -44,6 +44,27 @@ export async function GET(request: NextRequest) {
   const box = sp.get('box');
   const id = sp.get('id');
 
+  // Search linkable records for the compose form (authors only)
+  const link = sp.get('link');
+  if (link) {
+    const denied = await enforce('memos.write'); if (denied) return denied;
+    const q = `%${(sp.get('q') || '').trim()}%`;
+    const QUERIES: Record<string, string> = {
+      inventory: `SELECT id::text, name AS label, ('Stock: '||COALESCE(quantity,0)||' '||COALESCE(unit,'')) AS sub
+                  FROM inventory_items WHERE name ILIKE $1 ORDER BY name LIMIT 20`,
+      menu: `SELECT id::text, name AS label, COALESCE(price::text||' DH','') AS sub
+             FROM menu_items WHERE name ILIKE $1 ORDER BY name LIMIT 20`,
+      sales: `SELECT id::text, (product_name||COALESCE(' — '||sale_date,'')) AS label,
+                     ('Ticket '||COALESCE(ticket_number,'—')) AS sub
+              FROM sales_items WHERE product_name ILIKE $1 ORDER BY sale_date DESC NULLS LAST, created_at DESC LIMIT 20`,
+      personnel: `SELECT id::text, (first_name||' '||last_name) AS label, COALESCE(position,'') AS sub
+                  FROM staff_members WHERE (first_name||' '||last_name) ILIKE $1 ORDER BY first_name LIMIT 20`,
+    };
+    if (!QUERIES[link]) return NextResponse.json({ error: 'Unknown link type' }, { status: 400 });
+    const { rows } = await db.query(QUERIES[link], [q]);
+    return NextResponse.json({ results: rows });
+  }
+
   // Picker data for the compose form (authors only)
   if (sp.get('meta')) {
     const denied = await enforce('memos.write'); if (denied) return denied;
@@ -76,7 +97,13 @@ export async function GET(request: NextRequest) {
       );
     }
     const readTrack = isAuthor ? await buildReadTrack(id as string) : null;
-    return NextResponse.json({ memo, isAuthor, readTrack });
+    const { rows: attachments } = await db.query(
+      'SELECT id, name, url, mime, size FROM memo_attachments WHERE memo_id = $1 ORDER BY created_at', [id]
+    );
+    const { rows: links } = await db.query(
+      'SELECT id, ref_type, ref_id, label, sub FROM memo_links WHERE memo_id = $1 ORDER BY created_at', [id]
+    );
+    return NextResponse.json({ memo, isAuthor, readTrack, attachments, links });
   }
 
   // Sent box: my authored reports with read stats.
@@ -134,7 +161,7 @@ export async function POST(request: NextRequest) {
 
   // Create + publish a report.
   const denied = await enforce('memos.write'); if (denied) return denied;
-  const { title, body: content, priority, recipients } = body;
+  const { title, body: content, priority, recipients, attachments, links } = body;
   if (!title || !Array.isArray(recipients) || recipients.length === 0) {
     return NextResponse.json({ error: 'Titre et destinataires requis' }, { status: 400 });
   }
@@ -152,6 +179,24 @@ export async function POST(request: NextRequest) {
       'INSERT INTO memo_recipients (memo_id, recipient_type, recipient_value) VALUES ($1, $2, $3)',
       [memoId, r.type, r.value]
     );
+  }
+  if (Array.isArray(attachments)) {
+    for (const a of attachments) {
+      if (!a?.url || !a?.name) continue;
+      await db.query(
+        'INSERT INTO memo_attachments (memo_id, name, url, path, mime, size) VALUES ($1,$2,$3,$4,$5,$6)',
+        [memoId, a.name, a.url, a.path || null, a.mime || null, a.size || null]
+      );
+    }
+  }
+  if (Array.isArray(links)) {
+    for (const l of links) {
+      if (!l?.ref_type || !l?.ref_id || !l?.label) continue;
+      await db.query(
+        'INSERT INTO memo_links (memo_id, ref_type, ref_id, label, sub) VALUES ($1,$2,$3,$4,$5)',
+        [memoId, l.ref_type, l.ref_id, l.label, l.sub || null]
+      );
+    }
   }
   await createNotification({
     type: 'memo_new', title: `Nouveau rapport : ${title}`,
