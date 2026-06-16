@@ -258,3 +258,16 @@ img, video {
   --color-accent-hover: #4d4f2e;
   --color-accent-foreground: #faf9f5;
 }
+
+/* Row-level deep-linking highlight (Mémos linked records → target page row) */
+@keyframes focusFlash {
+  0%, 100% { outline-color: rgba(96, 99, 56, 0); }
+  35%      { outline-color: rgba(96, 99, 56, 0.85); }
+}
+.focus-flash {
+  outline: 2px solid rgba(96, 99, 56, 0.85);
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+  animation: focusFlash 1.2s ease-in-out 2;
+  scroll-margin: 120px;
+}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useFocusRow } from '@/lib/hooks/use-focus-row';
 import { PermissionGate } from '@/components/backoffice/auth/PermissionGate';
 import { usePermissions } from '@/lib/auth/hooks';
 import {
@@ -127,6 +128,7 @@ interface VendorTransaction {
 type TabType = 'overview' | 'sales' | 'inventory' | 'vendors';
 
 export default function FinancePage() {
+  useFocusRow();
   const { hasPermission } = usePermissions();
   const canWrite = hasPermission('finance.write');
   const searchParams = useSearchParams();
@@ -1531,7 +1533,7 @@ export default function FinancePage() {
                           }
                           return sortCompare(a, b, salesSort, salesSortDir);
                         }).map(item => (
-                          <tr key={item.id} className="border-t border-border hover:bg-card/50">
+                          <tr key={item.id} data-focus={item.id} className="border-t border-border hover:bg-card/50">
                             <td className="px-4 py-3 text-sm text-muted-foreground">
                               {item.sale_date}
                               {item.sale_time && <span className="ml-2 text-muted">{item.sale_time.slice(0, 5)}</span>}
