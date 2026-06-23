@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { usePermissions } from '@/lib/auth/hooks';
 import { NOTIFICATION_TYPE_MAP, NOTIFICATION_TYPES, type NotifParam } from '@/lib/notification-types';
+import { subscribeToPush } from '@/lib/push-client';
 
 interface Setting { type: string; enabled: boolean; config: Record<string, unknown>; }
 interface Role { name: string; display_name: string; }
@@ -16,15 +17,6 @@ const ICONS: Record<string, React.ElementType> = {
   Package, CalendarCheck, TrendingUp, CreditCard, Wallet, CalendarClock, FileText, CalendarX,
 };
 const REGISTRY_ORDER = NOTIFICATION_TYPES.reduce<Record<string, number>>((m, t, i) => { m[t.type] = i; return m; }, {});
-
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const raw = atob(base64);
-  const out = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
-  return out;
-}
 
 const arr = (v: unknown): string[] => (Array.isArray(v) ? (v as string[]) : []);
 
@@ -130,22 +122,15 @@ export function NotificationSettings() {
   const enablePush = async () => {
     setPushBusy(true); setPushError(null);
     try {
-      const perm = await Notification.requestPermission();
-      if (perm !== 'granted') { setPushError('Permission refusée par le navigateur.'); return; }
-      const cfg = await fetch('/api/push/subscribe').then(r => r.json());
-      if (!cfg.enabled || !cfg.publicKey) { setPushError('Push non configuré sur le serveur (clés VAPID manquantes).'); return; }
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(cfg.publicKey) as unknown as BufferSource,
-      });
-      const res = await fetch('/api/push/subscribe', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub),
-      });
-      if (!res.ok) throw new Error('subscribe failed');
-      setPushSubscribed(true);
-    } catch (e) {
-      setPushError(e instanceof Error ? e.message : "Échec de l'activation.");
+      const result = await subscribeToPush();
+      if (result === 'subscribed') { setPushSubscribed(true); return; }
+      const msg: Record<string, string> = {
+        denied: 'Permission refusée par le navigateur.',
+        'not-configured': 'Push non configuré sur le serveur (clés VAPID manquantes).',
+        unsupported: 'Notifications non supportées sur cet appareil.',
+        error: "Échec de l'activation.",
+      };
+      setPushError(msg[result] || "Échec de l'activation.");
     } finally { setPushBusy(false); }
   };
 
