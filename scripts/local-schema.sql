@@ -341,13 +341,22 @@ CREATE TABLE IF NOT EXISTS staff_members (
   staff_type_id UUID REFERENCES staff_types(id),
   department TEXT DEFAULT 'cuisine',
   hourly_rate NUMERIC DEFAULT 0,
+  salary NUMERIC DEFAULT 0,
+  monthly_salary NUMERIC DEFAULT 0,
   contract_type TEXT DEFAULT 'CDI',
   hire_date DATE,
+  contract_end_date DATE,
   is_active BOOLEAN DEFAULT true,
   schedule_type TEXT DEFAULT 'weekly',
   schedule_config JSONB,
   transport_pickup TEXT,
   transport_dropoff TEXT,
+  profile_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  emergency_contact TEXT,
+  address TEXT,
+  cin TEXT,
+  cnss TEXT,
+  notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -482,6 +491,68 @@ CREATE TABLE IF NOT EXISTS invoices (
   file_url TEXT,
   file_path TEXT,
   items JSONB DEFAULT '[]',
+  notes TEXT,
+  created_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Scanned/extracted vendor invoices + line items (see migration 20260620010000)
+CREATE TABLE IF NOT EXISTS vendor_invoices (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vendor_id UUID REFERENCES vendors(id) ON DELETE CASCADE,
+  invoice_url TEXT,
+  invoice_path TEXT,
+  invoice_date DATE,
+  due_date DATE,
+  total_amount NUMERIC,
+  status TEXT DEFAULT 'pending',
+  vendor_transaction_id UUID REFERENCES vendor_transactions(id) ON DELETE SET NULL,
+  raw_extraction JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS vendor_invoice_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  invoice_id UUID NOT NULL REFERENCES vendor_invoices(id) ON DELETE CASCADE,
+  product_name TEXT NOT NULL,
+  quantity NUMERIC DEFAULT 0,
+  unit TEXT,
+  unit_price NUMERIC DEFAULT 0,
+  total_price NUMERIC DEFAULT 0,
+  matched_inventory_id UUID REFERENCES inventory_items(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ─── Payroll ────────────────────────────────────────────────────────────────
+-- Structured per-staff salary records + free-form payroll register (see migration 20260620020000)
+CREATE TABLE IF NOT EXISTS salary_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  staff_id UUID NOT NULL REFERENCES staff_members(id) ON DELETE CASCADE,
+  year INTEGER NOT NULL,
+  month INTEGER NOT NULL,
+  base_salary NUMERIC DEFAULT 0,
+  bonuses NUMERIC DEFAULT 0,
+  deductions NUMERIC DEFAULT 0,
+  total NUMERIC DEFAULT 0,
+  status TEXT DEFAULT 'pending',
+  paid_at TIMESTAMPTZ,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS payroll_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pay_month DATE NOT NULL,
+  employee_name TEXT NOT NULL,
+  working_days NUMERIC DEFAULT 0,
+  day_offs NUMERIC DEFAULT 0,
+  holidays NUMERIC DEFAULT 0,
+  cnss NUMERIC DEFAULT 0,
+  tac NUMERIC DEFAULT 0,
+  total NUMERIC DEFAULT 0,
   notes TEXT,
   created_by UUID REFERENCES users(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, enforce, getServerSession } from '@/lib/auth/supabase-server';
 import { createAuditLog } from '@/lib/auth/audit';
+import { notifyPayslipReady } from '@/lib/notification-generators';
 
 type SupabaseLike = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
@@ -102,7 +103,7 @@ export async function GET(request: NextRequest) {
       const staffId = searchParams.get('staffId');
 
       let query = supabase
-        .from('schedules')
+        .from('staff_schedules')
         .select(`*, staff:staff_members(id, first_name, last_name, staff_type:staff_types(*))`)
         .order('date')
         .order('start_time');
@@ -123,7 +124,7 @@ export async function GET(request: NextRequest) {
       const endDate = searchParams.get('endDate');
 
       let query = supabase
-        .from('time_off')
+        .from('staff_time_off')
         .select(`*, staff:staff_members(id, first_name, last_name)`)
         .order('start_date', { ascending: false });
 
@@ -213,7 +214,7 @@ export async function POST(request: NextRequest) {
 
     if (type === 'schedule') {
       const { data: result, error } = await supabase
-        .from('schedules')
+        .from('staff_schedules')
         .insert(data)
         .select(`*, staff:staff_members(id, first_name, last_name)`)
         .single();
@@ -225,7 +226,7 @@ export async function POST(request: NextRequest) {
     if (type === 'time-off') {
       const { time_off_type, ...timeOffData } = data;
       const { data: result, error } = await supabase
-        .from('time_off')
+        .from('staff_time_off')
         .insert({ ...timeOffData, type: time_off_type })
         .select(`*, staff:staff_members(id, first_name, last_name)`)
         .single();
@@ -244,6 +245,13 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error) throw error;
+
+      // Notify the employee their payslip is recorded (fire-and-forget).
+      if (result?.staff_id) {
+        const period = result.month && result.year
+          ? `${String(result.month).padStart(2, '0')}/${result.year}` : '';
+        notifyPayslipReady(result.staff_id, period).catch(() => {});
+      }
       return NextResponse.json({ success: true, salary: result });
     }
 
@@ -307,7 +315,7 @@ export async function PATCH(request: NextRequest) {
 
     if (type === 'schedule') {
       const { data: result, error } = await supabase
-        .from('schedules')
+        .from('staff_schedules')
         .update(data)
         .eq('id', id)
         .select()
@@ -319,7 +327,7 @@ export async function PATCH(request: NextRequest) {
 
     if (type === 'time-off') {
       const { data: result, error } = await supabase
-        .from('time_off')
+        .from('staff_time_off')
         .update(data)
         .eq('id', id)
         .select()
@@ -380,8 +388,8 @@ export async function DELETE(request: NextRequest) {
     const tableMap: Record<string, string> = {
       'staff': 'staff_members',
       'staff-type': 'staff_types',
-      'schedule': 'schedules',
-      'time-off': 'time_off',
+      'schedule': 'staff_schedules',
+      'time-off': 'staff_time_off',
       'salary': 'salary_records'
     };
 

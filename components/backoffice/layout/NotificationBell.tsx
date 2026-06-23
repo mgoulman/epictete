@@ -28,11 +28,13 @@ function timeAgo(iso: string): string {
 
 const SEVERITY_ICON: Record<string, React.ElementType> = {
   warning: AlertTriangle,
+  danger: AlertTriangle,
   success: CheckCircle2,
   info: Info,
 };
 const SEVERITY_COLOR: Record<string, string> = {
   warning: 'text-amber-500',
+  danger: 'text-red-500',
   success: 'text-green-500',
   info: 'text-[#606338]',
 };

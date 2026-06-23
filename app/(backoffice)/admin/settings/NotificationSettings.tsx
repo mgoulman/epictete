@@ -1,18 +1,21 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Bell, Package, CalendarCheck, TrendingUp, Smartphone, Loader2, Users, ChevronDown, Save } from 'lucide-react';
+import {
+  Bell, Package, CalendarCheck, TrendingUp, Smartphone, Loader2, Users, ChevronDown, Save,
+  CreditCard, Wallet, CalendarClock, FileText, CalendarX,
+} from 'lucide-react';
 import { usePermissions } from '@/lib/auth/hooks';
+import { NOTIFICATION_TYPE_MAP, NOTIFICATION_TYPES, type NotifParam } from '@/lib/notification-types';
 
 interface Setting { type: string; enabled: boolean; config: Record<string, unknown>; }
 interface Role { name: string; display_name: string; }
 interface UserLite { id: string; full_name: string | null; email: string; }
 
-const TYPE_META: Record<string, { label: string; desc: string; icon: React.ElementType }> = {
-  low_stock: { label: 'Alertes de stock bas', desc: 'Quand un produit passe sous son seuil minimum.', icon: Package },
-  new_reservation: { label: 'Nouvelles réservations', desc: 'Quand une réservation est reçue.', icon: CalendarCheck },
-  daily_summary: { label: 'Résumé quotidien des ventes', desc: 'Un récapitulatif des ventes chaque matin.', icon: TrendingUp },
+const ICONS: Record<string, React.ElementType> = {
+  Package, CalendarCheck, TrendingUp, CreditCard, Wallet, CalendarClock, FileText, CalendarX,
 };
+const REGISTRY_ORDER = NOTIFICATION_TYPES.reduce<Record<string, number>>((m, t, i) => { m[t.type] = i; return m; }, {});
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -47,7 +50,10 @@ export function NotificationSettings() {
     try {
       const res = await fetch('/api/notifications/settings');
       const data = await res.json();
-      setSettings(data.settings || []);
+      const rows: Setting[] = (data.settings || []).slice().sort(
+        (a: Setting, b: Setting) => (REGISTRY_ORDER[a.type] ?? 99) - (REGISTRY_ORDER[b.type] ?? 99)
+      );
+      setSettings(rows);
     } catch { /* ignore */ } finally { setLoading(false); }
   }, []);
 
@@ -96,15 +102,27 @@ export function NotificationSettings() {
     }));
   };
 
-  const saveRecipients = async (s: Setting) => {
+  // Merge a partial config change into a type's config (local state only).
+  const patchConfig = (type: string, patch: Record<string, unknown>) => {
+    setSettings(prev => prev.map(s => s.type === type ? { ...s, config: { ...s.config, ...patch } } : s));
+  };
+
+  const channels = (s: Setting) => (s.config.channels && typeof s.config.channels === 'object'
+    ? s.config.channels as Record<string, unknown> : {});
+  const pushOn = (s: Setting) => channels(s).push !== false;
+  const togglePush = (s: Setting) => patchConfig(s.type, { channels: { ...channels(s), push: !pushOn(s) } });
+  const paramValue = (s: Setting, p: NotifParam) => {
+    const v = Number(s.config[p.key]);
+    return Number.isFinite(v) ? v : p.default;
+  };
+
+  // Persist the WHOLE config (PATCH replaces config), so no keys are dropped.
+  const saveConfig = async (s: Setting) => {
     setSavingType(s.type);
     try {
       await fetch('/api/notifications/settings', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: s.type,
-          config: { recipient_roles: arr(s.config.recipient_roles), recipient_users: arr(s.config.recipient_users) },
-        }),
+        body: JSON.stringify({ type: s.type, config: s.config }),
       });
     } finally { setSavingType(null); }
   };
@@ -161,11 +179,16 @@ export function NotificationSettings() {
       ) : (
         <div className="flex flex-col gap-3">
           {settings.map(s => {
-            const meta = TYPE_META[s.type] || { label: s.type, desc: '', icon: Bell };
+            const def = NOTIFICATION_TYPE_MAP[s.type];
+            const meta = def
+              ? { label: def.label, desc: def.desc, icon: ICONS[def.icon] || Bell }
+              : { label: s.type, desc: '', icon: Bell };
             const Icon = meta.icon;
             const isOpen = expanded === s.type;
             const recRoles = arr(s.config.recipient_roles);
             const recUsers = arr(s.config.recipient_users);
+            const showRecipients = !def?.dynamicRecipients;
+            const params = def?.params ?? [];
             return (
               <div key={s.type} className="bg-card rounded-lg overflow-hidden">
                 <div className="flex items-center justify-between p-4">
@@ -176,7 +199,8 @@ export function NotificationSettings() {
                       <p className="text-[12px] text-muted-foreground mt-0.5">{meta.desc}</p>
                       {canConfigure && (
                         <button onClick={() => setExpanded(isOpen ? null : s.type)} className="text-[12px] text-[#606338] mt-1 flex items-center gap-1">
-                          <Users className="w-3 h-3" /> Destinataires ({recRoles.length + recUsers.length})
+                          <Users className="w-3 h-3" />
+                          {showRecipients ? `Configurer · ${recRoles.length + recUsers.length} destinataire(s)` : 'Configurer'}
                           <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                         </button>
                       )}
@@ -193,40 +217,79 @@ export function NotificationSettings() {
 
                 {isOpen && canConfigure && (
                   <div className="px-4 pb-4 border-t border-border/60 pt-3 space-y-3">
-                    <div>
-                      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Rôles destinataires</div>
-                      <div className="flex flex-wrap gap-2">
-                        {roles.map(r => {
-                          const active = recRoles.includes(r.name);
-                          return (
-                            <button key={r.name} onClick={() => toggleRecipient(s.type, 'recipient_roles', r.name)}
-                              className={`px-2.5 py-1.5 rounded-md text-[12px] font-medium border transition-colors ${active ? 'bg-[#606338] border-[#606338] text-white' : 'bg-secondary border-border text-muted-foreground hover:border-[#606338]/40'}`}>
-                              {r.display_name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    {users.length > 0 && (
+                    {showRecipients && (
+                      <>
+                        <div>
+                          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Rôles destinataires</div>
+                          <div className="flex flex-wrap gap-2">
+                            {roles.map(r => {
+                              const active = recRoles.includes(r.name);
+                              return (
+                                <button key={r.name} onClick={() => toggleRecipient(s.type, 'recipient_roles', r.name)}
+                                  className={`px-2.5 py-1.5 rounded-md text-[12px] font-medium border transition-colors ${active ? 'bg-[#606338] border-[#606338] text-white' : 'bg-secondary border-border text-muted-foreground hover:border-[#606338]/40'}`}>
+                                  {r.display_name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {users.length > 0 && (
+                          <div>
+                            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Utilisateurs spécifiques</div>
+                            <div className="flex flex-wrap gap-2">
+                              {users.map(u => {
+                                const active = recUsers.includes(u.id);
+                                return (
+                                  <button key={u.id} onClick={() => toggleRecipient(s.type, 'recipient_users', u.id)}
+                                    className={`px-2.5 py-1.5 rounded-md text-[12px] font-medium border transition-colors ${active ? 'bg-[#606338] border-[#606338] text-white' : 'bg-secondary border-border text-muted-foreground hover:border-[#606338]/40'}`}>
+                                    {u.full_name || u.email}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Per-type parameters (threshold, lead time, day of month…) */}
+                    {params.length > 0 && (
                       <div>
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Utilisateurs spécifiques</div>
-                        <div className="flex flex-wrap gap-2">
-                          {users.map(u => {
-                            const active = recUsers.includes(u.id);
-                            return (
-                              <button key={u.id} onClick={() => toggleRecipient(s.type, 'recipient_users', u.id)}
-                                className={`px-2.5 py-1.5 rounded-md text-[12px] font-medium border transition-colors ${active ? 'bg-[#606338] border-[#606338] text-white' : 'bg-secondary border-border text-muted-foreground hover:border-[#606338]/40'}`}>
-                                {u.full_name || u.email}
-                              </button>
-                            );
-                          })}
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Paramètres</div>
+                        <div className="flex flex-wrap gap-3">
+                          {params.map(p => (
+                            <label key={p.key} className="flex flex-col gap-1 text-[12px] text-muted-foreground">
+                              <span>{p.label}</span>
+                              <input
+                                type="number"
+                                min={p.kind === 'day_of_month' ? 1 : 0}
+                                max={p.kind === 'day_of_month' ? 31 : undefined}
+                                step={p.kind === 'currency' ? 100 : 1}
+                                value={paramValue(s, p)}
+                                onChange={(e) => patchConfig(s.type, { [p.key]: Number(e.target.value) })}
+                                className="w-36 px-2.5 py-1.5 rounded-md border border-border bg-secondary text-foreground text-[13px]"
+                              />
+                            </label>
+                          ))}
                         </div>
                       </div>
                     )}
+
+                    {/* Delivery channel: in-app is always recorded; push is optional. */}
+                    <div className="flex items-center justify-between">
+                      <div className="text-[12px] text-foreground">Notification push (en plus de l&apos;app)</div>
+                      <button
+                        onClick={() => togglePush(s)}
+                        className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${pushOn(s) ? 'bg-[#606338]' : 'bg-border'}`}
+                      >
+                        <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${pushOn(s) ? 'left-[22px]' : 'left-0.5'}`} />
+                      </button>
+                    </div>
+
                     <div className="flex justify-end">
-                      <button onClick={() => saveRecipients(s)} disabled={savingType === s.type}
+                      <button onClick={() => saveConfig(s)} disabled={savingType === s.type}
                         className="flex items-center gap-2 px-3 py-1.5 bg-[#606338] text-white rounded-lg text-[13px] font-medium disabled:opacity-50">
-                        {savingType === s.type ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Enregistrer les destinataires
+                        {savingType === s.type ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Enregistrer
                       </button>
                     </div>
                   </div>
