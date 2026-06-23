@@ -276,6 +276,21 @@ export default function ReportsPage() {
     employee_name: '', working_days: 0, day_offs: 0, holidays: 0,
     cnss: 0, tac: 0, total: 0, notes: '',
   });
+  // Active staff members, to pick the employee from a dropdown (no free typing).
+  const [staffOptions, setStaffOptions] = useState<string[]>([]);
+  useEffect(() => {
+    fetch('/api/personnel?type=staff')
+      .then(r => r.json())
+      .then(d => {
+        const names = (d.staff || [])
+          .filter((s: { is_active?: boolean }) => s.is_active !== false)
+          .map((s: { first_name?: string; last_name?: string }) => `${s.first_name || ''} ${s.last_name || ''}`.trim())
+          .filter(Boolean)
+          .sort((a: string, b: string) => a.localeCompare(b, 'fr'));
+        setStaffOptions(Array.from(new Set<string>(names)));
+      })
+      .catch(() => {});
+  }, []);
 
   // ── Movements State ──
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
@@ -2270,14 +2285,21 @@ export default function ReportsPage() {
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1.5">Employé *</label>
-                  <input
-                    type="text"
+                  <select
                     value={payrollForm.employee_name}
                     onChange={(e) => setPayrollForm({ ...payrollForm, employee_name: e.target.value })}
                     className="w-full py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/50"
-                    placeholder="Nom de l'employé"
                     autoFocus
-                  />
+                  >
+                    <option value="">Sélectionner un employé…</option>
+                    {/* Keep a previously-saved name selectable even if no longer in the staff list */}
+                    {payrollForm.employee_name && !staffOptions.includes(payrollForm.employee_name) && (
+                      <option value={payrollForm.employee_name}>{payrollForm.employee_name}</option>
+                    )}
+                    {staffOptions.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div>
