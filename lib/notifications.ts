@@ -4,21 +4,23 @@
 
 import db from '@/lib/db';
 import { sendPushToAll } from '@/lib/push';
+import { CONFIGURABLE_TYPES } from '@/lib/notification-types';
 
 export type NotificationType = 'low_stock' | 'new_reservation' | 'daily_summary';
 
-// Alert types whose enable/disable + recipients are configured in settings.
-const CONFIGURED_TYPES = new Set(['low_stock', 'new_reservation', 'daily_summary']);
+// Alert types whose enable/disable + recipients + channels are configured in
+// settings. Sourced from the registry so adding a type wires up automatically.
+const CONFIGURED_TYPES = new Set<string>(CONFIGURABLE_TYPES);
 
 interface CreateNotificationInput {
   type: string;
   title: string;
   message?: string | null;
-  severity?: 'info' | 'warning' | 'success';
+  severity?: 'info' | 'warning' | 'success' | 'danger';
   link?: string | null;
   requiredPermission?: string | null;
   dedupKey?: string | null;
-  push?: boolean; // also send a web push (default true)
+  push?: boolean; // also send a web push (default true; overridden off by the type's push channel)
   targetRoles?: string[] | null;  // explicit recipient roles (overrides config)
   targetUsers?: string[] | null;  // explicit recipient user ids (overrides config)
   system?: boolean;               // skip the enabled check + recipient config lookup
@@ -28,6 +30,8 @@ interface TypeConfig {
   enabled: boolean;
   recipient_roles?: string[];
   recipient_users?: string[];
+  pushEnabled: boolean;           // channels.push (default true)
+  raw: Record<string, unknown>;   // full config jsonb (threshold_mad, lead_time_days, …)
 }
 
 async function getTypeConfig(type: string): Promise<TypeConfig | null> {
@@ -36,10 +40,13 @@ async function getTypeConfig(type: string): Promise<TypeConfig | null> {
   );
   if (rows.length === 0) return null;
   const c = rows[0].config || {};
+  const channels = (c.channels && typeof c.channels === 'object') ? c.channels as Record<string, unknown> : {};
   return {
     enabled: rows[0].enabled,
     recipient_roles: Array.isArray(c.recipient_roles) ? (c.recipient_roles as string[]) : undefined,
     recipient_users: Array.isArray(c.recipient_users) ? (c.recipient_users as string[]) : undefined,
+    pushEnabled: channels.push !== false,
+    raw: c,
   };
 }
 
@@ -50,6 +57,17 @@ export async function isTypeEnabled(type: string): Promise<boolean> {
 }
 
 /**
+ * Resolve a type's effective settings for generators: { enabled, config }.
+ * Falls back to enabled=true with an empty config when no row exists.
+ */
+export async function getNotificationConfig(
+  type: string,
+): Promise<{ enabled: boolean; config: Record<string, unknown> }> {
+  const cfg = await getTypeConfig(type);
+  return cfg === null ? { enabled: true, config: {} } : { enabled: cfg.enabled, config: cfg.raw };
+}
+
+/**
  * Insert a notification (idempotent when dedupKey is provided). Returns the new
  * row id, or null if it was a duplicate / the type is disabled. Recipients are
  * resolved from explicit targets, else from the type's configured recipients.
@@ -57,10 +75,12 @@ export async function isTypeEnabled(type: string): Promise<boolean> {
 export async function createNotification(input: CreateNotificationInput): Promise<string | null> {
   let targetRoles = input.targetRoles ?? null;
   let targetUsers = input.targetUsers ?? null;
+  let pushAllowed = input.push !== false;
 
   if (!input.system && CONFIGURED_TYPES.has(input.type)) {
     const cfg = await getTypeConfig(input.type);
     if (cfg && !cfg.enabled) return null;
+    if (cfg && !cfg.pushEnabled) pushAllowed = false;  // push channel turned off for this type
     if (targetRoles === null && targetUsers === null) {
       targetRoles = cfg?.recipient_roles ?? null;
       targetUsers = cfg?.recipient_users ?? null;
@@ -86,7 +106,7 @@ export async function createNotification(input: CreateNotificationInput): Promis
   );
 
   const id = rows[0]?.id ?? null;
-  if (id && input.push !== false) {
+  if (id && pushAllowed) {
     // Fire-and-forget; never let push failures break the caller.
     sendPushToAll({
       title: input.title,
