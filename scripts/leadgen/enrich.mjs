@@ -21,18 +21,33 @@ const DO_VERIFY = env.HUNTER_VERIFY !== '0';
 const WANT_DEPARTMENTS = ['hr', 'management', 'executive', 'administrative'];
 const WANT_GENERIC = /^(contact|rh|direction|administration|info|commercial|achat|hr)@/i;
 
+// Fetch with retry/backoff on 429 (rate limit) and 5xx. Hunter's free tier is
+// strict, so we honour Retry-After and back off exponentially before giving up.
+async function fetchJSON(url, label, tries = 5) {
+  for (let attempt = 1; attempt <= tries; attempt++) {
+    const r = await fetch(url);
+    if (r.ok) return r.json();
+    if (r.status === 429 || r.status >= 500) {
+      if (attempt === tries) { console.warn(`  ! ${label} ${r.status} (gave up after ${tries})`); return null; }
+      const retryAfter = Number(r.headers.get('retry-after'));
+      const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 2000 * attempt;
+      process.stdout.write(`\r  … ${label} ${r.status}, waiting ${Math.round(waitMs / 1000)}s        `);
+      await sleep(waitMs);
+      continue;
+    }
+    console.warn(`  ! ${label} ${r.status} for ${url.split('?')[0]}`); return null;
+  }
+  return null;
+}
+
 async function hunt(domain) {
   const u = `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&limit=10&api_key=${KEY}`;
-  const r = await fetch(u);
-  if (!r.ok) { console.warn(`  ! domain-search ${r.status} for ${domain}`); return []; }
-  const j = await r.json();
-  return j.data?.emails || [];
+  const j = await fetchJSON(u, `domain-search ${domain}`);
+  return j?.data?.emails || [];
 }
 async function verify(email) {
-  const r = await fetch(`https://api.hunter.io/v2/email-verifier?email=${encodeURIComponent(email)}&api_key=${KEY}`);
-  if (!r.ok) return { status: 'unknown', score: null };
-  const j = await r.json();
-  return { status: j.data?.status || 'unknown', score: j.data?.score ?? null };
+  const j = await fetchJSON(`https://api.hunter.io/v2/email-verifier?email=${encodeURIComponent(email)}&api_key=${KEY}`, `verify ${email}`);
+  return { status: j?.data?.status || 'unknown', score: j?.data?.score ?? null };
 }
 
 const companies = readCSV('companies_with_domain.csv');
@@ -56,7 +71,7 @@ for (const [i, c] of domains.entries()) {
   const list = (picked.length ? picked : emails).slice(0, 4);
   for (const e of list) {
     let status = 'not_verified', score = e.confidence ?? null;
-    if (DO_VERIFY) { const v = await verify(e.value); status = v.status; score = v.score ?? score; await sleep(400); }
+    if (DO_VERIFY) { const v = await verify(e.value); status = v.status; score = v.score ?? score; await sleep(1200); }
     out.push({
       company: c.name, domain: c.domain, email: e.value,
       first_name: e.first_name || '', last_name: e.last_name || '',
@@ -65,7 +80,7 @@ for (const [i, c] of domains.entries()) {
       phone: c.phone || '', address: c.address || '',
     });
   }
-  await sleep(400);
+  await sleep(1500);
 }
 
 const cols = ['company', 'email', 'first_name', 'last_name', 'position', 'department',
