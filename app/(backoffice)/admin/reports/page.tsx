@@ -7,7 +7,8 @@ import { useTranslation } from '@/lib/i18n/useTranslation';
 import {
   Calendar, Table, BarChart3, Receipt, ArrowUpDown, Plus, Download,
   ChevronLeft, ChevronRight, X, Trash2, Save, Check, AlertTriangle,
-  TrendingUp, TrendingDown, DollarSign, Package, Loader2, FileText, Printer
+  TrendingUp, TrendingDown, DollarSign, Package, Loader2, FileText, Printer,
+  Camera, Upload, Paperclip
 } from 'lucide-react';
 import type ExcelJS from 'exceljs';
 
@@ -45,6 +46,14 @@ interface CashSheetItem {
   amount: number;
 }
 
+interface CashSheetAttachment {
+  name: string;
+  url: string;
+  path?: string;
+  mime?: string;
+  size?: number;
+}
+
 interface CashSheet {
   id?: string;
   entry_date: string;
@@ -59,6 +68,7 @@ interface CashSheet {
   reste_especes: number;
   manager_name: string | null;
   visa_caisse: string | null;
+  attachments: CashSheetAttachment[];
 }
 
 interface Expense {
@@ -217,9 +227,11 @@ export default function ReportsPage() {
     total_depense: 0,
     reste_especes: 0,
     manager_name: '', visa_caisse: '',
+    attachments: [],
   });
   const [cashSheetSaving, setCashSheetSaving] = useState(false);
   const [showCashSheet, setShowCashSheet] = useState(false);
+  const [cashSheetUploading, setCashSheetUploading] = useState(false);
 
   // ── Suivi / Recap State ──
   const [selectedMonth, setSelectedMonth] = useState(getMonthStr(new Date()));
@@ -286,6 +298,7 @@ export default function ReportsPage() {
           paid_items: (data.sheet.paid_items?.length ? data.sheet.paid_items : [{ label: '', amount: 0 }]),
           unpaid_items: (data.sheet.unpaid_items?.length ? data.sheet.unpaid_items : [{ label: '', amount: 0 }]),
           paid_outside_items: (data.sheet.paid_outside_items?.length ? data.sheet.paid_outside_items : [{ label: '', amount: 0 }]),
+          attachments: Array.isArray(data.sheet.attachments) ? data.sheet.attachments : [],
         });
       } else {
         setCashSheet({
@@ -297,6 +310,7 @@ export default function ReportsPage() {
           paid_outside_items: [{ label: '', amount: 0 }],
           total_depense: 0, reste_especes: 0,
           manager_name: '', visa_caisse: '',
+          attachments: [],
         });
       }
     } catch { /* silent */ }
@@ -326,6 +340,29 @@ export default function ReportsPage() {
     } catch { /* silent */ } finally {
       setCashSheetSaving(false);
     }
+  };
+
+  // Upload scanned receipts / photos for the fiche de caisse (camera or file).
+  const handleCashSheetUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setCashSheetUploading(true);
+    try {
+      const { uploadFile } = await import('@/lib/client-upload');
+      const added: CashSheetAttachment[] = [];
+      for (const f of Array.from(files)) {
+        try {
+          const { url, path } = await uploadFile(f, 'cash-sheets');
+          added.push({ name: f.name, url, path, mime: f.type, size: f.size });
+        } catch { /* skip the file that failed, keep the rest */ }
+      }
+      if (added.length) setCashSheet(prev => ({ ...prev, attachments: [...(prev.attachments || []), ...added] }));
+    } finally {
+      setCashSheetUploading(false);
+    }
+  };
+
+  const removeCashSheetAttachment = (url: string) => {
+    setCashSheet(prev => ({ ...prev, attachments: (prev.attachments || []).filter(a => a.url !== url) }));
   };
 
   const exportCashSheetPDF = () => {
@@ -1274,6 +1311,63 @@ export default function ReportsPage() {
                       <span className="text-xs text-muted-foreground">VISA CAISSE</span>
                       <input type="text" value={cashSheet.visa_caisse || ''} onChange={e => setCashSheet({ ...cashSheet, visa_caisse: e.target.value })} placeholder="Visa" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm" />
                     </label>
+                  </div>
+
+                  {/* Pièces jointes — scans / photos linked to the fiche de caisse */}
+                  <div className="pt-3 border-t border-border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Paperclip className="w-4 h-4 text-[#606338]" />
+                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Pièces jointes (scans / photos)
+                      </span>
+                      {cashSheetUploading && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#606338]" />}
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {/* Importer un fichier (images ou PDF) */}
+                      <label className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-xs cursor-pointer hover:bg-card transition-colors">
+                        <Upload className="w-3.5 h-3.5" /> Importer un fichier
+                        <input type="file" accept="image/*,application/pdf" multiple className="hidden"
+                          onChange={e => { handleCashSheetUpload(e.target.files); e.target.value = ''; }} />
+                      </label>
+                      {/* Prendre une photo (caméra sur mobile) */}
+                      <label className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-xs cursor-pointer hover:bg-card transition-colors">
+                        <Camera className="w-3.5 h-3.5" /> Prendre une photo
+                        <input type="file" accept="image/*" capture="environment" className="hidden"
+                          onChange={e => { handleCashSheetUpload(e.target.files); e.target.value = ''; }} />
+                      </label>
+                    </div>
+
+                    {(cashSheet.attachments?.length ?? 0) > 0 && (
+                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                        {cashSheet.attachments.map(a => {
+                          const isImg = (a.mime || '').startsWith('image/');
+                          return (
+                            <div key={a.url} className="relative group border border-border rounded-lg overflow-hidden bg-card aspect-square">
+                              <a href={a.url} target="_blank" rel="noopener noreferrer" className="block w-full h-full" title={a.name}>
+                                {isImg ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={a.url} alt={a.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-1 text-muted-foreground">
+                                    <FileText className="w-6 h-6" />
+                                    <span className="text-[9px] truncate w-full text-center px-1">{a.name}</span>
+                                  </div>
+                                )}
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => removeCashSheetAttachment(a.url)}
+                                className="absolute top-1 right-1 p-0.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Supprimer"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   {/* Save button */}
