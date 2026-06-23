@@ -1,8 +1,9 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { Download, X, Wifi, WifiOff, Share } from 'lucide-react';
+import { Download, X, Wifi, WifiOff, Share, Bell } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import { subscribeToPush, isPushEnabledOnServer } from '@/lib/push-client';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -46,6 +47,7 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [showIOSPrompt, setShowIOSPrompt] = useState(false);
   const [showOfflineBanner, setShowOfflineBanner] = useState(false);
+  const [showNotifPrompt, setShowNotifPrompt] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOSDevice, setIsIOSDevice] = useState(false);
@@ -53,13 +55,25 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setIsIOSDevice(detectIOS());
 
-    // Check if already installed / standalone
+    // Mark installed when running standalone — but DON'T return early, or the
+    // service worker never registers inside the installed PWA (breaks push).
     if (isInStandaloneMode()) {
       setIsInstalled(true);
-      return;
     }
 
-    // Register service worker only for backoffice routes
+    // Once the app is controlled by the SW, offer to enable notifications —
+    // a one-time, gesture-based banner (auto-popups are blocked, esp. on iOS).
+    const maybeOfferNotifications = () => {
+      if (!('Notification' in window) || !('PushManager' in window)) return;
+      if (Notification.permission !== 'default') return;            // already granted/denied
+      if (localStorage.getItem('notif-prompt-dismissed')) return;   // user already chose
+      isPushEnabledOnServer().then((ok) => {
+        if (ok) setTimeout(() => setShowNotifPrompt(true), 3000);
+      });
+    };
+
+    // Register service worker on backoffice routes — ALWAYS, including the
+    // installed PWA (standalone), so push notifications can work there.
     if ('serviceWorker' in navigator) {
       const path = window.location.pathname;
       const isBackofficeRoute = path.startsWith('/admin') || path.startsWith('/login');
@@ -69,6 +83,7 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
           .register('/backoffice-sw.js', { scope: '/' })
           .then((registration) => {
             console.log('Backoffice SW registered:', registration.scope);
+            maybeOfferNotifications();
 
             registration.addEventListener('updatefound', () => {
               const newWorker = registration.installing;
@@ -170,6 +185,19 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('pwa-install-dismissed', 'true');
   };
 
+  // Enable push: this runs from a button tap, satisfying the user-gesture
+  // requirement (mandatory on iOS) for Notification.requestPermission().
+  const enableNotifications = async () => {
+    setShowNotifPrompt(false);
+    localStorage.setItem('notif-prompt-dismissed', 'true');
+    await subscribeToPush();
+  };
+
+  const dismissNotifPrompt = () => {
+    setShowNotifPrompt(false);
+    localStorage.setItem('notif-prompt-dismissed', 'true');
+  };
+
   const triggerInstall = useCallback(() => {
     if (deferredPrompt) {
       handleInstall();
@@ -206,6 +234,38 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
       {/* Online restored banner */}
       {isOnline && !showOfflineBanner && (
         <div id="online-indicator" className="hidden" />
+      )}
+
+      {/* Notification permission prompt (gesture-based; works on iOS PWA too) */}
+      {showNotifPrompt && (
+        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm bg-card border border-border rounded-xl shadow-xl p-4 z-50 animate-in slide-in-from-bottom-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-[#606338]/20 rounded-lg shrink-0">
+              <Bell className="w-6 h-6 text-[#606338]" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-foreground">{pw.notifTitle}</h3>
+              <p className="text-sm text-muted-foreground mt-1">{pw.notifDesc}</p>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={enableNotifications}
+                  className="px-3 py-1.5 bg-[#606338] text-white text-sm rounded-lg hover:bg-[#4d4f2e] transition-colors"
+                >
+                  {pw.notifEnable}
+                </button>
+                <button
+                  onClick={dismissNotifPrompt}
+                  className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {pw.later}
+                </button>
+              </div>
+            </div>
+            <button onClick={dismissNotifPrompt} className="p-1 text-muted-foreground hover:text-foreground shrink-0">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Android / Chrome Install Prompt */}

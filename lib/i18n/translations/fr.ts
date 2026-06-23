@@ -531,6 +531,9 @@ const fr = {
       share: "Partager",
       addToHomeScreen: "Sur l'écran d'accueil",
       gotIt: "Compris",
+      notifTitle: "Activer les notifications",
+      notifDesc: "Recevez les alertes (stock, paiements, réservations…) même quand l'application est fermée.",
+      notifEnable: "Activer",
     },
     menusPage: {
       title: "Menus",

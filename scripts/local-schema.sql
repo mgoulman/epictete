@@ -559,6 +559,28 @@ CREATE TABLE IF NOT EXISTS payroll_entries (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ─── Fiche de caisse (daily cash sheet) ─────────────────────────────────────
+-- One row per day (entry_date unique). attachments = JSONB array of scans/photos.
+CREATE TABLE IF NOT EXISTS cash_sheets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entry_date DATE UNIQUE NOT NULL,
+  total_ca NUMERIC DEFAULT 0,
+  total_cb NUMERIC DEFAULT 0,
+  total_especes NUMERIC DEFAULT 0,
+  especes_note TEXT,
+  paid_items JSONB DEFAULT '[]',
+  unpaid_items JSONB DEFAULT '[]',
+  paid_outside_items JSONB DEFAULT '[]',
+  total_depense NUMERIC DEFAULT 0,
+  reste_especes NUMERIC DEFAULT 0,
+  manager_name TEXT,
+  visa_caisse TEXT,
+  attachments JSONB DEFAULT '[]',
+  created_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ─── Seed default RBAC data ────────────────────────────────────────────────
 
 INSERT INTO roles (name, display_name, description, is_system) VALUES

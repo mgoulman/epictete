@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
       reste_especes: Math.round(resteEspeces * 100) / 100,
       manager_name: body.manager_name || null,
       visa_caisse: body.visa_caisse || null,
+      attachments: Array.isArray(body.attachments) ? body.attachments : [],
       created_by: user?.id || null,
       updated_at: new Date().toISOString(),
     };

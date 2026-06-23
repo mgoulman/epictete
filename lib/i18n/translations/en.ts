@@ -531,6 +531,9 @@ const en = {
       share: "Share",
       addToHomeScreen: "Add to Home Screen",
       gotIt: "Got it",
+      notifTitle: "Enable notifications",
+      notifDesc: "Get alerts (stock, payments, reservations…) even when the app is closed.",
+      notifEnable: "Enable",
     },
     menusPage: {
       title: "Menus",
