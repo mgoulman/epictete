@@ -9,7 +9,7 @@
 ALTER TABLE public.vendor_invoices ADD COLUMN IF NOT EXISTS due_date DATE;
 
 -- Staff: backfill untracked columns + add contract_end_date (new, for contract-expiry alerts).
-ALTER TABLE public.staff_members ADD COLUMN IF NOT EXISTS profile_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.staff_members ADD COLUMN IF NOT EXISTS profile_id UUID;
 ALTER TABLE public.staff_members ADD COLUMN IF NOT EXISTS salary NUMERIC DEFAULT 0;
 ALTER TABLE public.staff_members ADD COLUMN IF NOT EXISTS monthly_salary NUMERIC DEFAULT 0;
 ALTER TABLE public.staff_members ADD COLUMN IF NOT EXISTS emergency_contact TEXT;

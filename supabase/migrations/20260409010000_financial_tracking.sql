@@ -37,10 +37,10 @@ CREATE TABLE IF NOT EXISTS public.daily_entries (
   -- META
   observations TEXT,
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'validated', 'locked')),
-  validated_by UUID REFERENCES auth.users(id),
+  validated_by UUID,
   validated_at TIMESTAMPTZ,
 
-  created_by UUID REFERENCES auth.users(id),
+  created_by UUID,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS public.expenses (
   receipt_url TEXT,
   receipt_path TEXT,
 
-  created_by UUID REFERENCES auth.users(id),
+  created_by UUID,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS public.inventory_movements (
 
   notes TEXT,
 
-  created_by UUID REFERENCES auth.users(id),
+  created_by UUID,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -122,40 +122,3 @@ DROP TRIGGER IF EXISTS update_expenses_updated_at ON public.expenses;
 CREATE TRIGGER update_expenses_updated_at
   BEFORE UPDATE ON public.expenses
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
-
--- ============================================
--- 5. ROW LEVEL SECURITY
--- ============================================
-ALTER TABLE public.daily_entries ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.inventory_movements ENABLE ROW LEVEL SECURITY;
-
--- daily_entries
-CREATE POLICY "Finance users can view daily entries"
-  ON public.daily_entries FOR SELECT TO authenticated
-  USING (public.has_permission(auth.uid(), 'finance.read'));
-
-CREATE POLICY "Finance writers can manage daily entries"
-  ON public.daily_entries FOR ALL TO authenticated
-  USING (public.has_permission(auth.uid(), 'finance.write'))
-  WITH CHECK (public.has_permission(auth.uid(), 'finance.write'));
-
--- expenses
-CREATE POLICY "Finance users can view expenses"
-  ON public.expenses FOR SELECT TO authenticated
-  USING (public.has_permission(auth.uid(), 'finance.read'));
-
-CREATE POLICY "Finance writers can manage expenses"
-  ON public.expenses FOR ALL TO authenticated
-  USING (public.has_permission(auth.uid(), 'finance.write'))
-  WITH CHECK (public.has_permission(auth.uid(), 'finance.write'));
-
--- inventory_movements
-CREATE POLICY "Finance users can view inventory movements"
-  ON public.inventory_movements FOR SELECT TO authenticated
-  USING (public.has_permission(auth.uid(), 'finance.read'));
-
-CREATE POLICY "Finance writers can manage inventory movements"
-  ON public.inventory_movements FOR ALL TO authenticated
-  USING (public.has_permission(auth.uid(), 'finance.write'))
-  WITH CHECK (public.has_permission(auth.uid(), 'finance.write'));

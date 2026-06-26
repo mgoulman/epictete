@@ -31,11 +31,3 @@ CREATE TABLE IF NOT EXISTS public.vendor_invoice_items (
 
 CREATE INDEX IF NOT EXISTS idx_vendor_invoices_vendor_id ON public.vendor_invoices(vendor_id);
 CREATE INDEX IF NOT EXISTS idx_vendor_invoice_items_invoice_id ON public.vendor_invoice_items(invoice_id);
-
--- Enable RLS
-ALTER TABLE public.vendor_invoices ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.vendor_invoice_items ENABLE ROW LEVEL SECURITY;
-
--- Permissive policies (same as other tables)
-CREATE POLICY "Allow all for authenticated" ON public.vendor_invoices FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for authenticated" ON public.vendor_invoice_items FOR ALL TO authenticated USING (true) WITH CHECK (true);

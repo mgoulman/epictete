@@ -108,10 +108,10 @@ WHERE r.name = 'regular' AND p.name = 'menu.read'
 ON CONFLICT DO NOTHING;
 
 -- ============================================
--- 5. PROFILES TABLE (extends auth.users)
+-- 5. PROFILES TABLE (linked to public.users)
 -- ============================================
 CREATE TABLE IF NOT EXISTS public.profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  id UUID PRIMARY KEY,
   email TEXT,
   full_name TEXT,
   avatar_url TEXT,
@@ -126,7 +126,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 -- ============================================
 CREATE TABLE IF NOT EXISTS public.audit_logs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  user_id UUID,
   user_email TEXT,
   action TEXT NOT NULL,
   resource_type TEXT NOT NULL,
@@ -206,188 +206,15 @@ AS $$
 $$;
 
 -- ============================================
--- 8. ROW LEVEL SECURITY FOR NEW TABLES
--- ============================================
-
--- Enable RLS on all new tables
-ALTER TABLE public.roles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.permissions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.role_permissions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
-
--- Roles table policies
-CREATE POLICY "Roles are viewable by authenticated users"
-  ON public.roles FOR SELECT
-  TO authenticated
-  USING (true);
-
-CREATE POLICY "Only admins can insert roles"
-  ON public.roles FOR INSERT
-  TO authenticated
-  WITH CHECK (public.is_admin(auth.uid()));
-
-CREATE POLICY "Only admins can update roles"
-  ON public.roles FOR UPDATE
-  TO authenticated
-  USING (public.is_admin(auth.uid()))
-  WITH CHECK (public.is_admin(auth.uid()));
-
-CREATE POLICY "Only admins can delete roles"
-  ON public.roles FOR DELETE
-  TO authenticated
-  USING (public.is_admin(auth.uid()));
-
--- Permissions table policies
-CREATE POLICY "Permissions are viewable by authenticated users"
-  ON public.permissions FOR SELECT
-  TO authenticated
-  USING (true);
-
-CREATE POLICY "Only admins can manage permissions"
-  ON public.permissions FOR ALL
-  TO authenticated
-  USING (public.is_admin(auth.uid()));
-
--- Role_permissions table policies
-CREATE POLICY "Role permissions are viewable by authenticated users"
-  ON public.role_permissions FOR SELECT
-  TO authenticated
-  USING (true);
-
-CREATE POLICY "Only admins can manage role permissions"
-  ON public.role_permissions FOR ALL
-  TO authenticated
-  USING (public.is_admin(auth.uid()));
-
--- Profiles table policies
-CREATE POLICY "Users can view all profiles"
-  ON public.profiles FOR SELECT
-  TO authenticated
-  USING (true);
-
-CREATE POLICY "Users can update own profile basic info"
-  ON public.profiles FOR UPDATE
-  TO authenticated
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
-
-CREATE POLICY "Admins can insert profiles"
-  ON public.profiles FOR INSERT
-  TO authenticated
-  WITH CHECK (public.is_admin(auth.uid()) OR auth.uid() = id);
-
-CREATE POLICY "Admins can update any profile"
-  ON public.profiles FOR UPDATE
-  TO authenticated
-  USING (public.is_admin(auth.uid()))
-  WITH CHECK (public.is_admin(auth.uid()));
-
-CREATE POLICY "Admins can delete profiles"
-  ON public.profiles FOR DELETE
-  TO authenticated
-  USING (public.is_admin(auth.uid()));
-
--- Audit logs policies
-CREATE POLICY "Only admins can view audit logs"
-  ON public.audit_logs FOR SELECT
-  TO authenticated
-  USING (public.has_permission(auth.uid(), 'audit.read'));
-
-CREATE POLICY "System can insert audit logs"
-  ON public.audit_logs FOR INSERT
-  TO authenticated
-  WITH CHECK (true);
-
--- ============================================
 -- 9. UPDATE MENU TABLES RLS POLICIES
 -- ============================================
 
 -- Drop existing permissive policies on menu_categories
 DROP POLICY IF EXISTS "Allow public read" ON public.menu_categories;
 
--- Create new RBAC-based policies for menu_categories
-CREATE POLICY "Public can view menu categories"
-  ON public.menu_categories FOR SELECT
-  TO anon, authenticated
-  USING (true);
-
-CREATE POLICY "Users with menu.write can insert categories"
-  ON public.menu_categories FOR INSERT
-  TO authenticated
-  WITH CHECK (public.has_permission(auth.uid(), 'menu.write'));
-
-CREATE POLICY "Users with menu.write can update categories"
-  ON public.menu_categories FOR UPDATE
-  TO authenticated
-  USING (public.has_permission(auth.uid(), 'menu.write'))
-  WITH CHECK (public.has_permission(auth.uid(), 'menu.write'));
-
-CREATE POLICY "Users with menu.delete can delete categories"
-  ON public.menu_categories FOR DELETE
-  TO authenticated
-  USING (public.has_permission(auth.uid(), 'menu.delete'));
-
 -- Drop existing permissive policies on menu_items
 DROP POLICY IF EXISTS "Allow public read" ON public.menu_items;
 DROP POLICY IF EXISTS "Allow authenticated update" ON public.menu_items;
-
--- Create new RBAC-based policies for menu_items
-CREATE POLICY "Public can view menu items"
-  ON public.menu_items FOR SELECT
-  TO anon, authenticated
-  USING (true);
-
-CREATE POLICY "Users with menu.write can insert items"
-  ON public.menu_items FOR INSERT
-  TO authenticated
-  WITH CHECK (public.has_permission(auth.uid(), 'menu.write'));
-
-CREATE POLICY "Users with menu.write can update items"
-  ON public.menu_items FOR UPDATE
-  TO authenticated
-  USING (public.has_permission(auth.uid(), 'menu.write'))
-  WITH CHECK (public.has_permission(auth.uid(), 'menu.write'));
-
-CREATE POLICY "Users with menu.delete can delete items"
-  ON public.menu_items FOR DELETE
-  TO authenticated
-  USING (public.has_permission(auth.uid(), 'menu.delete'));
-
--- ============================================
--- 10. TRIGGERS
--- ============================================
-
--- Function to handle new user signup
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-  default_role_id UUID;
-BEGIN
-  -- Get the 'regular' role ID as default
-  SELECT id INTO default_role_id FROM public.roles WHERE name = 'regular';
-
-  -- Create profile for new user
-  INSERT INTO public.profiles (id, email, full_name, role_id)
-  VALUES (
-    NEW.id,
-    NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
-    default_role_id
-  );
-
-  RETURN NEW;
-END;
-$$;
-
--- Trigger to auto-create profile on user signup
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- Function for updating timestamps
 CREATE OR REPLACE FUNCTION public.update_updated_at()

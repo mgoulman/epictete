@@ -31,20 +31,6 @@ SET category_id = c.id
 FROM inventory_categories c
 WHERE v.category = c.name AND v.category_id IS NULL;
 
--- RLS
-ALTER TABLE public.inventory_categories ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Public can view inventory categories"
-  ON public.inventory_categories FOR SELECT
-  TO anon, authenticated
-  USING (true);
-
-CREATE POLICY "Authenticated can manage inventory categories"
-  ON public.inventory_categories FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
-
 -- updated_at trigger
 DROP TRIGGER IF EXISTS update_inventory_categories_updated_at ON public.inventory_categories;
 CREATE TRIGGER update_inventory_categories_updated_at

@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS public.payroll_entries (
   tac NUMERIC DEFAULT 0,
   total NUMERIC DEFAULT 0,
   notes TEXT,
-  created_by UUID REFERENCES auth.users(id),
+  created_by UUID,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -42,11 +42,3 @@ CREATE TABLE IF NOT EXISTS public.payroll_entries (
 CREATE INDEX IF NOT EXISTS idx_salary_records_staff_id ON public.salary_records(staff_id);
 CREATE INDEX IF NOT EXISTS idx_salary_records_year_month ON public.salary_records(year, month);
 CREATE INDEX IF NOT EXISTS idx_payroll_entries_pay_month ON public.payroll_entries(pay_month);
-
--- Enable RLS
-ALTER TABLE public.salary_records ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.payroll_entries ENABLE ROW LEVEL SECURITY;
-
--- Permissive policies (same as other tables)
-CREATE POLICY "Allow all for authenticated" ON public.salary_records FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for authenticated" ON public.payroll_entries FOR ALL TO authenticated USING (true) WITH CHECK (true);

@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.purchase_orders (
   notes TEXT,
   total_amount NUMERIC DEFAULT 0,
   paid_amount NUMERIC DEFAULT 0,
-  created_by UUID REFERENCES auth.users(id),
+  created_by UUID,
   received_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -27,11 +27,3 @@ CREATE TABLE IF NOT EXISTS public.purchase_order_items (
   received_quantity NUMERIC,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
--- Enable RLS
-ALTER TABLE public.purchase_orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.purchase_order_items ENABLE ROW LEVEL SECURITY;
-
--- Permissive policies (same as other tables)
-CREATE POLICY "Allow all for authenticated" ON public.purchase_orders FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for authenticated" ON public.purchase_order_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
