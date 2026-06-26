@@ -4,23 +4,8 @@ CREATE TABLE IF NOT EXISTS site_content (
   section TEXT NOT NULL UNIQUE,
   content JSONB NOT NULL DEFAULT '{}'::jsonb,
   updated_at TIMESTAMPTZ DEFAULT now(),
-  updated_by UUID REFERENCES auth.users(id)
+  updated_by UUID
 );
-
--- RLS
-ALTER TABLE site_content ENABLE ROW LEVEL SECURITY;
-
--- Public read (landing page is unauthenticated)
-CREATE POLICY "site_content_public_read"
-  ON site_content FOR SELECT
-  USING (true);
-
--- Authenticated write
-CREATE POLICY "site_content_auth_write"
-  ON site_content FOR UPDATE
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
 
 -- Seed 7 section rows with empty content (= use i18n fallback)
 INSERT INTO site_content (section, content) VALUES

@@ -86,56 +86,6 @@ CREATE INDEX IF NOT EXISTS idx_transport_trip_passengers_staff ON public.transpo
 CREATE INDEX IF NOT EXISTS idx_staff_members_department ON public.staff_members(department);
 CREATE INDEX IF NOT EXISTS idx_staff_members_transport ON public.staff_members(transport_pickup, transport_dropoff);
 
--- Enable RLS on new tables
-ALTER TABLE public.drivers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.vehicles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.transport_trips ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.transport_trip_passengers ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies for drivers
-CREATE POLICY "Authenticated users can read drivers"
-  ON public.drivers FOR SELECT
-  TO authenticated
-  USING (true);
-
-CREATE POLICY "Admins can manage drivers"
-  ON public.drivers FOR ALL
-  TO authenticated
-  USING (public.has_permission(auth.uid(), 'users.manage'));
-
--- RLS Policies for vehicles
-CREATE POLICY "Authenticated users can read vehicles"
-  ON public.vehicles FOR SELECT
-  TO authenticated
-  USING (true);
-
-CREATE POLICY "Admins can manage vehicles"
-  ON public.vehicles FOR ALL
-  TO authenticated
-  USING (public.has_permission(auth.uid(), 'users.manage'));
-
--- RLS Policies for transport_trips
-CREATE POLICY "Authenticated users can read transport trips"
-  ON public.transport_trips FOR SELECT
-  TO authenticated
-  USING (true);
-
-CREATE POLICY "Admins can manage transport trips"
-  ON public.transport_trips FOR ALL
-  TO authenticated
-  USING (public.has_permission(auth.uid(), 'users.manage'));
-
--- RLS Policies for transport_trip_passengers
-CREATE POLICY "Authenticated users can read trip passengers"
-  ON public.transport_trip_passengers FOR SELECT
-  TO authenticated
-  USING (true);
-
-CREATE POLICY "Admins can manage trip passengers"
-  ON public.transport_trip_passengers FOR ALL
-  TO authenticated
-  USING (public.has_permission(auth.uid(), 'users.manage'));
-
 -- Update trigger function for updated_at
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
 RETURNS TRIGGER AS $$
