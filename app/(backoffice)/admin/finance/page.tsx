@@ -32,7 +32,16 @@ interface SalesItem {
   sale_date: string;
   sale_time: string | null;
   created_at: string;
+  payment_method?: string | null;
+  payment_type?: string | null;
 }
+
+const PAYMENT_BADGE: Record<string, { label: string; cls: string }> = {
+  card:  { label: 'Carte',   cls: 'bg-blue-500/15 text-blue-500' },
+  cash:  { label: 'Espèces', cls: 'bg-green-500/15 text-green-600' },
+  mixed: { label: 'Mixte',   cls: 'bg-amber-500/15 text-amber-600' },
+  other: { label: 'Autre',   cls: 'bg-muted/30 text-muted-foreground' },
+};
 
 interface InventoryCategory {
   id: string;
@@ -1094,6 +1103,7 @@ export default function FinancePage() {
       if (startDate) params.set('startDate', startDate);
       if (endDate) params.set('endDate', endDate);
       if (category) params.set('category', category);
+      if (payment) params.set('payment', payment);
       if (searchQuery) params.set('product', searchQuery);
       const res = await fetch(`/api/finance/sales?${params}`);
       if (!res.ok) return;
@@ -1106,17 +1116,18 @@ export default function FinancePage() {
         const s = String(v ?? '');
         return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
       };
-      const headers = ['Date', 'Heure', 'Ticket', 'Catégorie', 'Produit', 'Qté', 'Prix unitaire', 'Total', 'Bénéfice'];
+      // selling_price / profit are LINE totals from LaCaisse (already × qty).
+      const headers = ['Date', 'Heure', 'Ticket', 'Catégorie', 'Paiement', 'Produit', 'Qté', 'Prix unitaire', 'Total', 'Bénéfice'];
       const body = rows.map(it => [
-        it.sale_date, it.sale_time || '', it.ticket_number || '', it.category || '', it.product_name,
-        it.quantity, Number(it.selling_price).toFixed(2),
-        (it.selling_price * it.quantity).toFixed(2), ((it.profit || 0) * it.quantity).toFixed(2),
+        it.sale_date, it.sale_time || '', it.ticket_number || '', it.category || '', it.payment_method || '', it.product_name,
+        it.quantity, (it.quantity ? it.selling_price / it.quantity : it.selling_price).toFixed(2),
+        Number(it.selling_price).toFixed(2), (it.profit || 0).toFixed(2),
       ].map(esc).join(';'));
 
       const totQty = rows.reduce((s, it) => s + (it.quantity || 0), 0);
-      const totAmount = rows.reduce((s, it) => s + it.selling_price * it.quantity, 0);
-      const totProfit = rows.reduce((s, it) => s + (it.profit || 0) * it.quantity, 0);
-      const totalRow = ['TOTAL', '', '', '', '', totQty, '', totAmount.toFixed(2), totProfit.toFixed(2)].map(esc).join(';');
+      const totAmount = rows.reduce((s, it) => s + it.selling_price, 0);
+      const totProfit = rows.reduce((s, it) => s + (it.profit || 0), 0);
+      const totalRow = ['TOTAL', '', '', '', '', '', totQty, '', totAmount.toFixed(2), totProfit.toFixed(2)].map(esc).join(';');
 
       const csv = '﻿' + [headers.join(';'), ...body, totalRow].join('\r\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1530,6 +1541,7 @@ export default function FinancePage() {
                           <th className="px-4 py-3"><SortHeader label={fn.date} field="sale_date" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
                           <th className="px-4 py-3"><SortHeader label={fn.product} field="product_name" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
                           <th className="px-4 py-3"><SortHeader label={fn.category} field="category" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
+                          <th className="px-4 py-3"><SortHeader label="Paiement" field="payment_type" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
                           <th className="px-4 py-3"><SortHeader label={fn.qty} field="quantity" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
                           <th className="px-4 py-3"><SortHeader label={fn.price} field="selling_price" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
                           <th className="px-4 py-3"><SortHeader label={fn.total} field="total" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
@@ -1539,9 +1551,7 @@ export default function FinancePage() {
                       <tbody>
                         {[...salesItems].sort((a, b) => {
                           if (salesSort === 'total') {
-                            const aTotal = a.selling_price * a.quantity;
-                            const bTotal = b.selling_price * b.quantity;
-                            const cmp = aTotal - bTotal;
+                            const cmp = a.selling_price - b.selling_price;
                             return salesSortDir === 'asc' ? cmp : -cmp;
                           }
                           return sortCompare(a, b, salesSort, salesSortDir);
@@ -1558,10 +1568,16 @@ export default function FinancePage() {
                               )}
                             </td>
                             <td className="px-4 py-3 text-sm text-muted-foreground">{item.category || '-'}</td>
+                            <td className="px-4 py-3 text-sm">
+                              {(() => {
+                                const b = PAYMENT_BADGE[item.payment_type || 'other'] || PAYMENT_BADGE.other;
+                                return <span title={item.payment_method || ''} className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${b.cls}`}>{b.label}</span>;
+                              })()}
+                            </td>
                             <td className="px-4 py-3 text-sm text-foreground text-center">{item.quantity}</td>
-                            <td className="px-4 py-3 text-sm text-foreground text-right">{formatCurrency(item.selling_price)}</td>
+                            <td className="px-4 py-3 text-sm text-foreground text-right">{formatCurrency(item.quantity ? item.selling_price / item.quantity : item.selling_price)}</td>
                             <td className="px-4 py-3 text-sm font-medium text-[#606338] text-right">
-                              {formatCurrency(item.selling_price * item.quantity)}
+                              {formatCurrency(item.selling_price)}
                             </td>
                             {canWrite && (
                               <td className="px-4 py-3 text-right">
