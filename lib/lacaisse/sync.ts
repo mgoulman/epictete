@@ -70,32 +70,47 @@ export async function runLacaisseSync(opts?: { startDate?: string; endDate?: str
      kpis.couverts, kpis.transactions, kpis.bestDay, kpis.bestDayAmount, daysSynced],
   );
 
-  // Line items for the Liste Ventes tab. Non-fatal: KPIs are already saved.
+  // Line items for the Liste Ventes tab. We MIRROR LaCaisse per day: for every
+  // day present in the export, delete our existing lacaisse rows for that day
+  // and re-insert the export's lines verbatim. This makes sales_items an exact
+  // copy of the POS (so SUM(selling_price) matches LaCaisse's CA), is idempotent,
+  // and avoids the dedup pitfalls of append-with-ON-CONFLICT. Non-fatal.
   let linesFetched = 0;
   try {
     const items = await fetchLineItems(auth, caisseId, range);
     const cols = ['ticket_number', 'family', 'category', 'product_name', 'sub_product',
                   'quantity', 'catalog_price', 'selling_price', 'tax_rate', 'profit',
                   'dine_in', 'sale_date', 'sale_time', 'import_source', 'lacaisse_order_id'];
-    const BATCH = 500;
-    for (let i = 0; i < items.length; i += BATCH) {
-      const slice = items.slice(i, i + BATCH);
-      const placeholders: string[] = [];
-      const values: unknown[] = [];
-      let idx = 1;
-      for (const it of slice) {
-        placeholders.push(`(${cols.map(() => `$${idx++}`).join(', ')})`);
-        values.push(
-          it.ticket_number, it.family, it.category, it.product_name, it.sub_product,
-          it.quantity, it.catalog_price, it.selling_price, it.tax_rate, it.profit,
-          it.dine_in, it.sale_date, it.sale_time, 'lacaisse_dashboard', it.lacaisse_order_id,
-        );
+
+    // group by sale_date (skip rows whose date couldn't be parsed)
+    const byDay = new Map<string, typeof items>();
+    for (const it of items) {
+      if (!it.sale_date) continue;
+      (byDay.get(it.sale_date) ?? byDay.set(it.sale_date, []).get(it.sale_date)!).push(it);
+    }
+
+    for (const [day, dayItems] of byDay) {
+      await query(
+        `DELETE FROM sales_items WHERE sale_date = $1 AND import_source = 'lacaisse_dashboard'`,
+        [day],
+      );
+      const BATCH = 500;
+      for (let i = 0; i < dayItems.length; i += BATCH) {
+        const slice = dayItems.slice(i, i + BATCH);
+        const placeholders: string[] = [];
+        const values: unknown[] = [];
+        let idx = 1;
+        for (const it of slice) {
+          placeholders.push(`(${cols.map(() => `$${idx++}`).join(', ')})`);
+          values.push(
+            it.ticket_number, it.family, it.category, it.product_name, it.sub_product,
+            it.quantity, it.catalog_price, it.selling_price, it.tax_rate, it.profit,
+            it.dine_in, it.sale_date, it.sale_time, 'lacaisse_dashboard', it.lacaisse_order_id,
+          );
+        }
+        await query(`INSERT INTO sales_items (${cols.join(', ')}) VALUES ${placeholders.join(', ')}`, values);
+        linesFetched += slice.length;
       }
-      const sql = `INSERT INTO sales_items (${cols.join(', ')})
-                   VALUES ${placeholders.join(', ')}
-                   ON CONFLICT (ticket_number, product_name, sale_date, sale_time, quantity) DO NOTHING`;
-      await query(sql, values);
-      linesFetched += slice.length;
     }
   } catch (err) {
     console.error('runLacaisseSync line items error:', err);

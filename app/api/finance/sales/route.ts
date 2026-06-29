@@ -25,8 +25,10 @@ export async function GET(request: NextRequest) {
     if (product)   { where.push(`product_name ILIKE $${p++}`); params.push(`%${product}%`); }
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
+    // selling_price is the LINE total (already unit × qty) from LaCaisse —
+    // never re-multiply by quantity, that double-counts.
     const { rows: agg } = await db.query<{ total: number; total_amount: number }>(
-      `SELECT count(*)::int AS total, COALESCE(SUM(selling_price * quantity), 0)::float AS total_amount
+      `SELECT count(*)::int AS total, COALESCE(SUM(selling_price), 0)::float AS total_amount
        FROM sales_items ${whereSql}`,
       params
     );
