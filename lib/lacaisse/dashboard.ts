@@ -221,9 +221,12 @@ const cleanTime = (t: unknown): string | null => {
   if (t == null) return null;
   const s = String(t).trim();
   if (!s) return null;
-  const m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  // LaCaisse writes times like "20:7" (single-digit minutes) and "9:5:3" —
+  // accept 1-or-2 digit parts and pad. (A strict \d{2} dropped ~75% of rows,
+  // which then duplicated on every re-import because NULL defeats dedup.)
+  const m = s.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
   if (!m) return null;
-  return `${m[1].padStart(2, '0')}:${m[2]}:${(m[3] || '00').padStart(2, '0')}`;
+  return `${m[1].padStart(2, '0')}:${m[2].padStart(2, '0')}:${(m[3] || '00').padStart(2, '0')}`;
 };
 
 export async function fetchLineItems(
