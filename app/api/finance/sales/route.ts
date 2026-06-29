@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('endDate');
     const category = searchParams.get('category');
     const product = searchParams.get('product');
+    const payment = searchParams.get('payment'); // card | cash | mixed | other
     const limit = parseInt(searchParams.get('limit') || '100');
     const offset = parseInt(searchParams.get('offset') || '0');
 
@@ -23,6 +24,7 @@ export async function GET(request: NextRequest) {
     if (endDate)   { where.push(`sale_date <= $${p++}`); params.push(endDate); }
     if (category)  { where.push(`category = $${p++}`); params.push(category); }
     if (product)   { where.push(`product_name ILIKE $${p++}`); params.push(`%${product}%`); }
+    if (payment)   { where.push(`payment_type = $${p++}`); params.push(payment); }
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
     // selling_price is the LINE total (already unit × qty) from LaCaisse —

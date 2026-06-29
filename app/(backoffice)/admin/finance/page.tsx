@@ -299,6 +299,7 @@ export default function FinancePage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [category, setCategory] = useState('');
+  const [payment, setPayment] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Pagination
@@ -345,6 +346,7 @@ export default function FinancePage() {
       if (startDate) params.set('startDate', startDate);
       if (endDate) params.set('endDate', endDate);
       if (category) params.set('category', category);
+      if (payment) params.set('payment', payment);
       if (searchQuery) params.set('product', searchQuery);
 
       const res = await fetch(`/api/finance/sales?${params}`);
@@ -360,7 +362,7 @@ export default function FinancePage() {
     }
     if (isAppending) setIsLoadingMore(false);
     else setLoading(false);
-  }, [offset, startDate, endDate, category, searchQuery]);
+  }, [offset, startDate, endDate, category, payment, searchQuery]);
 
   // Infinite-scroll sentinel: when this element scrolls into view, load
   // the next page by bumping the offset (fetchSales appends when offset > 0).
@@ -1470,6 +1472,17 @@ export default function FinancePage() {
                 {[...new Set(salesItems.map(s => s.category).filter(Boolean) as string[])].sort().map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
+              </select>
+              <select
+                value={payment}
+                onChange={e => { setPayment(e.target.value); setOffset(0); }}
+                className="py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm"
+              >
+                <option value="">Tous paiements</option>
+                <option value="card">Carte</option>
+                <option value="cash">Espèces</option>
+                <option value="mixed">Mixte</option>
+                <option value="other">Autre</option>
               </select>
               <button
                 onClick={exportCSV}

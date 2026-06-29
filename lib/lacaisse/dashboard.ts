@@ -207,6 +207,20 @@ export interface LineItem {
   sale_date: string | null;       // YYYY-MM-DD
   sale_time: string | null;       // HH:MM:SS
   lacaisse_order_id: string | null;
+  payment_method: string | null;  // raw, e.g. "Carte bancaire 254"
+  payment_type: string;           // normalised: card | cash | mixed | other
+}
+
+// Normalise LaCaisse's "Moyens de paiements" into a filterable bucket.
+export function paymentType(raw: string | null): string {
+  if (!raw) return 'other';
+  const s = raw.toLowerCase();
+  const card = s.includes('carte') || s.includes('bancaire') || /\bcb\b/.test(s);
+  const cash = s.includes('espèce') || s.includes('espece') || s.includes('cash');
+  if (card && cash) return 'mixed';
+  if (card) return 'card';
+  if (cash) return 'cash';
+  return 'other'; // chèque, virement, ticket resto, etc.
 }
 
 const excelDateToISO = (n: number): string | null => {
@@ -296,6 +310,8 @@ export async function fetchLineItems(
       sale_date,
       sale_time: cleanTime(r['Heure']) || '',
       lacaisse_order_id: str(r['Id commande']),
+      payment_method: str(r['Moyens de paiements']),
+      payment_type: paymentType(str(r['Moyens de paiements'])),
     };
   });
 }

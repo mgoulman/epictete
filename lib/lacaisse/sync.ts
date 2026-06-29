@@ -80,7 +80,8 @@ export async function runLacaisseSync(opts?: { startDate?: string; endDate?: str
     const items = await fetchLineItems(auth, caisseId, range);
     const cols = ['ticket_number', 'family', 'category', 'product_name', 'sub_product',
                   'quantity', 'catalog_price', 'selling_price', 'tax_rate', 'profit',
-                  'dine_in', 'sale_date', 'sale_time', 'import_source', 'lacaisse_order_id'];
+                  'dine_in', 'sale_date', 'sale_time', 'import_source', 'lacaisse_order_id',
+                  'payment_method', 'payment_type'];
 
     // group by sale_date (skip rows whose date couldn't be parsed)
     const byDay = new Map<string, typeof items>();
@@ -106,6 +107,7 @@ export async function runLacaisseSync(opts?: { startDate?: string; endDate?: str
             it.ticket_number, it.family, it.category, it.product_name, it.sub_product,
             it.quantity, it.catalog_price, it.selling_price, it.tax_rate, it.profit,
             it.dine_in, it.sale_date, it.sale_time, 'lacaisse_dashboard', it.lacaisse_order_id,
+            it.payment_method, it.payment_type,
           );
         }
         await query(`INSERT INTO sales_items (${cols.join(', ')}) VALUES ${placeholders.join(', ')}`, values);
