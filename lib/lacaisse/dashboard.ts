@@ -276,7 +276,10 @@ export async function fetchLineItems(
       ? excelDateToISO(dateRaw)
       : (str(dateRaw)?.match(/^\d{4}-\d{2}-\d{2}$/) ? str(dateRaw) : null);
     return {
-      ticket_number: str(r['Num ticket']),
+      // Empty string (not null) for the dedup key columns: NULLs are treated as
+      // distinct by the unique index, which would let every re-import duplicate
+      // the row. '' makes ON CONFLICT actually catch repeats.
+      ticket_number: str(r['Num ticket']) || '',
       family: str(r['Famille']),
       category: str(r['Categorie']),
       product_name: str(r['Produit']) || 'Unknown',
@@ -288,7 +291,7 @@ export async function fetchLineItems(
       profit: num(r['BÃ©nÃ©fice'] ?? r['Bénéfice']),
       dine_in: str(r['SurPlace']) === 'Sur place',
       sale_date,
-      sale_time: cleanTime(r['Heure']),
+      sale_time: cleanTime(r['Heure']) || '',
       lacaisse_order_id: str(r['Id commande']),
     };
   });
