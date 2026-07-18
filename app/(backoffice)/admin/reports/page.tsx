@@ -35,6 +35,7 @@ interface DailyEntry {
   withdrawal_perso_desc: string | null;
   total_withdrawals: number;
   solde_theorique: number;
+  espece_reste: number;
   observations: string | null;
   status: 'draft' | 'validated' | 'locked';
   created_at: string;
@@ -213,6 +214,7 @@ export default function ReportsPage() {
     expense_tpe: 0, expense_tpe_desc: '',
     withdrawal_pro: 0, withdrawal_pro_desc: '',
     withdrawal_perso: 0, withdrawal_perso_desc: '',
+    espece_reste: 0,
     observations: '',
   });
 
@@ -334,23 +336,35 @@ export default function ReportsPage() {
   const saveCashSheet = async () => {
     setCashSheetSaving(true);
     try {
+      // Auto-calculate total_especes from paid items + reste_especes
+      const totalDepense = (cashSheet.paid_items || []).reduce((s, i) => s + (Number(i.amount) || 0), 0);
+      const autoTotalEspeces = totalDepense + (cashSheet.reste_especes || 0);
+      
+      const cashSheetToSave = {
+        ...cashSheet,
+        total_especes: autoTotalEspeces,
+        total_depense: totalDepense,
+        reste_especes: cashSheet.reste_especes || 0,
+      };
+
       const res = await fetch('/api/reports/cash-sheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cashSheet),
+        body: JSON.stringify(cashSheetToSave),
       });
       const data = await res.json();
       if (data.success) {
         // Auto-fill the suivi form with values from cash sheet
-        const totalDepense = (cashSheet.paid_items || []).reduce((s, i) => s + (Number(i.amount) || 0), 0);
+        const especeReste = autoTotalEspeces - totalDepense;
         setForm(f => ({
           ...f,
           revenue_card: cashSheet.total_cb,
-          revenue_cash: cashSheet.total_especes,
+          revenue_cash: autoTotalEspeces,
           expense_cash: totalDepense,
-          expense_cash_desc: cashSheet.paid_items.filter(i => i.label).map(i => `${i.label}: ${i.amount}`).join(', '),
+          espece_reste: especeReste,
+          expense_cash_desc: cashSheet.paid_items.filter(i => i.label).map(i => `${i.label}: ${Number(i.amount).toFixed(2)}`).join(', '),
         }));
-        setCashSheet(prev => ({ ...prev, ...data.sheet }));
+        setCashSheet(prev => ({ ...prev, ...data.sheet, total_especes: autoTotalEspeces }));
       }
     } catch { /* silent */ } finally {
       setCashSheetSaving(false);
@@ -479,7 +493,7 @@ export default function ReportsPage() {
       'Recettes', '', '', '',
       'Dépenses', '', '', '',
       'Retraits', '', '',
-      'Solde', 'Observations',
+      'Solde', 'Espèce Reste', 'Observations',
     ];
     ws.mergeCells('B5:E5');
     ws.mergeCells('F5:I5');
@@ -496,7 +510,7 @@ export default function ReportsPage() {
       'Carte', 'Espèces', 'Virement', 'Total',
       'Caisse', 'Carte Pro', 'TPE', 'Total',
       'Pro', 'Perso', 'Total',
-      '', '',
+      '', '', '',
     ];
     const subFill: ExcelJS.FillPattern = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EDE6D6' } };
     const subFont: Partial<ExcelJS.Font> = { bold: true, size: 10, color: { argb: '4d4f2e' } };
@@ -514,7 +528,7 @@ export default function ReportsPage() {
     const sorted = [...monthEntries].sort((a, b) => a.entry_date.localeCompare(b.entry_date));
     let totRevCard = 0, totRevCash = 0, totRevTransfer = 0;
     let totExpCash = 0, totExpCardPro = 0, totExpTpe = 0;
-    let totWithdrawPro = 0, totWithdrawPerso = 0, totSolde = 0;
+    let totWithdrawPro = 0, totWithdrawPerso = 0, totSolde = 0, totEspeceReste = 0;
 
     for (const e of sorted) {
       const revTotal = Number(e.revenue_card) + Number(e.revenue_cash) + Number(e.revenue_transfer);
@@ -529,6 +543,7 @@ export default function ReportsPage() {
       totWithdrawPro += Number(e.withdrawal_pro);
       totWithdrawPerso += Number(e.withdrawal_perso);
       totSolde += Number(e.solde_theorique);
+      totEspeceReste += Number(e.espece_reste || 0);
 
       const row = ws.addRow([
         new Date(e.entry_date + 'T12:00:00').toLocaleDateString('fr-FR'),
@@ -536,10 +551,11 @@ export default function ReportsPage() {
         Number(e.expense_cash), Number(e.expense_card_pro), Number(e.expense_tpe), expTotal,
         Number(e.withdrawal_pro), Number(e.withdrawal_perso), wTotal,
         Number(e.solde_theorique),
+        Number(e.espece_reste || 0),
         e.observations || '',
       ]);
       row.eachCell(c => { c.border = thinBorder; });
-      for (let col = 2; col <= 13; col++) {
+      for (let col = 2; col <= 14; col++) {
         row.getCell(col).numFmt = currencyFmt;
         row.getCell(col).alignment = { horizontal: 'right' };
       }
@@ -548,6 +564,7 @@ export default function ReportsPage() {
       row.getCell(9).font = { bold: true };
       row.getCell(12).font = { bold: true };
       row.getCell(13).font = { bold: true, color: { argb: Number(e.solde_theorique) >= 0 ? '16A34A' : 'DC2626' } };
+      row.getCell(14).font = { bold: true, color: { argb: '0070C0' } };
     }
 
     // Total row
@@ -557,11 +574,12 @@ export default function ReportsPage() {
       totExpCash, totExpCardPro, totExpTpe, totExpCash + totExpCardPro + totExpTpe,
       totWithdrawPro, totWithdrawPerso, totWithdrawPro + totWithdrawPerso,
       totSolde,
+      totEspeceReste,
       '',
     ]);
     totalRow.eachCell(c => { c.fill = groupFill; c.font = groupFont; c.border = thinBorder; c.alignment = { horizontal: 'right' }; });
     totalRow.getCell(1).alignment = { horizontal: 'left' };
-    for (let col = 2; col <= 13; col++) totalRow.getCell(col).numFmt = currencyFmt;
+    for (let col = 2; col <= 14; col++) totalRow.getCell(col).numFmt = currencyFmt;
 
     // Column widths
     ws.columns = [
@@ -569,6 +587,7 @@ export default function ReportsPage() {
       { width: 12 }, { width: 12 }, { width: 12 }, { width: 14 },
       { width: 12 }, { width: 12 }, { width: 12 }, { width: 14 },
       { width: 12 }, { width: 12 }, { width: 14 },
+      { width: 14 },
       { width: 14 },
       { width: 40 },
     ];
@@ -606,6 +625,7 @@ export default function ReportsPage() {
             withdrawal_pro_desc: data.entry.withdrawal_pro_desc || '',
             withdrawal_perso: Number(data.entry.withdrawal_perso) || 0,
             withdrawal_perso_desc: data.entry.withdrawal_perso_desc || '',
+            espece_reste: Number(data.entry.espece_reste) || 0,
             observations: data.entry.observations || '',
           });
         } else {
@@ -617,6 +637,7 @@ export default function ReportsPage() {
             expense_tpe: 0, expense_tpe_desc: '',
             withdrawal_pro: 0, withdrawal_pro_desc: '',
             withdrawal_perso: 0, withdrawal_perso_desc: '',
+            espece_reste: 0,
             observations: '',
           });
         }
@@ -1610,6 +1631,7 @@ export default function ReportsPage() {
                         <th colSpan={4} className="px-3 py-2 text-center border-r border-border font-semibold text-foreground/80">Dépenses</th>
                         <th colSpan={3} className="px-3 py-2 text-center border-r border-border font-semibold text-foreground/80">Retraits</th>
                         <th rowSpan={2} className="px-3 py-3 text-right font-semibold align-bottom">Solde</th>
+                        <th rowSpan={2} className="px-3 py-3 text-right font-semibold align-bottom">Espèce Reste</th>
                         <th rowSpan={2} className="px-3 py-3 text-left font-semibold align-bottom">Obs.</th>
                       </tr>
                       <tr className="bg-secondary/70 text-[10px] text-muted-foreground border-t border-border">
@@ -1665,6 +1687,9 @@ export default function ReportsPage() {
                           <td className={`px-2 py-2 text-right font-bold tabular-nums ${Number(e.solde_theorique) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                             {fmtMADShort(Number(e.solde_theorique))}
                           </td>
+                          <td className="px-2 py-2 text-right font-bold tabular-nums text-blue-600">
+                            {fmtMADShort(Number(e.espece_reste || 0))}
+                          </td>
                           <td className="px-2 py-2 text-[10px] text-muted-foreground max-w-[120px] truncate" title={e.observations || ''}>
                             {e.observations || '—'}
                           </td>
@@ -1686,6 +1711,7 @@ export default function ReportsPage() {
                         <td className="px-2 py-3 text-right tabular-nums">{fmtMADShort(monthEntries.reduce((s, e) => s + Number(e.withdrawal_perso), 0))}</td>
                         <td className="px-2 py-3 text-right tabular-nums border-r border-border text-red-600">{fmtMADShort(monthEntries.reduce((s, e) => s + Number(e.total_withdrawals), 0))}</td>
                         <td className="px-2 py-3 text-right tabular-nums">{fmtMADShort(monthEntries.reduce((s, e) => s + Number(e.solde_theorique), 0))}</td>
+                        <td className="px-2 py-3 text-right tabular-nums text-blue-600">{fmtMADShort(monthEntries.reduce((s, e) => s + Number(e.espece_reste || 0), 0))}</td>
                         <td></td>
                       </tr>
                     </tfoot>

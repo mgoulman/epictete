@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
       withdrawal_pro_desc: body.withdrawal_pro_desc || null,
       withdrawal_perso: body.withdrawal_perso || 0,
       withdrawal_perso_desc: body.withdrawal_perso_desc || null,
+      espece_reste: body.espece_reste || 0,
       observations: body.observations || null,
       status: body.status || 'draft',
       created_by: user?.user?.id || null,
