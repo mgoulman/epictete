@@ -336,15 +336,18 @@ export default function ReportsPage() {
   const saveCashSheet = async () => {
     setCashSheetSaving(true);
     try {
-      // Auto-calculate total_especes from paid items + reste_especes
+      // Auto-calculate total_especes from total_ca - total_cb
+      const autoTotalEspeces = (cashSheet.total_ca || 0) - (cashSheet.total_cb || 0);
+      // Calculate total_depense from paid items
       const totalDepense = (cashSheet.paid_items || []).reduce((s, i) => s + (Number(i.amount) || 0), 0);
-      const autoTotalEspeces = totalDepense + (cashSheet.reste_especes || 0);
+      // Calculate reste_especes from auto-calculated total_especes
+      const resteEspeces = autoTotalEspeces - totalDepense;
       
       const cashSheetToSave = {
         ...cashSheet,
         total_especes: autoTotalEspeces,
         total_depense: totalDepense,
-        reste_especes: cashSheet.reste_especes || 0,
+        reste_especes: resteEspeces,
       };
 
       const res = await fetch('/api/reports/cash-sheets', {
@@ -407,8 +410,8 @@ export default function ReportsPage() {
       <style>
         body { font-family: Georgia, serif; max-width: 600px; margin: 20px auto; padding: 20px; color: #000; }
         .header { background: #e8e9d8; text-align: center; padding: 8px; border: 1px solid #999; margin-bottom: 0; font-weight: bold; letter-spacing: 1px; }
-        .logo { text-align: center; padding: 0; border: 1px solid #999; border-top: 0; margin-bottom: 24px; line-height: 0; }
-        .logo img { width: 100%; height: auto; display: block; }
+        .logo { text-align: center; padding: 0; border: 1px solid #999; border-top: 0; margin-bottom: 16px; line-height: 0; }
+        .logo img { width: 50%; height: auto; display: block; }
         table { width: 100%; border-collapse: collapse; }
         th, td { border: 1px solid #999; padding: 8px 10px; text-align: left; vertical-align: top; }
         .label { font-weight: bold; width: 30%; }
@@ -1215,18 +1218,10 @@ export default function ReportsPage() {
                     {entry.status === 'validated' ? rp.validated : entry.status === 'locked' ? rp.locked : rp.draft}
                   </span>
                 )}
-                <button
-                  onClick={() => setShowCashSheet(s => !s)}
-                  className="ml-auto flex items-center gap-2 px-3 py-2 bg-[#606338]/10 text-[#606338] border border-[#606338]/30 rounded-lg text-sm font-medium hover:bg-[#606338]/20 transition-colors"
-                >
-                  <FileText className="w-4 h-4" />
-                  {showCashSheet ? 'Masquer' : 'Étape 1: Feuille de Caisse'}
-                </button>
               </div>
 
-              {/* ═══════════ FEUILLE DE CAISSE (Step 1) ═══════════ */}
-              {showCashSheet && (
-                <div className="bg-secondary border border-border rounded-xl p-5 space-y-4">
+              {/* ═══════════ FEUILLE DE CAISSE ═══════════ */}
+              <div className="bg-secondary border border-border rounded-xl p-5 space-y-4">
                   <div className="flex items-center justify-between flex-wrap gap-3 border-b border-border pb-3">
                     <div>
                       <h3 className="font-bold text-foreground flex items-center gap-2">
@@ -1242,7 +1237,7 @@ export default function ReportsPage() {
                   </div>
 
                   {/* Top totals */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <label className="block">
                       <span className="text-xs text-muted-foreground">TOTAL CA</span>
                       <input type="number" step="0.01" value={cashSheet.total_ca || ''} onChange={e => setCashSheet({ ...cashSheet, total_ca: parseFloat(e.target.value) || 0 })} placeholder="0" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm text-right" />
@@ -1251,10 +1246,10 @@ export default function ReportsPage() {
                       <span className="text-xs text-muted-foreground">TOTAL CB</span>
                       <input type="number" step="0.01" value={cashSheet.total_cb || ''} onChange={e => setCashSheet({ ...cashSheet, total_cb: parseFloat(e.target.value) || 0 })} placeholder="0" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm text-right" />
                     </label>
-                    <label className="block">
-                      <span className="text-xs text-muted-foreground">TOTAL ESPÈCES</span>
-                      <input type="number" step="0.01" value={cashSheet.total_especes || ''} onChange={e => setCashSheet({ ...cashSheet, total_especes: parseFloat(e.target.value) || 0 })} placeholder="0" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm text-right" />
-                    </label>
+                  </div>
+                  <div className="bg-card border border-border rounded-lg p-3 flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground font-medium">TOTAL ESPÈCES (Auto-calculé: CA - CB)</span>
+                    <span className="text-lg font-bold text-[#606338]">{fmtMAD((cashSheet.total_ca || 0) - (cashSheet.total_cb || 0))}</span>
                   </div>
                   <input type="text" value={cashSheet.especes_note || ''} onChange={e => setCashSheet({ ...cashSheet, especes_note: e.target.value })} placeholder="Note espèces (ex: 07/04/2026 (450,00))" className="w-full px-3 py-2 bg-card border border-border rounded-lg text-xs" />
 
@@ -1414,172 +1409,6 @@ export default function ReportsPage() {
                     </button>
                   </div>
                 </div>
-              )}
-
-              {entryLoading ? (
-                <div className="flex items-center justify-center h-64">
-                  <Loader2 className="w-6 h-6 animate-spin text-[#606338]" />
-                </div>
-              ) : (
-                <div className="space-y-5">
-                  {/* Revenue Section */}
-                  <div className="bg-secondary border border-border rounded-xl p-5">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                        <TrendingUp className="w-4 h-4 text-blue-500" />
-                      </div>
-                      <h3 className="font-semibold text-foreground">{rp.revenue}</h3>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {numInput(form.revenue_card, v => setForm({ ...form, revenue_card: v }), rp.revenueCard)}
-                      {numInput(form.revenue_cash, v => setForm({ ...form, revenue_cash: v }), rp.revenueCash)}
-                      {numInput(form.revenue_transfer, v => setForm({ ...form, revenue_transfer: v }), rp.revenueTransfer)}
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-border flex justify-between items-center">
-                      <span className="text-sm font-medium text-muted-foreground">{rp.totalRevenue}</span>
-                      <span className="text-lg font-bold text-foreground">{fmtMAD(totalRevenue)}</span>
-                    </div>
-                  </div>
-
-                  {/* Expenses Section */}
-                  <div className="bg-secondary border border-border rounded-xl p-5">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
-                        <TrendingDown className="w-4 h-4 text-orange-500" />
-                      </div>
-                      <h3 className="font-semibold text-foreground">{rp.expensesSection}</h3>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-2">
-                        {numInput(form.expense_cash, v => setForm({ ...form, expense_cash: v }), rp.expenseCash)}
-                        <input type="text" value={form.expense_cash_desc} onChange={e => setForm({ ...form, expense_cash_desc: e.target.value })} placeholder="Description..." className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm" />
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-2">
-                        {numInput(form.expense_card_pro, v => setForm({ ...form, expense_card_pro: v }), rp.expenseCardPro)}
-                        <input type="text" value={form.expense_card_pro_desc} onChange={e => setForm({ ...form, expense_card_pro_desc: e.target.value })} placeholder="Description..." className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm" />
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-2">
-                        {numInput(form.expense_tpe, v => setForm({ ...form, expense_tpe: v }), rp.expenseTpe)}
-                        <input type="text" value={form.expense_tpe_desc} onChange={e => setForm({ ...form, expense_tpe_desc: e.target.value })} placeholder="Description..." className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm" />
-                      </div>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-border flex justify-between items-center">
-                      <span className="text-sm font-medium text-muted-foreground">{rp.totalExpenses}</span>
-                      <span className="text-lg font-bold text-foreground">{fmtMAD(totalExpenses)}</span>
-                    </div>
-                  </div>
-
-                  {/* Withdrawals Section */}
-                  <div className="bg-secondary border border-border rounded-xl p-5">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
-                        <DollarSign className="w-4 h-4 text-red-500" />
-                      </div>
-                      <h3 className="font-semibold text-foreground">{rp.withdrawals}</h3>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-2">
-                        {numInput(form.withdrawal_pro, v => setForm({ ...form, withdrawal_pro: v }), rp.withdrawalPro)}
-                        <input type="text" value={form.withdrawal_pro_desc} onChange={e => setForm({ ...form, withdrawal_pro_desc: e.target.value })} placeholder="Description..." className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm" />
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-2">
-                        {numInput(form.withdrawal_perso, v => setForm({ ...form, withdrawal_perso: v }), rp.withdrawalPerso)}
-                        <input type="text" value={form.withdrawal_perso_desc} onChange={e => setForm({ ...form, withdrawal_perso_desc: e.target.value })} placeholder="Description..." className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm" />
-                      </div>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-border flex justify-between items-center">
-                      <span className="text-sm font-medium text-muted-foreground">{rp.totalWithdrawals}</span>
-                      <span className="text-lg font-bold text-foreground">{fmtMAD(totalWithdrawals)}</span>
-                    </div>
-                  </div>
-
-                  {/* Solde Theorique */}
-                  <div className={`rounded-xl p-5 border ${soldeTheorique >= 0 ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg font-semibold text-foreground">{rp.soldeTheorique}</span>
-                      <span className={`text-2xl font-bold ${soldeTheorique >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                        {fmtMAD(soldeTheorique)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Observations */}
-                  <div>
-                    <label className="block text-xs text-muted-foreground mb-1.5">{rp.observations}</label>
-                    <textarea
-                      value={form.observations}
-                      onChange={e => setForm({ ...form, observations: e.target.value })}
-                      className="w-full py-2.5 px-3 bg-secondary border border-border rounded-lg text-foreground text-sm resize-none"
-                      rows={2}
-                      placeholder={rp.observationsPlaceholder}
-                    />
-                  </div>
-
-                  {/* Save Buttons */}
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => handleSaveEntry('draft')}
-                      disabled={entrySaving}
-                      className="flex items-center gap-2 px-5 py-2.5 bg-secondary border border-border rounded-lg text-foreground text-sm font-medium hover:bg-card disabled:opacity-50"
-                    >
-                      {entrySaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                      {rp.saveDraft}
-                    </button>
-                    <button
-                      onClick={() => handleSaveEntry('validated')}
-                      disabled={entrySaving}
-                      className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-[#606338] to-[#4d4f2e] rounded-lg text-white text-sm font-medium disabled:opacity-50"
-                    >
-                      {entrySaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                      {rp.validate}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Sidebar */}
-            <div className="space-y-5">
-              {/* POS Cross-reference */}
-              {posTotal !== null && (
-                <div className="bg-secondary border border-border rounded-xl p-4">
-                  <p className="text-xs text-muted-foreground mb-1">{rp.posTotal}</p>
-                  <p className="text-lg font-bold text-foreground">{fmtMAD(posTotal)}</p>
-                  {totalRevenue > 0 && Math.abs(totalRevenue - posTotal) > totalRevenue * 0.05 && (
-                    <div className="mt-2 flex items-center gap-1.5 text-xs text-yellow-600">
-                      <AlertTriangle className="w-3.5 h-3.5" />
-                      <span>Ecart &gt; 5% avec Z caisse</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Previous Day */}
-              {previousEntry && (
-                <div className="bg-secondary border border-border rounded-xl p-4">
-                  <p className="text-xs text-muted-foreground mb-3">{rp.previousDay}</p>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{rp.totalRevenue}</span>
-                      <span className="font-medium">{fmtMAD(Number(previousEntry.total_revenue))}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{rp.totalExpenses}</span>
-                      <span className="font-medium">{fmtMAD(Number(previousEntry.total_expenses))}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{rp.totalWithdrawals}</span>
-                      <span className="font-medium">{fmtMAD(Number(previousEntry.total_withdrawals))}</span>
-                    </div>
-                    <div className="flex justify-between pt-2 border-t border-border">
-                      <span className="font-medium text-foreground">{rp.soldeTheorique}</span>
-                      <span className={`font-bold ${Number(previousEntry.solde_theorique) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                        {fmtMAD(Number(previousEntry.solde_theorique))}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}
