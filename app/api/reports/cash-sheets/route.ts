@@ -45,6 +45,8 @@ export async function POST(request: NextRequest) {
       total_ca: Number(body.total_ca) || 0,
       total_cb: Number(body.total_cb) || 0,
       total_especes: Number(body.total_especes) || 0,
+      glovo_ttc_espece: Number(body.glovo_ttc_espece) || 0,
+      glovo_ttc_online: Number(body.glovo_ttc_online) || 0,
       especes_note: body.especes_note || null,
       paid_items: paidItems,
       unpaid_items: body.unpaid_items || [],

@@ -36,6 +36,8 @@ interface DailyEntry {
   total_withdrawals: number;
   solde_theorique: number;
   espece_reste: number;
+  glovo_ttc_espece: number;
+  glovo_ttc_online: number;
   observations: string | null;
   status: 'draft' | 'validated' | 'locked';
   created_at: string;
@@ -61,6 +63,8 @@ interface CashSheet {
   total_ca: number;
   total_cb: number;
   total_especes: number;
+  glovo_ttc_espece: number;
+  glovo_ttc_online: number;
   especes_note: string | null;
   paid_items: CashSheetItem[];
   unpaid_items: CashSheetItem[];
@@ -209,6 +213,7 @@ export default function ReportsPage() {
   const [previousEntry, setPreviousEntry] = useState<DailyEntry | null>(null);
   const [form, setForm] = useState({
     revenue_card: 0, revenue_cash: 0, revenue_transfer: 0,
+    glovo_ttc_espece: 0, glovo_ttc_online: 0,
     expense_cash: 0, expense_cash_desc: '',
     expense_card_pro: 0, expense_card_pro_desc: '',
     expense_tpe: 0, expense_tpe_desc: '',
@@ -222,6 +227,7 @@ export default function ReportsPage() {
   const [cashSheet, setCashSheet] = useState<CashSheet>({
     entry_date: today,
     total_ca: 0, total_cb: 0, total_especes: 0,
+    glovo_ttc_espece: 0, glovo_ttc_online: 0,
     especes_note: '',
     paid_items: [{ label: '', amount: 0 }],
     unpaid_items: [{ label: '', amount: 0 }],
@@ -299,7 +305,7 @@ export default function ReportsPage() {
   const [movementsLoading, setMovementsLoading] = useState(false);
 
   // Computed totals for the daily entry form
-  const totalRevenue = form.revenue_card + form.revenue_cash + form.revenue_transfer;
+  const totalRevenue = form.revenue_card + form.revenue_cash + form.revenue_transfer + form.glovo_ttc_espece + form.glovo_ttc_online;
   const totalExpenses = form.expense_cash + form.expense_card_pro + form.expense_tpe;
   const totalWithdrawals = form.withdrawal_pro + form.withdrawal_perso;
   const soldeTheorique = totalRevenue - totalExpenses - form.withdrawal_pro;
@@ -363,6 +369,8 @@ export default function ReportsPage() {
           ...f,
           revenue_card: cashSheet.total_cb,
           revenue_cash: autoTotalEspeces,
+          glovo_ttc_espece: cashSheet.glovo_ttc_espece || 0,
+          glovo_ttc_online: cashSheet.glovo_ttc_online || 0,
           expense_cash: totalDepense,
           espece_reste: especeReste,
           expense_cash_desc: cashSheet.paid_items.filter(i => i.label).map(i => `${i.label}: ${Number(i.amount).toFixed(2)}`).join(', '),
@@ -486,7 +494,7 @@ export default function ReportsPage() {
     const titleCell = ws.getCell('C2');
     titleCell.value = `Suivi Financier — ${monthLabel(selectedMonth)}`;
     titleCell.font = { bold: true, size: 16, color: { argb: '606338' } };
-    ws.mergeCells('C2:N2');
+    ws.mergeCells('C2:P2');
     titleCell.alignment = { vertical: 'middle' };
 
     // Header row 1
@@ -496,7 +504,7 @@ export default function ReportsPage() {
       'Recettes', '', '', '',
       'Dépenses', '', '', '',
       'Retraits', '', '',
-      'Solde', 'Espèce Reste', 'Observations',
+      'Solde', 'Espèce Reste', 'Glovo TTC Espèce', 'Glovo TTC Online', 'Observations',
     ];
     ws.mergeCells('B5:E5');
     ws.mergeCells('F5:I5');
@@ -513,7 +521,7 @@ export default function ReportsPage() {
       'Carte', 'Espèces', 'Virement', 'Total',
       'Caisse', 'Carte Pro', 'TPE', 'Total',
       'Pro', 'Perso', 'Total',
-      '', '', '',
+      '', '', '', '', '',
     ];
     const subFill: ExcelJS.FillPattern = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EDE6D6' } };
     const subFont: Partial<ExcelJS.Font> = { bold: true, size: 10, color: { argb: '4d4f2e' } };
@@ -532,9 +540,10 @@ export default function ReportsPage() {
     let totRevCard = 0, totRevCash = 0, totRevTransfer = 0;
     let totExpCash = 0, totExpCardPro = 0, totExpTpe = 0;
     let totWithdrawPro = 0, totWithdrawPerso = 0, totSolde = 0, totEspeceReste = 0;
+    let totGlovoTtcEspece = 0, totGlovoTtcOnline = 0;
 
     for (const e of sorted) {
-      const revTotal = Number(e.revenue_card) + Number(e.revenue_cash) + Number(e.revenue_transfer);
+      const revTotal = Number(e.revenue_card) + Number(e.revenue_cash) + Number(e.revenue_transfer) + Number(e.glovo_ttc_espece || 0) + Number(e.glovo_ttc_online || 0);
       const expTotal = Number(e.expense_cash) + Number(e.expense_card_pro) + Number(e.expense_tpe);
       const wTotal = Number(e.withdrawal_pro) + Number(e.withdrawal_perso);
       totRevCard += Number(e.revenue_card);
@@ -547,6 +556,8 @@ export default function ReportsPage() {
       totWithdrawPerso += Number(e.withdrawal_perso);
       totSolde += Number(e.solde_theorique);
       totEspeceReste += Number(e.espece_reste || 0);
+      totGlovoTtcEspece += Number(e.glovo_ttc_espece || 0);
+      totGlovoTtcOnline += Number(e.glovo_ttc_online || 0);
 
       const row = ws.addRow([
         new Date(e.entry_date + 'T12:00:00').toLocaleDateString('fr-FR'),
@@ -555,10 +566,12 @@ export default function ReportsPage() {
         Number(e.withdrawal_pro), Number(e.withdrawal_perso), wTotal,
         Number(e.solde_theorique),
         Number(e.espece_reste || 0),
+        Number(e.glovo_ttc_espece || 0),
+        Number(e.glovo_ttc_online || 0),
         e.observations || '',
       ]);
       row.eachCell(c => { c.border = thinBorder; });
-      for (let col = 2; col <= 14; col++) {
+      for (let col = 2; col <= 16; col++) {
         row.getCell(col).numFmt = currencyFmt;
         row.getCell(col).alignment = { horizontal: 'right' };
       }
@@ -568,21 +581,25 @@ export default function ReportsPage() {
       row.getCell(12).font = { bold: true };
       row.getCell(13).font = { bold: true, color: { argb: Number(e.solde_theorique) >= 0 ? '16A34A' : 'DC2626' } };
       row.getCell(14).font = { bold: true, color: { argb: '0070C0' } };
+      row.getCell(15).font = { bold: true, color: { argb: '9932CC' } };
+      row.getCell(16).font = { bold: true, color: { argb: '9932CC' } };
     }
 
     // Total row
     const totalRow = ws.addRow([
       'TOTAL',
-      totRevCard, totRevCash, totRevTransfer, totRevCard + totRevCash + totRevTransfer,
+      totRevCard, totRevCash, totRevTransfer, totRevCard + totRevCash + totRevTransfer + totGlovoTtcEspece + totGlovoTtcOnline,
       totExpCash, totExpCardPro, totExpTpe, totExpCash + totExpCardPro + totExpTpe,
       totWithdrawPro, totWithdrawPerso, totWithdrawPro + totWithdrawPerso,
       totSolde,
       totEspeceReste,
+      totGlovoTtcEspece,
+      totGlovoTtcOnline,
       '',
     ]);
     totalRow.eachCell(c => { c.fill = groupFill; c.font = groupFont; c.border = thinBorder; c.alignment = { horizontal: 'right' }; });
     totalRow.getCell(1).alignment = { horizontal: 'left' };
-    for (let col = 2; col <= 14; col++) totalRow.getCell(col).numFmt = currencyFmt;
+    for (let col = 2; col <= 16; col++) totalRow.getCell(col).numFmt = currencyFmt;
 
     // Column widths
     ws.columns = [
@@ -590,6 +607,8 @@ export default function ReportsPage() {
       { width: 12 }, { width: 12 }, { width: 12 }, { width: 14 },
       { width: 12 }, { width: 12 }, { width: 12 }, { width: 14 },
       { width: 12 }, { width: 12 }, { width: 14 },
+      { width: 14 },
+      { width: 14 },
       { width: 14 },
       { width: 14 },
       { width: 40 },
@@ -1251,6 +1270,19 @@ export default function ReportsPage() {
                     <span className="text-xs text-muted-foreground font-medium">TOTAL ESPÈCES (Auto-calculé: CA - CB)</span>
                     <span className="text-lg font-bold text-[#606338]">{fmtMAD((cashSheet.total_ca || 0) - (cashSheet.total_cb || 0))}</span>
                   </div>
+                  
+                  {/* Glovo inputs */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label className="block">
+                      <span className="text-xs text-muted-foreground">Glovo TTC Espèce</span>
+                      <input type="number" step="0.01" value={cashSheet.glovo_ttc_espece || ''} onChange={e => setCashSheet({ ...cashSheet, glovo_ttc_espece: parseFloat(e.target.value) || 0 })} placeholder="0" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm text-right" />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs text-muted-foreground">Glovo TTC Online</span>
+                      <input type="number" step="0.01" value={cashSheet.glovo_ttc_online || ''} onChange={e => setCashSheet({ ...cashSheet, glovo_ttc_online: parseFloat(e.target.value) || 0 })} placeholder="0" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm text-right" />
+                    </label>
+                  </div>
+                  
                   <input type="text" value={cashSheet.especes_note || ''} onChange={e => setCashSheet({ ...cashSheet, especes_note: e.target.value })} placeholder="Note espèces (ex: 07/04/2026 (450,00))" className="w-full px-3 py-2 bg-card border border-border rounded-lg text-xs" />
 
                   {/* 3 columns: Payé / Non payé / Payé hors caisse */}
@@ -1461,6 +1493,8 @@ export default function ReportsPage() {
                         <th colSpan={3} className="px-3 py-2 text-center border-r border-border font-semibold text-foreground/80">Retraits</th>
                         <th rowSpan={2} className="px-3 py-3 text-right font-semibold align-bottom">Solde</th>
                         <th rowSpan={2} className="px-3 py-3 text-right font-semibold align-bottom">Espèce Reste</th>
+                        <th rowSpan={2} className="px-3 py-3 text-right font-semibold align-bottom">Glovo TTC Espèce</th>
+                        <th rowSpan={2} className="px-3 py-3 text-right font-semibold align-bottom">Glovo TTC Online</th>
                         <th rowSpan={2} className="px-3 py-3 text-left font-semibold align-bottom">Obs.</th>
                       </tr>
                       <tr className="bg-secondary/70 text-[10px] text-muted-foreground border-t border-border">
@@ -1518,6 +1552,12 @@ export default function ReportsPage() {
                           </td>
                           <td className="px-2 py-2 text-right font-bold tabular-nums text-blue-600">
                             {fmtMADShort(Number(e.espece_reste || 0))}
+                          </td>
+                          <td className="px-2 py-2 text-right font-bold tabular-nums text-purple-600">
+                            {fmtMADShort(Number(e.glovo_ttc_espece || 0))}
+                          </td>
+                          <td className="px-2 py-2 text-right font-bold tabular-nums text-purple-600">
+                            {fmtMADShort(Number(e.glovo_ttc_online || 0))}
                           </td>
                           <td className="px-2 py-2 text-[10px] text-muted-foreground max-w-[120px] truncate" title={e.observations || ''}>
                             {e.observations || '—'}

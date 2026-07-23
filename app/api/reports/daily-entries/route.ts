@@ -72,6 +72,8 @@ export async function POST(request: NextRequest) {
       revenue_card: body.revenue_card || 0,
       revenue_cash: body.revenue_cash || 0,
       revenue_transfer: body.revenue_transfer || 0,
+      glovo_ttc_espece: body.glovo_ttc_espece || 0,
+      glovo_ttc_online: body.glovo_ttc_online || 0,
       expense_cash: body.expense_cash || 0,
       expense_cash_desc: body.expense_cash_desc || null,
       expense_card_pro: body.expense_card_pro || 0,
