@@ -638,6 +638,8 @@ export default function ReportsPage() {
             revenue_card: Number(data.entry.revenue_card) || 0,
             revenue_cash: Number(data.entry.revenue_cash) || 0,
             revenue_transfer: Number(data.entry.revenue_transfer) || 0,
+            glovo_ttc_espece: Number(data.entry.glovo_ttc_espece) || 0,
+            glovo_ttc_online: Number(data.entry.glovo_ttc_online) || 0,
             expense_cash: Number(data.entry.expense_cash) || 0,
             expense_cash_desc: data.entry.expense_cash_desc || '',
             expense_card_pro: Number(data.entry.expense_card_pro) || 0,
