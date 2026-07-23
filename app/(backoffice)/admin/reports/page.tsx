@@ -414,7 +414,7 @@ export default function ReportsPage() {
     const fmt = (n: number) => (n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const renderItems = (items: CashSheetItem[]) => items.filter(i => i.label).map(i => `<div>${i.label} : ${fmt(Number(i.amount))}</div>`).join('') || '<div>&nbsp;</div>';
 
-    const logoUrl = `${window.location.origin}/logos/logo-full.png`;
+    const logoUrl = `${window.location.origin}/logos/Logo-full-no-bg.png`;
     win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Feuille de Caisse — ${date}</title>
       <style>
         body { font-family: Georgia, serif; max-width: 600px; margin: 20px auto; padding: 20px; color: #000; }
