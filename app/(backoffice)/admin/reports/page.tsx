@@ -657,6 +657,7 @@ export default function ReportsPage() {
           setEntry(null);
           setForm({
             revenue_card: 0, revenue_cash: 0, revenue_transfer: 0,
+            glovo_ttc_espece: 0, glovo_ttc_online: 0,
             expense_cash: 0, expense_cash_desc: '',
             expense_card_pro: 0, expense_card_pro_desc: '',
             expense_tpe: 0, expense_tpe_desc: '',
