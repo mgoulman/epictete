@@ -327,6 +327,7 @@ export default function ReportsPage() {
         setCashSheet({
           entry_date: date,
           total_ca: 0, total_cb: 0, total_especes: 0,
+          glovo_ttc_espece: 0, glovo_ttc_online: 0,
           especes_note: '',
           paid_items: [{ label: '', amount: 0 }],
           unpaid_items: [{ label: '', amount: 0 }],
