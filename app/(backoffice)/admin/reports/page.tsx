@@ -379,35 +379,43 @@ export default function ReportsPage() {
         setCashSheet(prev => ({ ...prev, ...data.sheet, total_especes: autoTotalEspeces }));
         
         // Also save/update the daily entry for suivi journalier
+        // First fetch existing entry to preserve data
+        const existingEntryRes = await fetch(`/api/reports/daily-entries?date=${cashSheet.entry_date}`);
+        const existingEntryData = await existingEntryRes.json();
+        const existingEntry = existingEntryData.entry;
+        
         const totalRevenue = cashSheet.total_cb + autoTotalEspeces + (cashSheet.glovo_ttc_espece || 0) + (cashSheet.glovo_ttc_online || 0);
         const totalExpenses = totalDepense;
         const totalWithdrawals = 0;
         const soldeTheorique = totalRevenue - totalExpenses;
         
+        // Merge cash sheet data with existing entry data to prevent data loss
+        const dailyEntryToSave = {
+          entry_date: cashSheet.entry_date,
+          revenue_card: cashSheet.total_cb,
+          revenue_cash: autoTotalEspeces,
+          revenue_transfer: existingEntry?.revenue_transfer || 0,
+          glovo_ttc_espece: cashSheet.glovo_ttc_espece || 0,
+          glovo_ttc_online: cashSheet.glovo_ttc_online || 0,
+          expense_cash: totalDepense,
+          expense_cash_desc: cashSheet.paid_items.filter(i => i.label).map(i => `${i.label}: ${Number(i.amount).toFixed(2)}`).join(', '),
+          expense_card_pro: existingEntry?.expense_card_pro || 0,
+          expense_card_pro_desc: existingEntry?.expense_card_pro_desc || null,
+          expense_tpe: existingEntry?.expense_tpe || 0,
+          expense_tpe_desc: existingEntry?.expense_tpe_desc || null,
+          withdrawal_pro: existingEntry?.withdrawal_pro || 0,
+          withdrawal_pro_desc: existingEntry?.withdrawal_pro_desc || null,
+          withdrawal_perso: existingEntry?.withdrawal_perso || 0,
+          withdrawal_perso_desc: existingEntry?.withdrawal_perso_desc || null,
+          espece_reste: especeReste,
+          observations: existingEntry?.observations || null,
+          status: existingEntry?.status || 'draft',
+        };
+        
         await fetch('/api/reports/daily-entries', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            entry_date: cashSheet.entry_date,
-            revenue_card: cashSheet.total_cb,
-            revenue_cash: autoTotalEspeces,
-            revenue_transfer: 0,
-            glovo_ttc_espece: cashSheet.glovo_ttc_espece || 0,
-            glovo_ttc_online: cashSheet.glovo_ttc_online || 0,
-            expense_cash: totalDepense,
-            expense_cash_desc: cashSheet.paid_items.filter(i => i.label).map(i => `${i.label}: ${Number(i.amount).toFixed(2)}`).join(', '),
-            expense_card_pro: 0,
-            expense_card_pro_desc: null,
-            expense_tpe: 0,
-            expense_tpe_desc: null,
-            withdrawal_pro: 0,
-            withdrawal_pro_desc: null,
-            withdrawal_perso: 0,
-            withdrawal_perso_desc: null,
-            espece_reste: especeReste,
-            observations: null,
-            status: 'draft',
-          }),
+          body: JSON.stringify(dailyEntryToSave),
         });
       }
     } catch { /* silent */ } finally {
