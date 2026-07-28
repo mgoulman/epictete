@@ -13,7 +13,7 @@ const pool = process.env.DATABASE_URL
       host: 'ep-curly-fire-abtz0jag-pooler.eu-west-2.aws.neon.tech',
       database: 'neondb',
       user: 'neondb_owner',
-      password: 'npg_Ja6uKNmApf5D',
+      password: '',
       port: 5432,
       ssl: { rejectUnauthorized: false },
       max: 1,
