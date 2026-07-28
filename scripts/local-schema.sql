@@ -566,6 +566,7 @@ CREATE TABLE IF NOT EXISTS cash_sheets (
   entry_date DATE UNIQUE NOT NULL,
   total_ca NUMERIC DEFAULT 0,
   total_cb NUMERIC DEFAULT 0,
+  total_especes_caisse NUMERIC DEFAULT 0,
   total_especes NUMERIC DEFAULT 0,
   especes_note TEXT,
   paid_items JSONB DEFAULT '[]',

@@ -1,6 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
 
+function normalizeStoredCashSheet<T extends Record<string, unknown>>(sheet: T | null): T | null {
+  if (!sheet) return sheet;
+
+  const totalCA = Number(sheet.total_ca) || 0;
+  const totalCB = Number(sheet.total_cb) || 0;
+  const glovoEspece = Number(sheet.glovo_ttc_espece) || 0;
+  const glovoOnline = Number(sheet.glovo_ttc_online) || 0;
+  const explicitCaisse = sheet.total_especes_caisse;
+
+  const caisseEspeces =
+    explicitCaisse !== null && explicitCaisse !== undefined
+      ? Number(explicitCaisse) || 0
+      : Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline);
+  const totalEspeces = caisseEspeces + glovoEspece;
+
+  return { ...sheet, total_especes_caisse: caisseEspeces, total_especes: totalEspeces };
+}
+
 // GET /api/reports/cash-sheets?date=YYYY-MM-DD
 export async function GET(request: NextRequest) {
   const denied = await enforce('reports.read'); if (denied) return denied;
@@ -18,7 +36,7 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
 
     if (error) throw error;
-    return NextResponse.json({ sheet: data });
+    return NextResponse.json({ sheet: normalizeStoredCashSheet(data) });
   } catch (error) {
     console.error('Cash sheet GET error:', error);
     return NextResponse.json({ error: 'Failed to fetch' }, { status: 500 });
@@ -38,15 +56,22 @@ export async function POST(request: NextRequest) {
     // Calculate totals
     const paidItems = body.paid_items || [];
     const totalDepense = paidItems.reduce((s: number, i: { amount: number }) => s + (Number(i.amount) || 0), 0);
-    const resteEspeces = (Number(body.total_especes) || 0) - totalDepense;
+    const caisseEspeces = Number(body.total_especes_caisse ?? body.total_especes) || 0;
+    const glovoEspece = Number(body.glovo_ttc_espece) || 0;
+    const glovoOnline = Number(body.glovo_ttc_online) || 0;
+    const totalCB = Number(body.total_cb) || 0;
+    const totalEspeces = caisseEspeces + glovoEspece;
+    const totalCA = totalCB + totalEspeces + glovoOnline;
+    const resteEspeces = totalEspeces - totalDepense;
 
     const sheet = {
       entry_date: body.entry_date,
-      total_ca: Number(body.total_ca) || 0,
-      total_cb: Number(body.total_cb) || 0,
-      total_especes: Number(body.total_especes) || 0,
-      glovo_ttc_espece: Number(body.glovo_ttc_espece) || 0,
-      glovo_ttc_online: Number(body.glovo_ttc_online) || 0,
+      total_ca: totalCA,
+      total_cb: totalCB,
+      total_especes_caisse: caisseEspeces,
+      total_especes: totalEspeces,
+      glovo_ttc_espece: glovoEspece,
+      glovo_ttc_online: glovoOnline,
       especes_note: body.especes_note || null,
       paid_items: paidItems,
       unpaid_items: body.unpaid_items || [],

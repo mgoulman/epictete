@@ -60,6 +60,5 @@ export async function uploadFile(file: File, bucket: string = 'menu-images'): Pr
     handleUploadUrl: '/api/upload',
     contentType: compressed.type,
   });
-
   return { url: blob.url, path: blob.pathname };
 }

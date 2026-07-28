@@ -62,6 +62,7 @@ interface CashSheet {
   entry_date: string;
   total_ca: number;
   total_cb: number;
+  total_especes_caisse: number;
   total_especes: number;
   glovo_ttc_espece: number;
   glovo_ttc_online: number;
@@ -189,6 +190,26 @@ const EXPENSE_CATEGORIES = [
 
 const PAYMENT_METHODS = ['cash', 'card_pro', 'tpe'] as const;
 
+const cashSheetTotals = (sheet: CashSheet) => {
+  const caisseEspeces = Number(sheet.total_especes_caisse) || 0;
+  const totalCB = Number(sheet.total_cb) || 0;
+  const glovoEspece = Number(sheet.glovo_ttc_espece) || 0;
+  const glovoOnline = Number(sheet.glovo_ttc_online) || 0;
+  const totalDepense = (sheet.paid_items || []).reduce((s, i) => s + (Number(i.amount) || 0), 0);
+  const totalEspeces = caisseEspeces + glovoEspece;
+
+  return {
+    caisseEspeces,
+    totalCB,
+    glovoEspece,
+    glovoOnline,
+    totalDepense,
+    totalEspeces,
+    totalCA: caisseEspeces + totalCB + glovoEspece + glovoOnline,
+    resteEspeces: totalEspeces - totalDepense,
+  };
+};
+
 // ============================================
 // Component
 // ============================================
@@ -226,7 +247,7 @@ export default function ReportsPage() {
   // ── Cash Sheet (Feuille de Caisse) State ──
   const [cashSheet, setCashSheet] = useState<CashSheet>({
     entry_date: today,
-    total_ca: 0, total_cb: 0, total_especes: 0,
+    total_ca: 0, total_cb: 0, total_especes_caisse: 0, total_especes: 0,
     glovo_ttc_espece: 0, glovo_ttc_online: 0,
     especes_note: '',
     paid_items: [{ label: '', amount: 0 }],
@@ -240,6 +261,7 @@ export default function ReportsPage() {
   const [cashSheetSaving, setCashSheetSaving] = useState(false);
   const [showCashSheet, setShowCashSheet] = useState(false);
   const [cashSheetUploading, setCashSheetUploading] = useState(false);
+  const [cashSheetUploadError, setCashSheetUploadError] = useState<string | null>(null);
 
   // ── Suivi / Recap State ──
   const [selectedMonth, setSelectedMonth] = useState(getMonthStr(new Date()));
@@ -318,6 +340,14 @@ export default function ReportsPage() {
       if (data.sheet) {
         setCashSheet({
           ...data.sheet,
+          total_ca: Number(data.sheet.total_ca) || 0,
+          total_cb: Number(data.sheet.total_cb) || 0,
+          total_especes_caisse: Number(data.sheet.total_especes_caisse) || 0,
+          total_especes: Number(data.sheet.total_especes) || 0,
+          glovo_ttc_espece: Number(data.sheet.glovo_ttc_espece) || 0,
+          glovo_ttc_online: Number(data.sheet.glovo_ttc_online) || 0,
+          total_depense: Number(data.sheet.total_depense) || 0,
+          reste_especes: Number(data.sheet.reste_especes) || 0,
           paid_items: (data.sheet.paid_items?.length ? data.sheet.paid_items : [{ label: '', amount: 0 }]),
           unpaid_items: (data.sheet.unpaid_items?.length ? data.sheet.unpaid_items : [{ label: '', amount: 0 }]),
           paid_outside_items: (data.sheet.paid_outside_items?.length ? data.sheet.paid_outside_items : [{ label: '', amount: 0 }]),
@@ -326,7 +356,7 @@ export default function ReportsPage() {
       } else {
         setCashSheet({
           entry_date: date,
-          total_ca: 0, total_cb: 0, total_especes: 0,
+          total_ca: 0, total_cb: 0, total_especes_caisse: 0, total_especes: 0,
           glovo_ttc_espece: 0, glovo_ttc_online: 0,
           especes_note: '',
           paid_items: [{ label: '', amount: 0 }],
@@ -343,18 +373,15 @@ export default function ReportsPage() {
   const saveCashSheet = async () => {
     setCashSheetSaving(true);
     try {
-      // Auto-calculate total_especes from total_ca - total_cb
-      const autoTotalEspeces = (cashSheet.total_ca || 0) - (cashSheet.total_cb || 0);
-      // Calculate total_depense from paid items
-      const totalDepense = (cashSheet.paid_items || []).reduce((s, i) => s + (Number(i.amount) || 0), 0);
-      // Calculate reste_especes from auto-calculated total_especes
-      const resteEspeces = autoTotalEspeces - totalDepense;
-      
+      const totals = cashSheetTotals(cashSheet);
+
       const cashSheetToSave = {
         ...cashSheet,
-        total_especes: autoTotalEspeces,
-        total_depense: totalDepense,
-        reste_especes: resteEspeces,
+        total_ca: totals.totalCA,
+        total_especes_caisse: totals.caisseEspeces,
+        total_especes: totals.totalEspeces,
+        total_depense: totals.totalDepense,
+        reste_especes: totals.resteEspeces,
       };
 
       const res = await fetch('/api/reports/cash-sheets', {
@@ -365,58 +392,63 @@ export default function ReportsPage() {
       const data = await res.json();
       if (data.success) {
         // Auto-fill the suivi form with values from cash sheet
-        const especeReste = autoTotalEspeces - totalDepense;
         setForm(f => ({
           ...f,
-          revenue_card: cashSheet.total_cb,
-          revenue_cash: autoTotalEspeces,
-          glovo_ttc_espece: cashSheet.glovo_ttc_espece || 0,
-          glovo_ttc_online: cashSheet.glovo_ttc_online || 0,
-          expense_cash: totalDepense,
-          espece_reste: especeReste,
+          revenue_card: totals.totalCB,
+          revenue_cash: totals.caisseEspeces,
+          glovo_ttc_espece: totals.glovoEspece,
+          glovo_ttc_online: totals.glovoOnline,
+          expense_cash: totals.totalDepense,
+          espece_reste: totals.resteEspeces,
           expense_cash_desc: cashSheet.paid_items.filter(i => i.label).map(i => `${i.label}: ${Number(i.amount).toFixed(2)}`).join(', '),
         }));
-        setCashSheet(prev => ({ ...prev, ...data.sheet, total_especes: autoTotalEspeces }));
-        
+        setCashSheet(prev => ({
+          ...prev,
+          ...data.sheet,
+          total_ca: totals.totalCA,
+          total_especes_caisse: totals.caisseEspeces,
+          total_especes: totals.totalEspeces,
+        }));
+
         // Also save/update the daily entry for suivi journalier
-        // First fetch existing entry to preserve data
-        const existingEntryRes = await fetch(`/api/reports/daily-entries?date=${cashSheet.entry_date}`);
-        const existingEntryData = await existingEntryRes.json();
-        const existingEntry = existingEntryData.entry;
-        
-        const totalRevenue = cashSheet.total_cb + autoTotalEspeces + (cashSheet.glovo_ttc_espece || 0) + (cashSheet.glovo_ttc_online || 0);
-        const totalExpenses = totalDepense;
-        const totalWithdrawals = 0;
-        const soldeTheorique = totalRevenue - totalExpenses;
-        
-        // Merge cash sheet data with existing entry data to prevent data loss
-        const dailyEntryToSave = {
-          entry_date: cashSheet.entry_date,
-          revenue_card: cashSheet.total_cb,
-          revenue_cash: autoTotalEspeces,
-          revenue_transfer: existingEntry?.revenue_transfer || 0,
-          glovo_ttc_espece: cashSheet.glovo_ttc_espece || 0,
-          glovo_ttc_online: cashSheet.glovo_ttc_online || 0,
-          expense_cash: totalDepense,
-          expense_cash_desc: cashSheet.paid_items.filter(i => i.label).map(i => `${i.label}: ${Number(i.amount).toFixed(2)}`).join(', '),
-          expense_card_pro: existingEntry?.expense_card_pro || 0,
-          expense_card_pro_desc: existingEntry?.expense_card_pro_desc || null,
-          expense_tpe: existingEntry?.expense_tpe || 0,
-          expense_tpe_desc: existingEntry?.expense_tpe_desc || null,
-          withdrawal_pro: existingEntry?.withdrawal_pro || 0,
-          withdrawal_pro_desc: existingEntry?.withdrawal_pro_desc || null,
-          withdrawal_perso: existingEntry?.withdrawal_perso || 0,
-          withdrawal_perso_desc: existingEntry?.withdrawal_perso_desc || null,
-          espece_reste: especeReste,
-          observations: existingEntry?.observations || null,
-          status: existingEntry?.status || 'draft',
-        };
-        
-        await fetch('/api/reports/daily-entries', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(dailyEntryToSave),
-        });
+        try {
+          // First fetch existing entry to preserve data
+          const existingEntryRes = await fetch(`/api/reports/daily-entries?date=${cashSheet.entry_date}`);
+          const existingEntryData = await existingEntryRes.json();
+          const existingEntry = existingEntryData.entry;
+
+          // Merge cash sheet data with existing entry data to prevent data loss
+          const dailyEntryToSave = {
+            entry_date: cashSheet.entry_date,
+            revenue_card: totals.totalCB,
+            revenue_cash: totals.caisseEspeces,
+            revenue_transfer: existingEntry?.revenue_transfer || 0,
+            glovo_ttc_espece: totals.glovoEspece,
+            glovo_ttc_online: totals.glovoOnline,
+            expense_cash: totals.totalDepense,
+            expense_cash_desc: cashSheet.paid_items.filter(i => i.label).map(i => `${i.label}: ${Number(i.amount).toFixed(2)}`).join(', '),
+            expense_card_pro: existingEntry?.expense_card_pro || 0,
+            expense_card_pro_desc: existingEntry?.expense_card_pro_desc || null,
+            expense_tpe: existingEntry?.expense_tpe || 0,
+            expense_tpe_desc: existingEntry?.expense_tpe_desc || null,
+            withdrawal_pro: existingEntry?.withdrawal_pro || 0,
+            withdrawal_pro_desc: existingEntry?.withdrawal_pro_desc || null,
+            withdrawal_perso: existingEntry?.withdrawal_perso || 0,
+            withdrawal_perso_desc: existingEntry?.withdrawal_perso_desc || null,
+            espece_reste: totals.resteEspeces,
+            observations: existingEntry?.observations || null,
+            status: existingEntry?.status || 'draft',
+          };
+          
+          await fetch('/api/reports/daily-entries', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dailyEntryToSave),
+          });
+        } catch (dailyEntryError) {
+          console.error('Failed to sync daily entry:', dailyEntryError);
+          // Don't fail the entire save if daily entry sync fails
+        }
       }
     } catch { /* silent */ } finally {
       setCashSheetSaving(false);
@@ -425,18 +457,37 @@ export default function ReportsPage() {
 
   // Upload scanned receipts / photos for the fiche de caisse (camera or file).
   const handleCashSheetUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
+    if (!files || files.length === 0) {
+      return;
+    }
     setCashSheetUploading(true);
+    setCashSheetUploadError(null);
     try {
       const { uploadFile } = await import('@/lib/client-upload');
       const added: CashSheetAttachment[] = [];
+      const failed: string[] = [];
       for (const f of Array.from(files)) {
         try {
-          const { url, path } = await uploadFile(f, 'cash-sheets');
-          added.push({ name: f.name, url, path, mime: f.type, size: f.size });
-        } catch { /* skip the file that failed, keep the rest */ }
+          const result = await uploadFile(f, 'cash-sheets');
+          added.push({ name: f.name, url: result.url, path: result.path, mime: f.type, size: f.size });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          console.error('Cash-sheet upload failed:', f.name, err);
+          failed.push(`Impossible d'importer ${f.name}: ${message}`);
+        }
       }
-      if (added.length) setCashSheet(prev => ({ ...prev, attachments: [...(prev.attachments || []), ...added] }));
+      if (added.length) {
+        setCashSheet(prev => ({ ...prev, attachments: [...(prev.attachments || []), ...added] }));
+      }
+      if (failed.length) {
+        setCashSheetUploadError(failed[0]);
+      } else if (!added.length) {
+        setCashSheetUploadError("Aucun fichier n'a pu être importé. Vérifiez la configuration Blob.");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('Cash-sheet upload setup failed:', err);
+      setCashSheetUploadError(`Import impossible: ${message}`);
     } finally {
       setCashSheetUploading(false);
     }
@@ -450,6 +501,7 @@ export default function ReportsPage() {
     // Open print-ready window with the receipt design
     const win = window.open('', '_blank', 'width=600,height=900');
     if (!win) return;
+    const totals = cashSheetTotals(cashSheet);
     const date = new Date(cashSheet.entry_date + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
     const fmt = (n: number) => (n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const renderItems = (items: CashSheetItem[]) => items.filter(i => i.label).map(i => `<div>${i.label} : ${fmt(Number(i.amount))}</div>`).join('') || '<div>&nbsp;</div>';
@@ -457,30 +509,39 @@ export default function ReportsPage() {
     const logoUrl = `${window.location.origin}/logos/Logo-full-no-bg.png`;
     win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Feuille de Caisse — ${date}</title>
       <style>
-        body { font-family: Georgia, serif; max-width: 600px; margin: 20px auto; padding: 20px; color: #000; }
-        .header { background: #e8e9d8; text-align: center; padding: 8px; border: 1px solid #999; margin-bottom: 0; font-weight: bold; letter-spacing: 1px; }
-        .logo { text-align: center; padding: 0; border: 1px solid #999; border-top: 0; margin-bottom: 16px; line-height: 0; }
-        .logo img { width: 50%; height: auto; display: block; }
+        @page { size: A4 portrait; margin: 10mm 12mm; }
+        * { box-sizing: border-box; }
+        body { font-family: Georgia, serif; width: 100%; max-width: 185mm; margin: 0 auto; padding: 0; color: #000; font-size: 14px; }
+        .logo { text-align: center; padding: 0; margin: 0 0 6mm 0; line-height: 0; }
+        .logo img { width: 38mm; max-height: 18mm; height: auto; object-fit: contain; display: block; margin: 0 auto; }
+        .header { background: #e8e9d8; text-align: center; padding: 6px; border: 1px solid #999; margin-bottom: 5mm; font-weight: bold; font-size: 16px; letter-spacing: 1px; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #999; padding: 8px 10px; text-align: left; vertical-align: top; }
-        .label { font-weight: bold; width: 30%; }
-        .amount { text-align: right; width: 25%; font-family: monospace; }
-        .col-section { min-height: 200px; vertical-align: top; }
+        th, td { border: 1px solid #999; padding: 6px 8px; text-align: left; vertical-align: top; line-height: 1.25; }
+        .label { font-weight: bold; width: 55%; }
+        .amount { text-align: right; width: 45%; font-family: monospace; white-space: nowrap; }
+        .col-section { height: 26mm; vertical-align: top; }
         .col-header { background: #f5f5f0; font-weight: bold; text-align: center; }
-        .signature { padding: 20px 10px; }
+        .summary-table .label { width: 55%; }
+        .signature-table { margin-top: 8mm; }
+        .signature-table .label { width: 30%; }
+        .signature { padding: 12px 10px; height: 16mm; vertical-align: middle; }
         @media print {
-          body { margin: 0; }
+          body { max-width: none; }
           .no-print { display: none; }
         }
       </style></head><body>
-      <div class="header">FEUILLE DE CAISSE</div>
       <div class="logo"><img src="${logoUrl}" alt="Epictète"></div>
+      <div class="header">FEUILLE DE CAISSE</div>
       <table>
         <tr><td colspan="2" class="amount">DATE : ${date}</td></tr>
-        <tr><td class="label">TOTAL CA :</td><td class="amount">${fmt(cashSheet.total_ca)}</td></tr>
         <tr><td class="label">TOTAL CB :</td><td class="amount">${fmt(cashSheet.total_cb)}</td></tr>
-        <tr><td class="label">TOTAL ESPÈCES :</td><td class="amount">${fmt(cashSheet.total_especes)}${cashSheet.especes_note ? `<br><span style="font-size:11px;font-weight:normal">${cashSheet.especes_note}</span>` : ''}</td></tr>
+        <tr><td class="label">Glovo TTC Espèce :</td><td class="amount">${fmt(cashSheet.glovo_ttc_espece || 0)}</td></tr>
+        <tr><td class="label">Glovo TTC Online :</td><td class="amount">${fmt(cashSheet.glovo_ttc_online || 0)}</td></tr>
+        <tr><td class="label">Total Espèce Caisse :</td><td class="amount">${fmt(totals.caisseEspeces)}</td></tr>
+        <tr><td class="label">TOTAL ESPÈCES :</td><td class="amount">${fmt(totals.totalEspeces)}</td></tr>
+        <tr><td class="label">TOTAL CA :</td><td class="amount">${fmt(totals.totalCA)}</td></tr>
       </table>
+      ${cashSheet.especes_note ? `<table style="margin-top:8px"><tr><td class="label" style="font-weight:normal">Note espèces :</td><td class="amount" style="font-weight:normal;font-size:12px">${cashSheet.especes_note}</td></tr></table>` : ''}
       <table style="margin-top:0">
         <tr>
           <th class="col-header">PAYÉ</th>
@@ -493,12 +554,12 @@ export default function ReportsPage() {
           <td class="col-section">${renderItems(cashSheet.paid_outside_items)}</td>
         </tr>
       </table>
-      <table style="margin-top:0">
+      <table class="summary-table" style="margin-top:0">
         <tr><td class="label">TOTAL DÉPENSE :</td><td class="amount">${fmt(cashSheet.total_depense)}</td></tr>
         <tr><td class="label">RESTE EN ESPÈCES :</td><td class="amount">${fmt(cashSheet.reste_especes)}</td></tr>
       </table>
-      <table style="margin-top:24px">
-        <tr><td class="label" style="width:25%">MANAGER</td><td class="signature">${cashSheet.manager_name || ''}</td></tr>
+      <table class="signature-table">
+        <tr><td class="label">MANAGER</td><td class="signature">${cashSheet.manager_name || ''}</td></tr>
         <tr><td class="label">VISA CAISSE</td><td class="signature">${cashSheet.visa_caisse || ''}</td></tr>
       </table>
       <div class="no-print" style="text-align:center;margin-top:20px">
@@ -1210,6 +1271,8 @@ export default function ReportsPage() {
   // ============================================
   // RENDER
   // ============================================
+  const currentCashSheetTotals = cashSheetTotals(cashSheet);
+
   return (
     <PermissionGate permission="finance.read" fallback={<div className="p-8 text-center text-muted-foreground">Access denied</div>}>
       <div className="space-y-6">
@@ -1247,43 +1310,41 @@ export default function ReportsPage() {
         {/* TAB: DAILY ENTRY                           */}
         {/* ═══════════════════════════════════════════ */}
         {activeTab === 'daily' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Main Form */}
-            <div className="lg:col-span-2 space-y-5">
-              {/* Date Picker */}
-              <div className="flex items-center gap-3">
-                <button onClick={() => navigateDate(-1)} className="p-2 bg-secondary border border-border rounded-lg hover:bg-card">
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={e => setSelectedDate(e.target.value)}
-                  className="py-2.5 px-4 bg-secondary border border-border rounded-lg text-foreground text-sm font-medium"
-                />
-                <button onClick={() => navigateDate(1)} className="p-2 bg-secondary border border-border rounded-lg hover:bg-card">
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-                {entry && (
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    entry.status === 'validated' ? 'bg-green-500/10 text-green-600' :
-                    entry.status === 'locked' ? 'bg-red-500/10 text-red-500' :
-                    'bg-yellow-500/10 text-yellow-600'
-                  }`}>
-                    {entry.status === 'validated' ? rp.validated : entry.status === 'locked' ? rp.locked : rp.draft}
-                  </span>
-                )}
-              </div>
+          <div className="space-y-5">
+            {/* Date Picker */}
+            <div className="flex items-center gap-3">
+              <button onClick={() => navigateDate(-1)} className="p-2 bg-secondary border border-border rounded-lg hover:bg-card">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={e => setSelectedDate(e.target.value)}
+                className="py-2.5 px-4 bg-secondary border border-border rounded-lg text-foreground text-sm font-medium"
+              />
+              <button onClick={() => navigateDate(1)} className="p-2 bg-secondary border border-border rounded-lg hover:bg-card">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              {entry && (
+                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  entry.status === 'validated' ? 'bg-green-500/10 text-green-600' :
+                  entry.status === 'locked' ? 'bg-red-500/10 text-red-500' :
+                  'bg-yellow-500/10 text-yellow-600'
+                }`}>
+                  {entry.status === 'validated' ? rp.validated : entry.status === 'locked' ? rp.locked : rp.draft}
+                </span>
+              )}
+            </div>
 
-              {/* ═══════════ FEUILLE DE CAISSE ═══════════ */}
-              <div className="bg-secondary border border-border rounded-xl p-5 space-y-4">
+            {/* ═══════════ FEUILLE DE CAISSE ═══════════ */}
+            <div className="bg-secondary border border-border rounded-xl p-6 space-y-4 w-full">
                   <div className="flex items-center justify-between flex-wrap gap-3 border-b border-border pb-3">
                     <div>
                       <h3 className="font-bold text-foreground flex items-center gap-2">
                         <FileText className="w-4 h-4 text-[#606338]" />
                         Feuille de Caisse — {new Date(selectedDate + 'T12:00:00').toLocaleDateString('fr-FR')}
                       </h3>
-                      <p className="text-xs text-muted-foreground mt-1">Remplir d'abord cette fiche, puis le suivi sera pré-rempli automatiquement.</p>
+                      <p className="text-xs text-muted-foreground mt-1">Remplir d&apos;abord cette fiche, puis le suivi sera pré-rempli automatiquement.</p>
                     </div>
                     <button onClick={exportCashSheetPDF} className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-xs hover:bg-card transition-colors">
                       <Printer className="w-3.5 h-3.5" />
@@ -1291,20 +1352,12 @@ export default function ReportsPage() {
                     </button>
                   </div>
 
-                  {/* Top totals */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <label className="block">
-                      <span className="text-xs text-muted-foreground">TOTAL CA</span>
-                      <input type="number" step="0.01" value={cashSheet.total_ca || ''} onChange={e => setCashSheet({ ...cashSheet, total_ca: parseFloat(e.target.value) || 0 })} placeholder="0" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm text-right" />
-                    </label>
+                  {/* Top totals - Manual inputs */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <label className="block">
                       <span className="text-xs text-muted-foreground">TOTAL CB</span>
                       <input type="number" step="0.01" value={cashSheet.total_cb || ''} onChange={e => setCashSheet({ ...cashSheet, total_cb: parseFloat(e.target.value) || 0 })} placeholder="0" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm text-right" />
                     </label>
-                  </div>
-                  
-                  {/* Glovo inputs */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <label className="block">
                       <span className="text-xs text-muted-foreground">Glovo TTC Espèce</span>
                       <input type="number" step="0.01" value={cashSheet.glovo_ttc_espece || ''} onChange={e => setCashSheet({ ...cashSheet, glovo_ttc_espece: parseFloat(e.target.value) || 0 })} placeholder="0" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm text-right" />
@@ -1313,11 +1366,22 @@ export default function ReportsPage() {
                       <span className="text-xs text-muted-foreground">Glovo TTC Online</span>
                       <input type="number" step="0.01" value={cashSheet.glovo_ttc_online || ''} onChange={e => setCashSheet({ ...cashSheet, glovo_ttc_online: parseFloat(e.target.value) || 0 })} placeholder="0" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm text-right" />
                     </label>
+                    <label className="block">
+                      <span className="text-xs text-muted-foreground">Total Espèce Caisse</span>
+                      <input type="number" step="0.01" value={cashSheet.total_especes_caisse || ''} onChange={e => setCashSheet({ ...cashSheet, total_especes_caisse: parseFloat(e.target.value) || 0 })} placeholder="0" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm text-right" />
+                    </label>
                   </div>
-                  
-                  <div className="bg-card border border-border rounded-lg p-3 flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground font-medium">TOTAL ESPÈCES (Auto-calculé: CA - CB)</span>
-                    <span className="text-lg font-bold text-[#606338]">{fmtMAD((cashSheet.total_ca || 0) - (cashSheet.total_cb || 0))}</span>
+
+                  {/* Auto-calculated TOTAL CA */}
+                  <div className="bg-card border border-border rounded-lg p-4 flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground font-medium">TOTAL CA (Auto-calculated)</span>
+                    <span className="text-xl font-bold text-[#606338]">{fmtMAD(currentCashSheetTotals.totalCA)}</span>
+                  </div>
+
+                  {/* Auto-calculated TOTAL ESPÈCES */}
+                  <div className="bg-card border border-border rounded-lg p-4 flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground font-medium">TOTAL ESPÈCES (Caisse + Glovo Espèce)</span>
+                    <span className="text-xl font-bold text-[#606338]">{fmtMAD(currentCashSheetTotals.totalEspeces)}</span>
                   </div>
                   
                   <input type="text" value={cashSheet.especes_note || ''} onChange={e => setCashSheet({ ...cashSheet, especes_note: e.target.value })} placeholder="Note espèces (ex: 07/04/2026 (450,00))" className="w-full px-3 py-2 bg-card border border-border rounded-lg text-xs" />
@@ -1380,7 +1444,7 @@ export default function ReportsPage() {
                         {col.key === 'paid_items' && cashSheet.paid_items.some(i => i.amount > 0) && (
                           <div className="mt-2 pt-2 border-t border-border text-xs flex justify-between font-medium">
                             <span>Total:</span>
-                            <span>{fmtMAD(cashSheet.paid_items.reduce((s, i) => s + (Number(i.amount) || 0), 0))}</span>
+                            <span>{fmtMAD(currentCashSheetTotals.totalDepense)}</span>
                           </div>
                         )}
                       </div>
@@ -1391,12 +1455,12 @@ export default function ReportsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-border">
                     <div className="bg-card border border-border rounded-lg p-3 flex items-center justify-between">
                       <span className="text-sm text-muted-foreground font-medium">TOTAL DÉPENSE</span>
-                      <span className="text-lg font-bold text-orange-600">{fmtMAD(cashSheet.paid_items.reduce((s, i) => s + (Number(i.amount) || 0), 0))}</span>
+                      <span className="text-lg font-bold text-orange-600">{fmtMAD(currentCashSheetTotals.totalDepense)}</span>
                     </div>
                     <div className="bg-card border border-border rounded-lg p-3 flex items-center justify-between">
                       <span className="text-sm text-muted-foreground font-medium">RESTE EN ESPÈCES</span>
-                      <span className={`text-lg font-bold ${cashSheet.total_especes - cashSheet.paid_items.reduce((s, i) => s + (Number(i.amount) || 0), 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                        {fmtMAD(cashSheet.total_especes - cashSheet.paid_items.reduce((s, i) => s + (Number(i.amount) || 0), 0))}
+                      <span className={`text-lg font-bold ${currentCashSheetTotals.resteEspeces >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                        {fmtMAD(currentCashSheetTotals.resteEspeces)}
                       </span>
                     </div>
                   </div>
@@ -1405,7 +1469,12 @@ export default function ReportsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <label className="block">
                       <span className="text-xs text-muted-foreground">MANAGER</span>
-                      <input type="text" value={cashSheet.manager_name || ''} onChange={e => setCashSheet({ ...cashSheet, manager_name: e.target.value })} placeholder="Nom" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm" />
+                      <select value={cashSheet.manager_name || ''} onChange={e => setCashSheet({ ...cashSheet, manager_name: e.target.value })} className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm">
+                        <option value="">Sélectionner...</option>
+                        {staffOptions.map(name => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
+                      </select>
                     </label>
                     <label className="block">
                       <span className="text-xs text-muted-foreground">VISA CAISSE</span>
@@ -1437,17 +1506,23 @@ export default function ReportsPage() {
                           onChange={e => { handleCashSheetUpload(e.target.files); e.target.value = ''; }} />
                       </label>
                     </div>
+                    {cashSheetUploadError && (
+                      <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                        {cashSheetUploadError}
+                      </div>
+                    )}
 
-                    {(cashSheet.attachments?.length ?? 0) > 0 && (
-                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                        {cashSheet.attachments.map(a => {
+                    {/* Always show attachments section, even if empty */}
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                      {cashSheet.attachments?.length > 0 ? (
+                        cashSheet.attachments.map((a) => {
                           const isImg = (a.mime || '').startsWith('image/');
                           return (
                             <div key={a.url} className="relative group border border-border rounded-lg overflow-hidden bg-card aspect-square">
                               <a href={a.url} target="_blank" rel="noopener noreferrer" className="block w-full h-full" title={a.name}>
                                 {isImg ? (
                                   // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={a.url} alt={a.name} className="w-full h-full object-cover" />
+                                  <img src={a.url} alt={a.name} className="w-full h-full object-cover" onError={(e) => { console.error('Image load error:', a.url, e); (e.target as HTMLImageElement).style.display = 'none'; }} />
                                 ) : (
                                   <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-1 text-muted-foreground">
                                     <FileText className="w-6 h-6" />
@@ -1465,9 +1540,13 @@ export default function ReportsPage() {
                               </button>
                             </div>
                           );
-                        })}
-                      </div>
-                    )}
+                        })
+                      ) : (
+                        <div className="col-span-full text-center py-4 text-muted-foreground text-xs">
+                          Aucune pièce jointe pour le moment
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Save button */}
@@ -1479,7 +1558,6 @@ export default function ReportsPage() {
                   </div>
                 </div>
             </div>
-          </div>
         )}
 
         {/* ═══════════════════════════════════════════ */}
