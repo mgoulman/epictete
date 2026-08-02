@@ -8,12 +8,8 @@ function normalizeStoredCashSheet<T extends Record<string, unknown>>(sheet: T | 
   const totalCB = Number(sheet.total_cb) || 0;
   const glovoEspece = Number(sheet.glovo_ttc_espece) || 0;
   const glovoOnline = Number(sheet.glovo_ttc_online) || 0;
-  const explicitCaisse = sheet.total_especes_caisse;
 
-  const caisseEspeces =
-    explicitCaisse !== null && explicitCaisse !== undefined
-      ? Number(explicitCaisse) || 0
-      : Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline);
+  const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline);
   const totalEspeces = caisseEspeces + glovoEspece;
 
   return { ...sheet, total_especes_caisse: caisseEspeces, total_especes: totalEspeces };
@@ -56,12 +52,12 @@ export async function POST(request: NextRequest) {
     // Calculate totals
     const paidItems = body.paid_items || [];
     const totalDepense = paidItems.reduce((s: number, i: { amount: number }) => s + (Number(i.amount) || 0), 0);
-    const caisseEspeces = Number(body.total_especes_caisse ?? body.total_especes) || 0;
+    const totalCA = Number(body.total_ca) || 0;
+    const totalCB = Number(body.total_cb) || 0;
     const glovoEspece = Number(body.glovo_ttc_espece) || 0;
     const glovoOnline = Number(body.glovo_ttc_online) || 0;
-    const totalCB = Number(body.total_cb) || 0;
+    const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline);
     const totalEspeces = caisseEspeces + glovoEspece;
-    const totalCA = totalCB + totalEspeces + glovoOnline;
     const resteEspeces = totalEspeces - totalDepense;
 
     const sheet = {

@@ -191,11 +191,12 @@ const EXPENSE_CATEGORIES = [
 const PAYMENT_METHODS = ['cash', 'card_pro', 'tpe'] as const;
 
 const cashSheetTotals = (sheet: CashSheet) => {
-  const caisseEspeces = Number(sheet.total_especes_caisse) || 0;
+  const totalCA = Number(sheet.total_ca) || 0;
   const totalCB = Number(sheet.total_cb) || 0;
   const glovoEspece = Number(sheet.glovo_ttc_espece) || 0;
   const glovoOnline = Number(sheet.glovo_ttc_online) || 0;
   const totalDepense = (sheet.paid_items || []).reduce((s, i) => s + (Number(i.amount) || 0), 0);
+  const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline);
   const totalEspeces = caisseEspeces + glovoEspece;
 
   return {
@@ -205,7 +206,7 @@ const cashSheetTotals = (sheet: CashSheet) => {
     glovoOnline,
     totalDepense,
     totalEspeces,
-    totalCA: caisseEspeces + totalCB + glovoEspece + glovoOnline,
+    totalCA,
     resteEspeces: totalEspeces - totalDepense,
   };
 };
@@ -1355,6 +1356,10 @@ export default function ReportsPage() {
                   {/* Top totals - Manual inputs */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <label className="block">
+                      <span className="text-xs text-muted-foreground">TOTAL CA</span>
+                      <input type="number" step="0.01" value={cashSheet.total_ca || ''} onChange={e => setCashSheet({ ...cashSheet, total_ca: parseFloat(e.target.value) || 0 })} placeholder="0" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm text-right" />
+                    </label>
+                    <label className="block">
                       <span className="text-xs text-muted-foreground">TOTAL CB</span>
                       <input type="number" step="0.01" value={cashSheet.total_cb || ''} onChange={e => setCashSheet({ ...cashSheet, total_cb: parseFloat(e.target.value) || 0 })} placeholder="0" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm text-right" />
                     </label>
@@ -1366,16 +1371,12 @@ export default function ReportsPage() {
                       <span className="text-xs text-muted-foreground">Glovo TTC Online</span>
                       <input type="number" step="0.01" value={cashSheet.glovo_ttc_online || ''} onChange={e => setCashSheet({ ...cashSheet, glovo_ttc_online: parseFloat(e.target.value) || 0 })} placeholder="0" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm text-right" />
                     </label>
-                    <label className="block">
-                      <span className="text-xs text-muted-foreground">Total Espèce Caisse</span>
-                      <input type="number" step="0.01" value={cashSheet.total_especes_caisse || ''} onChange={e => setCashSheet({ ...cashSheet, total_especes_caisse: parseFloat(e.target.value) || 0 })} placeholder="0" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm text-right" />
-                    </label>
                   </div>
 
-                  {/* Auto-calculated TOTAL CA */}
+                  {/* Auto-calculated Total Espèce Caisse */}
                   <div className="bg-card border border-border rounded-lg p-4 flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground font-medium">TOTAL CA (Auto-calculated)</span>
-                    <span className="text-xl font-bold text-[#606338]">{fmtMAD(currentCashSheetTotals.totalCA)}</span>
+                    <span className="text-sm text-muted-foreground font-medium">Total Espèce Caisse (Auto-calculated: TOTAL CA - TOTAL CB - Glovo Espèce - Glovo Online)</span>
+                    <span className="text-xl font-bold text-[#606338]">{fmtMAD(currentCashSheetTotals.caisseEspeces)}</span>
                   </div>
 
                   {/* Auto-calculated TOTAL ESPÈCES */}
