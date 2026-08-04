@@ -556,8 +556,8 @@ export default function ReportsPage() {
         </tr>
       </table>
       <table class="summary-table" style="margin-top:0">
-        <tr><td class="label">TOTAL DÉPENSE :</td><td class="amount">${fmt(cashSheet.total_depense)}</td></tr>
-        <tr><td class="label">RESTE EN ESPÈCES :</td><td class="amount">${fmt(cashSheet.reste_especes)}</td></tr>
+        <tr><td class="label">TOTAL DÉPENSE :</td><td class="amount">${fmt(totals.totalDepense)}</td></tr>
+        <tr><td class="label">RESTE EN ESPÈCES :</td><td class="amount">${fmt(totals.resteEspeces)}</td></tr>
       </table>
       <table class="signature-table">
         <tr><td class="label">MANAGER</td><td class="signature">${cashSheet.manager_name || ''}</td></tr>
@@ -1375,13 +1375,13 @@ export default function ReportsPage() {
 
                   {/* Auto-calculated Total Espèce Caisse */}
                   <div className="bg-card border border-border rounded-lg p-4 flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground font-medium">Total Espèce Caisse (Auto-calculated: TOTAL CA - TOTAL CB - Glovo Espèce - Glovo Online)</span>
+                    <span className="text-sm text-muted-foreground font-medium">Total Espèce Caisse</span>
                     <span className="text-xl font-bold text-[#606338]">{fmtMAD(currentCashSheetTotals.caisseEspeces)}</span>
                   </div>
 
                   {/* Auto-calculated TOTAL ESPÈCES */}
                   <div className="bg-card border border-border rounded-lg p-4 flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground font-medium">TOTAL ESPÈCES (Caisse + Glovo Espèce)</span>
+                    <span className="text-sm text-muted-foreground font-medium">TOTAL ESPÈCES</span>
                     <span className="text-xl font-bold text-[#606338]">{fmtMAD(currentCashSheetTotals.totalEspeces)}</span>
                   </div>
                   
@@ -1470,12 +1470,7 @@ export default function ReportsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <label className="block">
                       <span className="text-xs text-muted-foreground">MANAGER</span>
-                      <select value={cashSheet.manager_name || ''} onChange={e => setCashSheet({ ...cashSheet, manager_name: e.target.value })} className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm">
-                        <option value="">Sélectionner...</option>
-                        {staffOptions.map(name => (
-                          <option key={name} value={name}>{name}</option>
-                        ))}
-                      </select>
+                      <input type="text" value={cashSheet.manager_name || ''} onChange={e => setCashSheet({ ...cashSheet, manager_name: e.target.value })} placeholder="Nom du manager" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm" />
                     </label>
                     <label className="block">
                       <span className="text-xs text-muted-foreground">VISA CAISSE</span>
