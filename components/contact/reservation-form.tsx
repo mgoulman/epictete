@@ -10,10 +10,10 @@ import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
 import { useTranslation } from "@/lib/i18n/useTranslation";
 
-// Generate time slots from 07:00 to 22:00 in 30-min intervals
+// Generate time slots from 08:00 to 22:00 in 30-min intervals
 const generateTimeSlots = () => {
   const slots: string[] = [];
-  for (let hour = 7; hour <= 21; hour++) {
+  for (let hour = 8; hour <= 21; hour++) {
     slots.push(`${hour.toString().padStart(2, "0")}:00`);
     slots.push(`${hour.toString().padStart(2, "0")}:30`);
   }
@@ -254,7 +254,7 @@ export function ReservationForm() {
                         setSelectedDate(date ?? undefined);
                         setShowCalendar(false);
                       }}
-                      disabled={{ before: today }}
+                      disabled={[{ before: today }, { dayOfWeek: [0] }]}
                       locale={dateLocale}
                       showOutsideDays={false}
                       classNames={{

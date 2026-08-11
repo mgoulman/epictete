@@ -95,7 +95,7 @@ export function PhilosophySection() {
         >
           {[
             { number: s('stat1Number', "2025"), label: s('stat1Label', t.philosophy.opening) },
-            { number: s('stat2Number', "7j/7"), label: s('stat2Label', t.philosophy.atYourService) },
+            { number: s('stat2Number', "Lun-Sam"), label: s('stat2Label', t.philosophy.atYourService) },
             { number: s('stat3Number', "100%"), label: s('stat3Label', t.philosophy.passion) },
           ].map((stat, index) => (
             <div key={index} className="text-center min-w-[80px]">
