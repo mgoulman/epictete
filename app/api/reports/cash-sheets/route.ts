@@ -91,6 +91,7 @@ export async function POST(request: NextRequest) {
       paid_items: paidItems,
       unpaid_items: body.unpaid_items || [],
       paid_outside_items: body.paid_outside_items || [],
+      custom_columns: Array.isArray(body.custom_columns) ? body.custom_columns : [],
       total_depense: Math.round(totalDepense * 100) / 100,
       reste_especes: Math.round(resteEspeces * 100) / 100,
       manager_name: body.manager_name || null,
@@ -100,11 +101,24 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('cash_sheets')
       .upsert(sheet, { onConflict: 'entry_date' })
       .select()
       .single();
+
+    // Graceful fallback if the custom_columns migration hasn't been applied yet:
+    // retry the upsert without that field so saving still works (columns just
+    // won't persist until `scripts/add-cash-sheet-custom-columns.mjs` is run).
+    if (error && /custom_columns/i.test(error.message || '')) {
+      const { custom_columns: _omit, ...sheetWithoutCustom } = sheet;
+      void _omit;
+      ({ data, error } = await supabase
+        .from('cash_sheets')
+        .upsert(sheetWithoutCustom, { onConflict: 'entry_date' })
+        .select()
+        .single());
+    }
 
     if (error) throw error;
     return NextResponse.json({ success: true, sheet: data });

@@ -49,6 +49,13 @@ interface CashSheetItem {
   amount: number;
 }
 
+// A user-defined column added to the Feuille de Caisse (title + its own line items).
+// Informational only — prints on the sheet but does not affect the cash totals.
+interface CashSheetColumn {
+  title: string;
+  items: CashSheetItem[];
+}
+
 interface CashSheetAttachment {
   name: string;
   url: string;
@@ -70,6 +77,7 @@ interface CashSheet {
   paid_items: CashSheetItem[];
   unpaid_items: CashSheetItem[];
   paid_outside_items: CashSheetItem[];
+  custom_columns: CashSheetColumn[];
   total_depense: number;
   reste_especes: number;
   manager_name: string | null;
@@ -230,6 +238,29 @@ const cashSheetTotals = (sheet: CashSheet) => {
   };
 };
 
+// Canonical serialization of the cash sheet's editable content, used to detect
+// unsaved changes (drops placeholder empty rows and normalizes ''/null/number
+// formatting so a freshly-loaded or freshly-saved sheet compares equal to itself).
+const cleanCashItems = (items: CashSheetItem[] = []) =>
+  items
+    .filter(i => (i.label || '').trim() !== '' || parseCashNumber(i.amount) !== 0)
+    .map(i => ({ label: (i.label || '').trim(), amount: parseCashNumber(i.amount) }));
+
+const serializeCashSheet = (s: CashSheet) => JSON.stringify({
+  total_ca: parseCashNumber(s.total_ca),
+  total_cb: parseCashNumber(s.total_cb),
+  glovo_ttc_espece: parseCashNumber(s.glovo_ttc_espece),
+  glovo_ttc_online: parseCashNumber(s.glovo_ttc_online),
+  especes_note: s.especes_note || '',
+  paid_items: cleanCashItems(s.paid_items),
+  unpaid_items: cleanCashItems(s.unpaid_items),
+  paid_outside_items: cleanCashItems(s.paid_outside_items),
+  custom_columns: (s.custom_columns || []).map(c => ({ title: (c.title || '').trim(), items: cleanCashItems(c.items) })),
+  manager_name: s.manager_name || '',
+  visa_caisse: s.visa_caisse || '',
+  attachments: (s.attachments || []).map(a => a.url),
+});
+
 // ============================================
 // Component
 // ============================================
@@ -273,12 +304,17 @@ export default function ReportsPage() {
     paid_items: [{ label: '', amount: 0 }],
     unpaid_items: [{ label: '', amount: 0 }],
     paid_outside_items: [{ label: '', amount: 0 }],
+    custom_columns: [],
     total_depense: 0,
     reste_especes: 0,
     manager_name: '', visa_caisse: '',
     attachments: [],
   });
   const [cashSheetSaving, setCashSheetSaving] = useState(false);
+  // Snapshot of the cash sheet's editable content at its last save/load. The print
+  // button only appears when the current content matches this (i.e. nothing unsaved),
+  // so the printed sheet can never contain data that was never persisted.
+  const [cashSheetSavedSnapshot, setCashSheetSavedSnapshot] = useState<string | null>(null);
   const [showCashSheet, setShowCashSheet] = useState(false);
   const [cashSheetUploading, setCashSheetUploading] = useState(false);
   const [cashSheetUploadError, setCashSheetUploadError] = useState<string | null>(null);
@@ -358,7 +394,7 @@ export default function ReportsPage() {
       const res = await fetch(`/api/reports/cash-sheets?date=${date}`);
       const data = await res.json();
       if (data.sheet) {
-        setCashSheet({
+        const loaded: CashSheet = {
           ...data.sheet,
           total_ca: Number(data.sheet.total_ca) || 0,
           total_cb: Number(data.sheet.total_cb) || 0,
@@ -371,8 +407,11 @@ export default function ReportsPage() {
           paid_items: (data.sheet.paid_items?.length ? data.sheet.paid_items : [{ label: '', amount: 0 }]),
           unpaid_items: (data.sheet.unpaid_items?.length ? data.sheet.unpaid_items : [{ label: '', amount: 0 }]),
           paid_outside_items: (data.sheet.paid_outside_items?.length ? data.sheet.paid_outside_items : [{ label: '', amount: 0 }]),
+          custom_columns: Array.isArray(data.sheet.custom_columns) ? data.sheet.custom_columns : [],
           attachments: Array.isArray(data.sheet.attachments) ? data.sheet.attachments : [],
-        });
+        };
+        setCashSheet(loaded);
+        setCashSheetSavedSnapshot(serializeCashSheet(loaded)); // persisted sheet → printable
       } else {
         setCashSheet({
           entry_date: date,
@@ -382,10 +421,12 @@ export default function ReportsPage() {
           paid_items: [{ label: '', amount: 0 }],
           unpaid_items: [{ label: '', amount: 0 }],
           paid_outside_items: [{ label: '', amount: 0 }],
+          custom_columns: [],
           total_depense: 0, reste_especes: 0,
           manager_name: '', visa_caisse: '',
           attachments: [],
         });
+        setCashSheetSavedSnapshot(null); // brand new / unsaved → hide print until saved
       }
     } catch { /* silent */ }
   }, []);
@@ -429,6 +470,8 @@ export default function ReportsPage() {
           total_especes_caisse: totals.caisseEspeces,
           total_especes: totals.totalEspeces,
         }));
+        // Mark this content as saved → the print button becomes available.
+        setCashSheetSavedSnapshot(serializeCashSheet(cashSheetToSave));
 
         // Also save/update the daily entry for suivi journalier
         try {
@@ -530,7 +573,26 @@ export default function ReportsPage() {
     const totals = cashSheetTotals(cashSheet);
     const date = new Date(cashSheet.entry_date + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
     const fmt = (n: number) => (n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const renderItems = (items: CashSheetItem[]) => items.filter(i => i.label).map(i => `<div>${i.label} : ${fmt(Number(i.amount))}</div>`).join('') || '<div>&nbsp;</div>';
+    const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch] || ch));
+    const renderItems = (items: CashSheetItem[]) => items.filter(i => i.label).map(i => `<div>${esc(i.label)} : ${fmt(Number(i.amount))}</div>`).join('') || '<div>&nbsp;</div>';
+
+    // All columns to print: the 3 fixed ones + any non-empty custom columns,
+    // chunked into rows of 3 so the printed table stays A4-friendly.
+    const printCols = [
+      { title: 'PAYÉ', items: cashSheet.paid_items },
+      { title: 'NON PAYÉ', items: cashSheet.unpaid_items },
+      { title: 'PAYÉ HORS CAISSE', items: cashSheet.paid_outside_items },
+      ...cashSheet.custom_columns
+        .filter(c => (c.title || '').trim() !== '' || c.items.some(i => i.label))
+        .map(c => ({ title: (c.title || '').trim() || '—', items: c.items })),
+    ];
+    const colChunks: { title: string; items: CashSheetItem[] }[][] = [];
+    for (let i = 0; i < printCols.length; i += 3) colChunks.push(printCols.slice(i, i + 3));
+    const columnsHtml = colChunks.map(row => `
+      <table style="margin-top:0">
+        <tr>${row.map(c => `<th class="col-header">${esc(c.title)}</th>`).join('')}</tr>
+        <tr>${row.map(c => `<td class="col-section">${renderItems(c.items)}</td>`).join('')}</tr>
+      </table>`).join('');
 
     const logoUrl = `${window.location.origin}/logos/Logo-full-no-bg.png`;
     win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Feuille de Caisse — ${date}</title>
@@ -567,26 +629,15 @@ export default function ReportsPage() {
         <tr><td class="label">TOTAL ESPÈCES :</td><td class="amount">${fmt(totals.totalEspeces)}</td></tr>
         <tr><td class="label">TOTAL CA :</td><td class="amount">${fmt(totals.totalCA)}</td></tr>
       </table>
-      ${cashSheet.especes_note ? `<table style="margin-top:8px"><tr><td class="label" style="font-weight:normal">Note espèces :</td><td class="amount" style="font-weight:normal;font-size:12px">${cashSheet.especes_note}</td></tr></table>` : ''}
-      <table style="margin-top:0">
-        <tr>
-          <th class="col-header">PAYÉ</th>
-          <th class="col-header">NON PAYÉ</th>
-          <th class="col-header">PAYÉ HORS CAISSE</th>
-        </tr>
-        <tr>
-          <td class="col-section">${renderItems(cashSheet.paid_items)}</td>
-          <td class="col-section">${renderItems(cashSheet.unpaid_items)}</td>
-          <td class="col-section">${renderItems(cashSheet.paid_outside_items)}</td>
-        </tr>
-      </table>
+      ${cashSheet.especes_note ? `<table style="margin-top:8px"><tr><td class="label" style="font-weight:normal">Note espèces :</td><td class="amount" style="font-weight:normal;font-size:12px">${esc(cashSheet.especes_note)}</td></tr></table>` : ''}
+      ${columnsHtml}
       <table class="summary-table" style="margin-top:0">
         <tr><td class="label">TOTAL DÉPENSE :</td><td class="amount">${fmt(totals.totalDepense)}</td></tr>
         <tr><td class="label">RESTE EN ESPÈCES :</td><td class="amount">${fmt(totals.resteEspeces)}</td></tr>
       </table>
       <table class="signature-table">
-        <tr><td class="label">MANAGER</td><td class="signature">${cashSheet.manager_name || ''}</td></tr>
-        <tr><td class="label">VISA CAISSE</td><td class="signature">${cashSheet.visa_caisse || ''}</td></tr>
+        <tr><td class="label">MANAGER</td><td class="signature">${esc(cashSheet.manager_name || '')}</td></tr>
+        <tr><td class="label">VISA CAISSE</td><td class="signature">${esc(cashSheet.visa_caisse || '')}</td></tr>
       </table>
       <div class="no-print" style="text-align:center;margin-top:20px">
         <button onclick="window.print()" style="padding:8px 16px;font-size:14px">Imprimer</button>
@@ -1298,6 +1349,22 @@ export default function ReportsPage() {
   // RENDER
   // ============================================
   const currentCashSheetTotals = cashSheetTotals(cashSheet);
+  // Printable only when the sheet has been saved and has no unsaved edits.
+  const cashSheetPrintable = cashSheetSavedSnapshot !== null && serializeCashSheet(cashSheet) === cashSheetSavedSnapshot;
+
+  // ── Custom cash-sheet column helpers ──
+  const addCustomColumn = () =>
+    setCashSheet(cs => ({ ...cs, custom_columns: [...cs.custom_columns, { title: '', items: [{ label: '', amount: 0 }] }] }));
+  const removeCustomColumn = (colIdx: number) =>
+    setCashSheet(cs => ({ ...cs, custom_columns: cs.custom_columns.filter((_, i) => i !== colIdx) }));
+  const updateCustomColumn = (colIdx: number, patch: Partial<CashSheetColumn>) =>
+    setCashSheet(cs => ({ ...cs, custom_columns: cs.custom_columns.map((c, i) => i === colIdx ? { ...c, ...patch } : c) }));
+  const addCustomItem = (colIdx: number) =>
+    setCashSheet(cs => ({ ...cs, custom_columns: cs.custom_columns.map((c, i) => i === colIdx ? { ...c, items: [...c.items, { label: '', amount: 0 }] } : c) }));
+  const removeCustomItem = (colIdx: number, itemIdx: number) =>
+    setCashSheet(cs => ({ ...cs, custom_columns: cs.custom_columns.map((c, i) => i === colIdx ? { ...c, items: c.items.filter((_, j) => j !== itemIdx) } : c) }));
+  const updateCustomItem = (colIdx: number, itemIdx: number, patch: Partial<CashSheetItem>) =>
+    setCashSheet(cs => ({ ...cs, custom_columns: cs.custom_columns.map((c, i) => i === colIdx ? { ...c, items: c.items.map((it, j) => j === itemIdx ? { ...it, ...patch } : it) } : c) }));
 
   return (
     <PermissionGate permission="finance.read" fallback={<div className="p-8 text-center text-muted-foreground">Access denied</div>}>
@@ -1372,10 +1439,6 @@ export default function ReportsPage() {
                       </h3>
                       <p className="text-xs text-muted-foreground mt-1">Remplir d&apos;abord cette fiche, puis le suivi sera pré-rempli automatiquement.</p>
                     </div>
-                    <button onClick={exportCashSheetPDF} className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-xs hover:bg-card transition-colors">
-                      <Printer className="w-3.5 h-3.5" />
-                      Imprimer
-                    </button>
                   </div>
 
                   {/* Top totals - Manual inputs */}
@@ -1412,7 +1475,7 @@ export default function ReportsPage() {
                   
                   <input type="text" value={cashSheet.especes_note || ''} onChange={e => setCashSheet({ ...cashSheet, especes_note: e.target.value })} placeholder="Note espèces (ex: 07/04/2026 (450,00))" className="w-full px-3 py-2 bg-card border border-border rounded-lg text-xs" />
 
-                  {/* 3 columns: Payé / Non payé / Payé hors caisse */}
+                  {/* Columns: 3 fixed (Payé / Non payé / Payé hors caisse) + user-defined custom columns */}
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                     {([
                       { key: 'paid_items' as const, title: 'PAYÉ', color: 'text-emerald-600', bg: 'bg-emerald-500/5' },
@@ -1475,7 +1538,72 @@ export default function ReportsPage() {
                         )}
                       </div>
                     ))}
+
+                    {/* User-defined custom columns (editable title, print with the sheet) */}
+                    {cashSheet.custom_columns.map((col, colIdx) => (
+                      <div key={`custom-${colIdx}`} className="bg-violet-500/5 border border-border rounded-lg p-3">
+                        <div className="flex items-center gap-1 mb-2">
+                          <input
+                            type="text"
+                            value={col.title}
+                            onChange={e => updateCustomColumn(colIdx, { title: e.target.value })}
+                            placeholder="TITRE DE LA COLONNE"
+                            className="flex-1 min-w-0 px-2 py-1 bg-card border border-border rounded text-xs font-bold uppercase text-center text-violet-600 placeholder:font-normal placeholder:normal-case placeholder:text-muted-foreground"
+                          />
+                          <button
+                            onClick={() => removeCustomColumn(colIdx)}
+                            title="Supprimer la colonne"
+                            className="p-1 text-red-500 hover:bg-red-500/10 rounded shrink-0"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="space-y-1.5">
+                          {col.items.map((item, idx) => (
+                            <div key={idx} className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                value={item.label}
+                                onChange={e => updateCustomItem(colIdx, idx, { label: e.target.value })}
+                                placeholder="Description"
+                                className="flex-1 min-w-0 px-2 py-1.5 bg-card border border-border rounded text-xs"
+                              />
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={item.amount || ''}
+                                onChange={e => updateCustomItem(colIdx, idx, { amount: parseFloat(e.target.value) || 0 })}
+                                placeholder="0"
+                                className="w-20 px-2 py-1.5 bg-card border border-border rounded text-xs text-right"
+                              />
+                              {col.items.length > 1 && (
+                                <button
+                                  onClick={() => removeCustomItem(colIdx, idx)}
+                                  className="p-1 text-red-500 hover:bg-red-500/10 rounded"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          <button
+                            onClick={() => addCustomItem(colIdx)}
+                            className="w-full text-xs text-muted-foreground hover:text-foreground py-1 border border-dashed border-border rounded flex items-center justify-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" /> Ajouter
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
+
+                  {/* Add a new custom column */}
+                  <button
+                    onClick={addCustomColumn}
+                    className="w-full text-xs font-semibold text-violet-600 hover:bg-violet-500/10 py-2 border border-dashed border-violet-500/40 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" /> Ajouter une colonne
+                  </button>
 
                   {/* Bottom totals */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-border">
@@ -1570,8 +1698,17 @@ export default function ReportsPage() {
                     </div>
                   </div>
 
-                  {/* Save button */}
-                  <div className="flex justify-end pt-3 border-t border-border">
+                  {/* Save + Print. The Imprimer button only appears once the sheet is
+                      saved with no pending edits, so nothing unsaved can ever be printed. */}
+                  <div className="flex justify-end items-center gap-2 pt-3 border-t border-border">
+                    {cashSheetPrintable ? (
+                      <button onClick={exportCashSheetPDF} className="flex items-center gap-1.5 px-4 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-card transition-colors">
+                        <Printer className="w-4 h-4" />
+                        Imprimer
+                      </button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground mr-1">Enregistrez pour pouvoir imprimer</span>
+                    )}
                     <button onClick={saveCashSheet} disabled={cashSheetSaving} className="flex items-center gap-2 px-5 py-2.5 bg-[#606338] text-white rounded-xl text-sm font-semibold hover:bg-[#4d4f2e] disabled:opacity-50 transition-colors">
                       {cashSheetSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                       Enregistrer & Pré-remplir le Suivi
