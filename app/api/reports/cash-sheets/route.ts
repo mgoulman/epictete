@@ -1,13 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
 
+function parseCashNumber(value: unknown) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (typeof value !== 'string') return 0;
+
+  const compact = value.trim().replace(/[\s\u00a0]/g, '').replace(/[^\d,.-]/g, '');
+  if (!compact) return 0;
+
+  const lastComma = compact.lastIndexOf(',');
+  const lastDot = compact.lastIndexOf('.');
+  const normalized = lastComma > -1 && lastDot > -1
+    ? lastComma > lastDot
+      ? compact.replace(/\./g, '').replace(',', '.')
+      : compact.replace(/,/g, '')
+    : compact.replace(',', '.');
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function normalizeStoredCashSheet<T extends Record<string, unknown>>(sheet: T | null): T | null {
   if (!sheet) return sheet;
 
-  const totalCA = Number(sheet.total_ca) || 0;
-  const totalCB = Number(sheet.total_cb) || 0;
-  const glovoEspece = Number(sheet.glovo_ttc_espece) || 0;
-  const glovoOnline = Number(sheet.glovo_ttc_online) || 0;
+  const totalCA = parseCashNumber(sheet.total_ca);
+  const totalCB = parseCashNumber(sheet.total_cb);
+  const glovoEspece = parseCashNumber(sheet.glovo_ttc_espece);
+  const glovoOnline = parseCashNumber(sheet.glovo_ttc_online);
 
   const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline);
   const totalEspeces = caisseEspeces + glovoEspece;
@@ -51,11 +70,11 @@ export async function POST(request: NextRequest) {
 
     // Calculate totals
     const paidItems = body.paid_items || [];
-    const totalDepense = paidItems.reduce((s: number, i: { amount: number }) => s + (Number(i.amount) || 0), 0);
-    const totalCA = Number(body.total_ca) || 0;
-    const totalCB = Number(body.total_cb) || 0;
-    const glovoEspece = Number(body.glovo_ttc_espece) || 0;
-    const glovoOnline = Number(body.glovo_ttc_online) || 0;
+    const totalDepense = paidItems.reduce((s: number, i: { amount: unknown }) => s + parseCashNumber(i.amount), 0);
+    const totalCA = parseCashNumber(body.total_ca);
+    const totalCB = parseCashNumber(body.total_cb);
+    const glovoEspece = parseCashNumber(body.glovo_ttc_espece);
+    const glovoOnline = parseCashNumber(body.glovo_ttc_online);
     const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline);
     const totalEspeces = caisseEspeces + glovoEspece;
     const resteEspeces = totalEspeces - totalDepense;

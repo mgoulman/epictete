@@ -170,6 +170,25 @@ const fmtMAD = (n: number) => {
   return n.toLocaleString('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DH';
 };
 
+const parseCashNumber = (value: unknown) => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (typeof value !== 'string') return 0;
+
+  const compact = value.trim().replace(/[\s\u00a0]/g, '').replace(/[^\d,.-]/g, '');
+  if (!compact) return 0;
+
+  const lastComma = compact.lastIndexOf(',');
+  const lastDot = compact.lastIndexOf('.');
+  const normalized = lastComma > -1 && lastDot > -1
+    ? lastComma > lastDot
+      ? compact.replace(/\./g, '').replace(',', '.')
+      : compact.replace(/,/g, '')
+    : compact.replace(',', '.');
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 // Short format without "DH" suffix — used in compact tables
 const fmtMADShort = (n: number) => {
   if (n == null || isNaN(n) || n === 0) return '—';
@@ -191,11 +210,11 @@ const EXPENSE_CATEGORIES = [
 const PAYMENT_METHODS = ['cash', 'card_pro', 'tpe'] as const;
 
 const cashSheetTotals = (sheet: CashSheet) => {
-  const totalCA = Number(sheet.total_ca) || 0;
-  const totalCB = Number(sheet.total_cb) || 0;
-  const glovoEspece = Number(sheet.glovo_ttc_espece) || 0;
-  const glovoOnline = Number(sheet.glovo_ttc_online) || 0;
-  const totalDepense = (sheet.paid_items || []).reduce((s, i) => s + (Number(i.amount) || 0), 0);
+  const totalCA = parseCashNumber(sheet.total_ca);
+  const totalCB = parseCashNumber(sheet.total_cb);
+  const glovoEspece = parseCashNumber(sheet.glovo_ttc_espece);
+  const glovoOnline = parseCashNumber(sheet.glovo_ttc_online);
+  const totalDepense = (sheet.paid_items || []).reduce((s, i) => s + parseCashNumber(i.amount), 0);
   const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline);
   const totalEspeces = caisseEspeces + glovoEspece;
 
