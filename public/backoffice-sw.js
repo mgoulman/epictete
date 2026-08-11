@@ -1,5 +1,5 @@
 // Epictete Backoffice Service Worker
-const CACHE_NAME = 'epictete-backoffice-v2';
+const CACHE_NAME = 'epictete-backoffice-v3';
 const OFFLINE_URL = '/offline';
 
 // Assets to cache immediately on install
@@ -118,26 +118,20 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For static assets - cache first, network fallback
+  // For static assets - network first, cache fallback.
+  // Previously this was cache-first ("return cache, update in background"), which
+  // served STALE JS after every deploy until users manually cleared their cache —
+  // that's why fixed code (e.g. the Blob upload handler) didn't take effect in the
+  // browser. Going network-first guarantees fresh chunks when online; the cache is
+  // only used as an offline fallback.
   if (
     url.pathname.startsWith('/_next/static/') ||
     url.pathname.startsWith('/static/') ||
     url.pathname.match(/\.(js|css|png|jpg|jpeg|svg|ico|woff|woff2)$/)
   ) {
     event.respondWith(
-      caches.match(request).then((cachedResponse) => {
-        if (cachedResponse) {
-          // Return cache and update in background
-          fetch(request).then((response) => {
-            if (response.ok) {
-              caches.open(CACHE_NAME).then((cache) => {
-                cache.put(request, response);
-              });
-            }
-          });
-          return cachedResponse;
-        }
-        return fetch(request).then((response) => {
+      fetch(request)
+        .then((response) => {
           if (response.ok) {
             const responseClone = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
@@ -145,8 +139,8 @@ self.addEventListener('fetch', (event) => {
             });
           }
           return response;
-        });
-      })
+        })
+        .catch(() => caches.match(request))
     );
     return;
   }
