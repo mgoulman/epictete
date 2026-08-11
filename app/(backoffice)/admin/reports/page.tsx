@@ -476,8 +476,14 @@ export default function ReportsPage() {
   };
 
   // Upload scanned receipts / photos for the fiche de caisse (camera or file).
-  const handleCashSheetUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) {
+  const handleCashSheetUpload = async (fileList: FileList | null) => {
+    // Snapshot the files SYNCHRONOUSLY. The onChange handler resets
+    // `input.value = ''` immediately after calling us (so the same file can be
+    // re-selected). That reset empties the live FileList before our first
+    // `await` resolves, so reading `Array.from(fileList)` later would yield an
+    // empty list — the upload silently did nothing and showed a bogus Blob error.
+    const files = fileList ? Array.from(fileList) : [];
+    if (files.length === 0) {
       return;
     }
     setCashSheetUploading(true);
@@ -486,7 +492,7 @@ export default function ReportsPage() {
       const { uploadFile } = await import('@/lib/client-upload');
       const added: CashSheetAttachment[] = [];
       const failed: string[] = [];
-      for (const f of Array.from(files)) {
+      for (const f of files) {
         try {
           const result = await uploadFile(f, 'cash-sheets');
           added.push({ name: f.name, url: result.url, path: result.path, mime: f.type, size: f.size });

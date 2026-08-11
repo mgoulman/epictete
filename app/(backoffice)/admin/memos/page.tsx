@@ -325,12 +325,15 @@ function ComposeModal({ onClose, onSent }: { onClose: () => void; onSent: () => 
     setRecips(prev => has(type, value) ? prev.filter(r => !(r.type === type && r.value === value)) : [...prev, { type, value, label }]);
   };
 
-  const onFiles = async (files: FileList | null) => {
-    if (!files?.length) return;
+  const onFiles = async (fileList: FileList | null) => {
+    // Snapshot synchronously — the onChange resets input.value='' right after
+    // calling us, which empties the live FileList before the first await.
+    const files = fileList ? Array.from(fileList) : [];
+    if (!files.length) return;
     setUploading(true); setError(null);
     try {
       const { uploadFile } = await import('@/lib/client-upload');
-      for (const f of Array.from(files)) {
+      for (const f of files) {
         const { url, path } = await uploadFile(f, 'memo-attachments');
         setAttachments(prev => [...prev, { name: f.name, url, path, mime: f.type, size: f.size }]);
       }
