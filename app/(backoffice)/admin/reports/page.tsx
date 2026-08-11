@@ -1698,21 +1698,22 @@ export default function ReportsPage() {
                     </div>
                   </div>
 
-                  {/* Save + Print. The Imprimer button only appears once the sheet is
-                      saved with no pending edits, so nothing unsaved can ever be printed. */}
-                  <div className="flex justify-end items-center gap-2 pt-3 border-t border-border">
+                  {/* One button that toggles Save ⇄ Print: it says "Enregistrer" while
+                      there are unsaved edits, switches to "Imprimer" once saved, and
+                      reverts to "Enregistrer" on any further edit — so the sheet can
+                      never be printed without first being saved. */}
+                  <div className="flex justify-end items-center pt-3 border-t border-border">
                     {cashSheetPrintable ? (
-                      <button onClick={exportCashSheetPDF} className="flex items-center gap-1.5 px-4 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-card transition-colors">
+                      <button onClick={exportCashSheetPDF} className="flex items-center gap-2 px-5 py-2.5 bg-[#606338] text-white rounded-xl text-sm font-semibold hover:bg-[#4d4f2e] transition-colors">
                         <Printer className="w-4 h-4" />
-                        Imprimer
+                        Imprimer la Feuille
                       </button>
                     ) : (
-                      <span className="text-xs text-muted-foreground mr-1">Enregistrez pour pouvoir imprimer</span>
+                      <button onClick={saveCashSheet} disabled={cashSheetSaving} className="flex items-center gap-2 px-5 py-2.5 bg-[#606338] text-white rounded-xl text-sm font-semibold hover:bg-[#4d4f2e] disabled:opacity-50 transition-colors">
+                        {cashSheetSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        Enregistrer & Pré-remplir le Suivi
+                      </button>
                     )}
-                    <button onClick={saveCashSheet} disabled={cashSheetSaving} className="flex items-center gap-2 px-5 py-2.5 bg-[#606338] text-white rounded-xl text-sm font-semibold hover:bg-[#4d4f2e] disabled:opacity-50 transition-colors">
-                      {cashSheetSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                      Enregistrer & Pré-remplir le Suivi
-                    </button>
                   </div>
                 </div>
             </div>

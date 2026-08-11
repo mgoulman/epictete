@@ -101,23 +101,31 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    let { data, error } = await supabase
-      .from('cash_sheets')
-      .upsert(sheet, { onConflict: 'entry_date' })
-      .select()
-      .single();
+    // Upsert helper that normalizes BOTH failure modes of the db compat layer:
+    // it may return { error } OR throw. We collapse both to a returned error so
+    // the custom_columns fallback below can act on either.
+    const upsertSheet = async (payload: Record<string, unknown>) => {
+      try {
+        const res = await supabase
+          .from('cash_sheets')
+          .upsert(payload, { onConflict: 'entry_date' })
+          .select()
+          .single();
+        return { data: res.data, error: res.error as { message?: string } | null };
+      } catch (e) {
+        return { data: null, error: { message: e instanceof Error ? e.message : String(e) } };
+      }
+    };
+
+    let { data, error } = await upsertSheet(sheet);
 
     // Graceful fallback if the custom_columns migration hasn't been applied yet:
-    // retry the upsert without that field so saving still works (columns just
-    // won't persist until `scripts/add-cash-sheet-custom-columns.mjs` is run).
+    // retry the upsert without that field so saving still works (custom columns
+    // just won't persist until `scripts/add-cash-sheet-custom-columns.mjs` runs).
     if (error && /custom_columns/i.test(error.message || '')) {
       const { custom_columns: _omit, ...sheetWithoutCustom } = sheet;
       void _omit;
-      ({ data, error } = await supabase
-        .from('cash_sheets')
-        .upsert(sheetWithoutCustom, { onConflict: 'entry_date' })
-        .select()
-        .single());
+      ({ data, error } = await upsertSheet(sheetWithoutCustom));
     }
 
     if (error) throw error;
