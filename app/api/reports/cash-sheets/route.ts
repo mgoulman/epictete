@@ -20,6 +20,24 @@ function parseCashNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function nonCashSourcesTotal(sources: unknown): number {
+  if (!Array.isArray(sources)) return 0;
+  return sources
+    .filter((s): s is { amount: unknown; counts_as_cash?: unknown } => !!s && typeof s === 'object')
+    .filter(s => !s.counts_as_cash)
+    .reduce((sum, s) => sum + parseCashNumber(s.amount), 0);
+}
+
+function customColumnsDepense(columns: unknown): number {
+  if (!Array.isArray(columns)) return 0;
+  return columns
+    .filter((c): c is { items?: unknown; count_as_depense?: unknown } => !!c && typeof c === 'object')
+    .filter(c => c.count_as_depense)
+    .reduce((sum, c) => sum + (Array.isArray(c.items)
+      ? c.items.reduce((s: number, i: { amount: unknown }) => s + parseCashNumber(i?.amount), 0)
+      : 0), 0);
+}
+
 function normalizeStoredCashSheet<T extends Record<string, unknown>>(sheet: T | null): T | null {
   if (!sheet) return sheet;
 
@@ -27,8 +45,9 @@ function normalizeStoredCashSheet<T extends Record<string, unknown>>(sheet: T | 
   const totalCB = parseCashNumber(sheet.total_cb);
   const glovoEspece = parseCashNumber(sheet.glovo_ttc_espece);
   const glovoOnline = parseCashNumber(sheet.glovo_ttc_online);
+  const nonCashSources = nonCashSourcesTotal(sheet.payment_sources);
 
-  const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline);
+  const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline - nonCashSources);
   const totalEspeces = caisseEspeces + glovoEspece;
 
   return { ...sheet, total_especes_caisse: caisseEspeces, total_especes: totalEspeces };
@@ -70,12 +89,16 @@ export async function POST(request: NextRequest) {
 
     // Calculate totals
     const paidItems = body.paid_items || [];
-    const totalDepense = paidItems.reduce((s: number, i: { amount: unknown }) => s + parseCashNumber(i.amount), 0);
+    const customColumns = Array.isArray(body.custom_columns) ? body.custom_columns : [];
+    const paymentSources = Array.isArray(body.payment_sources) ? body.payment_sources : [];
+    const customDepense = customColumnsDepense(customColumns);
+    const totalDepense = paidItems.reduce((s: number, i: { amount: unknown }) => s + parseCashNumber(i.amount), 0) + customDepense;
     const totalCA = parseCashNumber(body.total_ca);
     const totalCB = parseCashNumber(body.total_cb);
     const glovoEspece = parseCashNumber(body.glovo_ttc_espece);
     const glovoOnline = parseCashNumber(body.glovo_ttc_online);
-    const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline);
+    const nonCashSources = nonCashSourcesTotal(paymentSources);
+    const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline - nonCashSources);
     const totalEspeces = caisseEspeces + glovoEspece;
     const resteEspeces = totalEspeces - totalDepense;
 
@@ -91,7 +114,8 @@ export async function POST(request: NextRequest) {
       paid_items: paidItems,
       unpaid_items: body.unpaid_items || [],
       paid_outside_items: body.paid_outside_items || [],
-      custom_columns: Array.isArray(body.custom_columns) ? body.custom_columns : [],
+      custom_columns: customColumns,
+      payment_sources: paymentSources,
       total_depense: Math.round(totalDepense * 100) / 100,
       reste_especes: Math.round(resteEspeces * 100) / 100,
       manager_name: body.manager_name || null,
@@ -119,13 +143,21 @@ export async function POST(request: NextRequest) {
 
     let { data, error } = await upsertSheet(sheet);
 
-    // Graceful fallback if the custom_columns migration hasn't been applied yet:
-    // retry the upsert without that field so saving still works (custom columns
-    // just won't persist until `scripts/add-cash-sheet-custom-columns.mjs` runs).
-    if (error && /custom_columns/i.test(error.message || '')) {
-      const { custom_columns: _omit, ...sheetWithoutCustom } = sheet;
+    // Graceful fallback if an optional JSONB column's migration hasn't been applied
+    // yet: strip whichever column the error names and retry, so saving still works
+    // (that field just won't persist until the migration runs). Bounded to the known
+    // optional columns so we can't loop forever.
+    const OPTIONAL_COLUMNS = ['custom_columns', 'payment_sources'] as const;
+    let attempts = 0;
+    let payload: Record<string, unknown> = sheet;
+    while (error && attempts < OPTIONAL_COLUMNS.length) {
+      const missing = OPTIONAL_COLUMNS.find(col => new RegExp(col, 'i').test(error!.message || '') && col in payload);
+      if (!missing) break;
+      const { [missing]: _omit, ...rest } = payload;
       void _omit;
-      ({ data, error } = await upsertSheet(sheetWithoutCustom));
+      payload = rest;
+      ({ data, error } = await upsertSheet(payload));
+      attempts++;
     }
 
     if (error) throw error;

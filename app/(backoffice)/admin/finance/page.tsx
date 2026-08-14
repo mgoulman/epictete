@@ -209,6 +209,7 @@ export default function FinancePage() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [inventoryCategories, setInventoryCategories] = useState<InventoryCategory[]>([]);
   const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventoryExporting, setInventoryExporting] = useState(false);
   const [inventorySearch, setInventorySearch] = useState('');
   const [inventoryCategory, setInventoryCategory] = useState('');
   const [showInventoryModal, setShowInventoryModal] = useState(false);
@@ -408,6 +409,66 @@ export default function FinancePage() {
     }
     if (showLoader) setInventoryLoading(false);
   }, [inventoryCategory, inventorySearch]);
+
+  // F1 — export the products table (current filtered view) to Excel.
+  const exportInventoryExcel = async () => {
+    if (!inventoryItems.length) return;
+    setInventoryExporting(true);
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'Epictète Restaurant';
+      const ws = wb.addWorksheet('Produits');
+
+      ws.columns = [
+        { header: 'Produit', key: 'name', width: 40 },
+        { header: 'Catégorie', key: 'category', width: 22 },
+        { header: 'Unité', key: 'unit', width: 12 },
+        { header: 'Quantité', key: 'quantity', width: 12 },
+        { header: 'Stock min', key: 'min', width: 12 },
+        { header: 'Coût unitaire', key: 'cost', width: 14 },
+        { header: 'Dernier prix', key: 'last', width: 14 },
+        { header: 'Fournisseur', key: 'vendor', width: 26 },
+      ];
+
+      const hRow = ws.getRow(1);
+      hRow.eachCell(c => {
+        c.fill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: '606338' } };
+        c.font = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
+        c.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+      hRow.height = 20;
+
+      const money = '#,##0.00';
+      for (const it of inventoryItems) {
+        const row = ws.addRow({
+          name: it.name,
+          category: it.inventory_category?.name || it.category || '',
+          unit: it.unit || '',
+          quantity: Number(it.quantity) || 0,
+          min: Number(it.minimum_stock) || 0,
+          cost: Number(it.cost_per_unit) || 0,
+          last: Number(it.last_purchase_price) || 0,
+          vendor: it.vendor?.name || it.supplier || '',
+        });
+        row.getCell('cost').numFmt = money;
+        row.getCell('last').numFmt = money;
+      }
+      ws.views = [{ state: 'frozen', ySplit: 1 }];
+      ws.autoFilter = { from: 'A1', to: 'H1' };
+
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const stamp = new Date().toISOString().split('T')[0];
+      a.href = url; a.download = `produits_${stamp}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setInventoryExporting(false);
+    }
+  };
 
   const fetchVendors = useCallback(async (showLoader = true) => {
     if (showLoader) setVendorsLoading(true);
@@ -1646,6 +1707,15 @@ export default function FinancePage() {
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
               </select>
+              <button
+                onClick={exportInventoryExcel}
+                disabled={inventoryExporting || inventoryItems.length === 0}
+                title="Exporter la liste des produits (Excel)"
+                className="flex items-center gap-2 px-4 py-2.5 bg-secondary border border-border rounded-lg text-foreground text-sm font-medium hover:bg-card transition-colors disabled:opacity-50"
+              >
+                {inventoryExporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                Exporter
+              </button>
               {canWrite && (
                 <div className="flex items-center gap-2">
                   <button

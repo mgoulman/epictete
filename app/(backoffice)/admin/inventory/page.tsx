@@ -5,10 +5,11 @@ import { useSearchParams } from 'next/navigation';
 import {
   Package, Plus, Trash2, Search, Calendar,
   ChevronLeft, ChevronRight, Loader2, ShoppingCart,
-  History, Download, Check, TrendingDown, Wallet, ClipboardList, Eye, X, ChevronDown
+  History, Download, Check, TrendingDown, Wallet, ClipboardList, Eye, X, ChevronDown, ClipboardCheck
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import ExcelJS from 'exceljs';
+import StockCountSheet from '@/components/backoffice/inventory/StockCountSheet';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -103,7 +104,7 @@ interface PurchaseOrder {
   items: PurchaseOrderItem[];
 }
 
-type TabKey = 'purchase' | 'usage' | 'history' | 'orders';
+type TabKey = 'purchase' | 'usage' | 'history' | 'orders' | 'count';
 type HistoryFilter = 'all' | 'purchase' | 'usage';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -444,7 +445,7 @@ export default function InventoryPage() {
     const params = new URLSearchParams();
     if (historyStart) params.set('startDate', historyStart);
     if (historyEnd) params.set('endDate', historyEnd);
-    const res = await fetch(`/api/inventory/daily-purchase?${params}`);
+    const res = await fetch(`/api/inventory/daily-purchase?${params}`, { cache: 'no-store' });
     const data = await res.json();
     setPurchaseMovements(data.movements || []);
   }, [historyStart, historyEnd]);
@@ -453,7 +454,7 @@ export default function InventoryPage() {
     const params = new URLSearchParams();
     if (historyStart) params.set('startDate', historyStart);
     if (historyEnd) params.set('endDate', historyEnd);
-    const res = await fetch(`/api/inventory/daily-usage?${params}`);
+    const res = await fetch(`/api/inventory/daily-usage?${params}`, { cache: 'no-store' });
     const data = await res.json();
     setUsageMovements(data.movements || []);
   }, [historyStart, historyEnd]);
@@ -763,14 +764,33 @@ export default function InventoryPage() {
     if (hasUsage) {
       deletes.push(fetch(`/api/inventory/daily-purchase?date=${date}&type=daily_usage`, { method: 'DELETE' }));
     }
-    await Promise.all(deletes);
+    const results = await Promise.all(deletes);
+    if (results.some(r => !r.ok)) {
+      showToast(tt('deleteError', 'Échec de la suppression'));
+      fetchAllHistory();
+      fetchItems();
+      return;
+    }
+    // Optimistically drop the deleted rows so the UI updates immediately,
+    // then reconcile with the server (see fetch*History for cache:'no-store').
+    const removedIds = new Set(dayMovements.map(m => m.id));
+    setPurchaseMovements(prev => prev.filter(m => !removedIds.has(m.id)));
+    setUsageMovements(prev => prev.filter(m => !removedIds.has(m.id)));
     showToast(tt('deleted', 'Supprimé'));
     fetchAllHistory();
     fetchItems();
   };
 
   const handleDeleteSingleMovement = async (movementId: string) => {
-    await fetch(`/api/inventory/daily-purchase?id=${movementId}`, { method: 'DELETE' });
+    const res = await fetch(`/api/inventory/daily-purchase?id=${movementId}`, { method: 'DELETE' });
+    if (!res.ok) {
+      showToast(tt('deleteError', 'Échec de la suppression'));
+      fetchAllHistory();
+      fetchItems();
+      return;
+    }
+    setPurchaseMovements(prev => prev.filter(m => m.id !== movementId));
+    setUsageMovements(prev => prev.filter(m => m.id !== movementId));
     showToast(tt('deleted', 'Supprimé'));
     fetchAllHistory();
     fetchItems();
@@ -1551,6 +1571,7 @@ export default function InventoryPage() {
         {([
           { key: 'history' as TabKey, icon: History, label: tt('tabs.history', 'Historique') },
           { key: 'orders' as TabKey, icon: ClipboardList, label: tt('tabs.orders', 'Commandes') },
+          { key: 'count' as TabKey, icon: ClipboardCheck, label: tt('tabs.count', 'Comptage') },
         ]).map(t => (
           <button
             key={t.key}
@@ -1919,6 +1940,16 @@ export default function InventoryPage() {
 
       {/* ─── History Tab ───────────────────────────────────────────────── */}
       {tab === 'history' && renderHistoryTab()}
+
+      {/* ─── Comptage Tab (F2a — print sheet + scan + validate + save) ──── */}
+      {tab === 'count' && (
+        <StockCountSheet
+          items={items}
+          categories={categories}
+          onSaved={() => { fetchItems(); fetchAllHistory(); }}
+          showToast={showToast}
+        />
+      )}
 
       {/* ─── Orders Tab ────────────────────────────────────────────────── */}
       {tab === 'orders' && (

@@ -50,10 +50,21 @@ interface CashSheetItem {
 }
 
 // A user-defined column added to the Feuille de Caisse (title + its own line items).
-// Informational only — prints on the sheet but does not affect the cash totals.
+// Prints on the sheet. When count_as_depense is true, the column's total is added to
+// TOTAL DÉPENSE (and subtracted from RESTE) — otherwise it's informational only.
 interface CashSheetColumn {
   title: string;
   items: CashSheetItem[];
+  count_as_depense?: boolean;
+}
+
+// A user-defined non-cash payment source on the Feuille de Caisse (e.g. Virement, Chèque).
+// counts_as_cash = false → subtracted from CA like CB when isolating cash-in-drawer.
+// counts_as_cash = true  → left inside the espèces bucket (treated as cash).
+interface CashPaymentSource {
+  name: string;
+  amount: number;
+  counts_as_cash: boolean;
 }
 
 interface CashSheetAttachment {
@@ -78,6 +89,7 @@ interface CashSheet {
   unpaid_items: CashSheetItem[];
   paid_outside_items: CashSheetItem[];
   custom_columns: CashSheetColumn[];
+  payment_sources: CashPaymentSource[];
   total_depense: number;
   reste_especes: number;
   manager_name: string | null;
@@ -217,13 +229,27 @@ const EXPENSE_CATEGORIES = [
 
 const PAYMENT_METHODS = ['cash', 'card_pro', 'tpe'] as const;
 
+const columnItemsTotal = (col: CashSheetColumn) =>
+  (col.items || []).reduce((s, i) => s + parseCashNumber(i.amount), 0);
+
 const cashSheetTotals = (sheet: CashSheet) => {
   const totalCA = parseCashNumber(sheet.total_ca);
   const totalCB = parseCashNumber(sheet.total_cb);
   const glovoEspece = parseCashNumber(sheet.glovo_ttc_espece);
   const glovoOnline = parseCashNumber(sheet.glovo_ttc_online);
-  const totalDepense = (sheet.paid_items || []).reduce((s, i) => s + parseCashNumber(i.amount), 0);
-  const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline);
+
+  // R1 — extra non-cash payment sources (toggle OFF) come out of CA like CB does.
+  const nonCashSources = (sheet.payment_sources || [])
+    .filter(s => !s.counts_as_cash)
+    .reduce((s, src) => s + parseCashNumber(src.amount), 0);
+
+  // R2 — custom columns flagged "compter dans la dépense" add to TOTAL DÉPENSE.
+  const customDepense = (sheet.custom_columns || [])
+    .filter(c => c.count_as_depense)
+    .reduce((s, c) => s + columnItemsTotal(c), 0);
+
+  const totalDepense = (sheet.paid_items || []).reduce((s, i) => s + parseCashNumber(i.amount), 0) + customDepense;
+  const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline - nonCashSources);
   const totalEspeces = caisseEspeces + glovoEspece;
 
   return {
@@ -231,6 +257,8 @@ const cashSheetTotals = (sheet: CashSheet) => {
     totalCB,
     glovoEspece,
     glovoOnline,
+    nonCashSources,
+    customDepense,
     totalDepense,
     totalEspeces,
     totalCA,
@@ -255,11 +283,47 @@ const serializeCashSheet = (s: CashSheet) => JSON.stringify({
   paid_items: cleanCashItems(s.paid_items),
   unpaid_items: cleanCashItems(s.unpaid_items),
   paid_outside_items: cleanCashItems(s.paid_outside_items),
-  custom_columns: (s.custom_columns || []).map(c => ({ title: (c.title || '').trim(), items: cleanCashItems(c.items) })),
+  custom_columns: (s.custom_columns || []).map(c => ({ title: (c.title || '').trim(), items: cleanCashItems(c.items), count_as_depense: !!c.count_as_depense })),
+  payment_sources: (s.payment_sources || [])
+    .filter(p => (p.name || '').trim() !== '' || parseCashNumber(p.amount) !== 0)
+    .map(p => ({ name: (p.name || '').trim(), amount: parseCashNumber(p.amount), counts_as_cash: !!p.counts_as_cash })),
   manager_name: s.manager_name || '',
   visa_caisse: s.visa_caisse || '',
   attachments: (s.attachments || []).map(a => a.url),
 });
+
+// A compact pill toggle switch used for the cash-sheet options (R1/R2), so the
+// on/off state reads clearly instead of a bare browser checkbox.
+function ToggleSwitch({
+  checked, onChange, label, variant = 'olive', title,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  variant?: 'olive' | 'orange';
+  title?: string;
+}) {
+  const activeClasses = variant === 'orange'
+    ? 'bg-orange-500 border-orange-500 text-white'
+    : 'bg-[#606338] border-[#606338] text-white';
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      title={title}
+      onClick={() => onChange(!checked)}
+      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
+        checked ? activeClasses : 'border-border bg-card text-muted-foreground hover:text-foreground'
+      }`}
+    >
+      <span className={`relative inline-flex h-3.5 w-6 items-center rounded-full transition-colors ${checked ? 'bg-white/40' : 'bg-muted-foreground/30'}`}>
+        <span className={`inline-block h-2.5 w-2.5 rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-[11px]' : 'translate-x-0.5'}`} />
+      </span>
+      {label}
+    </button>
+  );
+}
 
 // ============================================
 // Component
@@ -305,6 +369,7 @@ export default function ReportsPage() {
     unpaid_items: [{ label: '', amount: 0 }],
     paid_outside_items: [{ label: '', amount: 0 }],
     custom_columns: [],
+    payment_sources: [],
     total_depense: 0,
     reste_especes: 0,
     manager_name: '', visa_caisse: '',
@@ -318,6 +383,10 @@ export default function ReportsPage() {
   const [showCashSheet, setShowCashSheet] = useState(false);
   const [cashSheetUploading, setCashSheetUploading] = useState(false);
   const [cashSheetUploadError, setCashSheetUploadError] = useState<string | null>(null);
+  // R3 — lightbox for viewing an attached image full-size; showAllAttachments expands
+  // the thumbnail grid past its collapsed cap so many files don't blow out the layout.
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [showAllAttachments, setShowAllAttachments] = useState(false);
 
   // ── Suivi / Recap State ──
   const [selectedMonth, setSelectedMonth] = useState(getMonthStr(new Date()));
@@ -408,6 +477,7 @@ export default function ReportsPage() {
           unpaid_items: (data.sheet.unpaid_items?.length ? data.sheet.unpaid_items : [{ label: '', amount: 0 }]),
           paid_outside_items: (data.sheet.paid_outside_items?.length ? data.sheet.paid_outside_items : [{ label: '', amount: 0 }]),
           custom_columns: Array.isArray(data.sheet.custom_columns) ? data.sheet.custom_columns : [],
+          payment_sources: Array.isArray(data.sheet.payment_sources) ? data.sheet.payment_sources : [],
           attachments: Array.isArray(data.sheet.attachments) ? data.sheet.attachments : [],
         };
         setCashSheet(loaded);
@@ -422,6 +492,7 @@ export default function ReportsPage() {
           unpaid_items: [{ label: '', amount: 0 }],
           paid_outside_items: [{ label: '', amount: 0 }],
           custom_columns: [],
+          payment_sources: [],
           total_depense: 0, reste_especes: 0,
           manager_name: '', visa_caisse: '',
           attachments: [],
@@ -584,7 +655,7 @@ export default function ReportsPage() {
       { title: 'PAYÉ HORS CAISSE', items: cashSheet.paid_outside_items },
       ...cashSheet.custom_columns
         .filter(c => (c.title || '').trim() !== '' || c.items.some(i => i.label))
-        .map(c => ({ title: (c.title || '').trim() || '—', items: c.items })),
+        .map(c => ({ title: ((c.title || '').trim() || '—') + (c.count_as_depense ? ' (dépense)' : ''), items: c.items })),
     ];
     const colChunks: { title: string; items: CashSheetItem[] }[][] = [];
     for (let i = 0; i < printCols.length; i += 3) colChunks.push(printCols.slice(i, i + 3));
@@ -623,6 +694,10 @@ export default function ReportsPage() {
       <table>
         <tr><td colspan="2" class="amount">DATE : ${date}</td></tr>
         <tr><td class="label">TOTAL CB :</td><td class="amount">${fmt(cashSheet.total_cb)}</td></tr>
+        ${(cashSheet.payment_sources || [])
+          .filter(s => (s.name || '').trim() !== '' || Number(s.amount))
+          .map(s => `<tr><td class="label" style="font-weight:normal">${esc((s.name || '').trim() || '—')}${s.counts_as_cash ? ' (espèce)' : ''} :</td><td class="amount">${fmt(Number(s.amount))}</td></tr>`)
+          .join('')}
         <tr><td class="label">Glovo TTC Espèce :</td><td class="amount">${fmt(cashSheet.glovo_ttc_espece || 0)}</td></tr>
         <tr><td class="label">Glovo TTC Online :</td><td class="amount">${fmt(cashSheet.glovo_ttc_online || 0)}</td></tr>
         <tr><td class="label">Total Espèce Caisse :</td><td class="amount">${fmt(totals.caisseEspeces)}</td></tr>
@@ -1366,6 +1441,14 @@ export default function ReportsPage() {
   const updateCustomItem = (colIdx: number, itemIdx: number, patch: Partial<CashSheetItem>) =>
     setCashSheet(cs => ({ ...cs, custom_columns: cs.custom_columns.map((c, i) => i === colIdx ? { ...c, items: c.items.map((it, j) => j === itemIdx ? { ...it, ...patch } : it) } : c) }));
 
+  // ── Payment-source helpers (R1) ──
+  const addPaymentSource = () =>
+    setCashSheet(cs => ({ ...cs, payment_sources: [...(cs.payment_sources || []), { name: '', amount: 0, counts_as_cash: false }] }));
+  const removePaymentSource = (idx: number) =>
+    setCashSheet(cs => ({ ...cs, payment_sources: (cs.payment_sources || []).filter((_, i) => i !== idx) }));
+  const updatePaymentSource = (idx: number, patch: Partial<CashPaymentSource>) =>
+    setCashSheet(cs => ({ ...cs, payment_sources: (cs.payment_sources || []).map((p, i) => i === idx ? { ...p, ...patch } : p) }));
+
   return (
     <PermissionGate permission="finance.read" fallback={<div className="p-8 text-center text-muted-foreground">Access denied</div>}>
       <div className="space-y-6">
@@ -1441,49 +1524,134 @@ export default function ReportsPage() {
                     </div>
                   </div>
 
+                  {/* ── Recettes ── */}
+                  <div className="flex items-center gap-3 pt-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Recettes</span>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
+
                   {/* Top totals - Manual inputs */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <label className="block">
-                      <span className="text-xs text-muted-foreground">TOTAL CA</span>
-                      <input type="number" step="0.01" value={cashSheet.total_ca || ''} onChange={e => setCashSheet({ ...cashSheet, total_ca: parseFloat(e.target.value) || 0 })} placeholder="0" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm text-right" />
-                    </label>
-                    <label className="block">
-                      <span className="text-xs text-muted-foreground">TOTAL CB</span>
-                      <input type="number" step="0.01" value={cashSheet.total_cb || ''} onChange={e => setCashSheet({ ...cashSheet, total_cb: parseFloat(e.target.value) || 0 })} placeholder="0" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm text-right" />
-                    </label>
-                    <label className="block">
-                      <span className="text-xs text-muted-foreground">Glovo TTC Espèce</span>
-                      <input type="number" step="0.01" value={cashSheet.glovo_ttc_espece || ''} onChange={e => setCashSheet({ ...cashSheet, glovo_ttc_espece: parseFloat(e.target.value) || 0 })} placeholder="0" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm text-right" />
-                    </label>
-                    <label className="block">
-                      <span className="text-xs text-muted-foreground">Glovo TTC Online</span>
-                      <input type="number" step="0.01" value={cashSheet.glovo_ttc_online || ''} onChange={e => setCashSheet({ ...cashSheet, glovo_ttc_online: parseFloat(e.target.value) || 0 })} placeholder="0" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm text-right" />
-                    </label>
+                    {([
+                      { key: 'total_ca' as const, label: 'TOTAL CA' },
+                      { key: 'total_cb' as const, label: 'TOTAL CB' },
+                      { key: 'glovo_ttc_espece' as const, label: 'Glovo TTC Espèce' },
+                      { key: 'glovo_ttc_online' as const, label: 'Glovo TTC Online' },
+                    ]).map(f => (
+                      <label key={f.key} className="block">
+                        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{f.label}</span>
+                        <input
+                          type="number" step="0.01"
+                          value={(cashSheet[f.key] as number) || ''}
+                          onChange={e => setCashSheet({ ...cashSheet, [f.key]: parseFloat(e.target.value) || 0 })}
+                          placeholder="0"
+                          className="w-full mt-1.5 px-3 py-2 bg-card border border-border rounded-lg text-sm text-right outline-none focus:border-[#606338] transition-colors"
+                        />
+                      </label>
+                    ))}
                   </div>
 
-                  {/* Auto-calculated Total Espèce Caisse */}
-                  <div className="bg-card border border-border rounded-lg p-4 flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground font-medium">Total Espèce Caisse</span>
-                    <span className="text-xl font-bold text-[#606338]">{fmtMAD(currentCashSheetTotals.caisseEspeces)}</span>
+                  {/* Autres encaissements — user-defined non-cash payment sources (R1) */}
+                  <div className="bg-card border border-border rounded-xl p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Autres encaissements</span>
+                      <span className="text-[10px] text-muted-foreground">Virement, chèque, etc.</span>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5">
+                      {(cashSheet.payment_sources || []).map((src, idx) => (
+                        <div key={idx} className="group relative rounded-xl border border-border bg-secondary/40 p-2.5">
+                          <button
+                            onClick={() => removePaymentSource(idx)}
+                            className="absolute top-1.5 right-1.5 p-1 rounded-md text-muted-foreground/60 hover:text-red-500 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                            title="Supprimer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                          <input
+                            type="text"
+                            value={src.name}
+                            onChange={e => updatePaymentSource(idx, { name: e.target.value })}
+                            placeholder="Nom"
+                            className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground placeholder:font-normal mb-2 pr-5"
+                          />
+                          <div className="relative mb-2">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={src.amount || ''}
+                              onChange={e => updatePaymentSource(idx, { amount: parseFloat(e.target.value) || 0 })}
+                              placeholder="0.00"
+                              className="w-full rounded-lg border border-border bg-card px-2.5 py-1.5 pr-8 text-sm text-right outline-none focus:border-[#606338] transition-colors"
+                            />
+                            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground">DH</span>
+                          </div>
+                          {/* Segmented control: Espèce (counted as cash) vs Déduit (removed from CA like CB) */}
+                          <div className="grid grid-cols-2 gap-0.5 p-0.5 bg-secondary rounded-lg">
+                            <button
+                              type="button"
+                              onClick={() => updatePaymentSource(idx, { counts_as_cash: true })}
+                              className={`py-1 rounded-md text-[10px] font-semibold transition-colors ${src.counts_as_cash ? 'bg-[#606338] text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                            >
+                              Espèce
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updatePaymentSource(idx, { counts_as_cash: false })}
+                              className={`py-1 rounded-md text-[10px] font-semibold transition-colors ${!src.counts_as_cash ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                            >
+                              Déduit
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      <button
+                        onClick={addPaymentSource}
+                        className="flex flex-col items-center justify-center gap-1 min-h-[112px] rounded-xl border border-dashed border-border text-muted-foreground hover:text-[#606338] hover:border-[#606338]/50 hover:bg-[#606338]/5 transition-colors text-xs font-medium"
+                      >
+                        <Plus className="w-5 h-5" />
+                        Ajouter
+                      </button>
+                    </div>
+                    {currentCashSheetTotals.nonCashSources > 0 && (
+                      <div className="mt-2 pt-2 border-t border-border text-[11px] text-muted-foreground flex justify-between">
+                        <span>Déduit du CA (non-espèces) :</span>
+                        <span className="font-medium">{fmtMAD(currentCashSheetTotals.nonCashSources)}</span>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Auto-calculated TOTAL ESPÈCES */}
-                  <div className="bg-card border border-border rounded-lg p-4 flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground font-medium">TOTAL ESPÈCES</span>
-                    <span className="text-xl font-bold text-[#606338]">{fmtMAD(currentCashSheetTotals.totalEspeces)}</span>
+                  {/* Auto-calculated espèce totals */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl border border-border bg-card px-4 py-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Total Espèce Caisse</div>
+                      <div className="text-lg font-bold text-[#606338] mt-0.5">{fmtMAD(currentCashSheetTotals.caisseEspeces)}</div>
+                    </div>
+                    <div className="rounded-xl border border-[#606338]/30 bg-[#606338]/5 px-4 py-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Total Espèces</div>
+                      <div className="text-lg font-bold text-[#606338] mt-0.5">{fmtMAD(currentCashSheetTotals.totalEspeces)}</div>
+                    </div>
                   </div>
-                  
-                  <input type="text" value={cashSheet.especes_note || ''} onChange={e => setCashSheet({ ...cashSheet, especes_note: e.target.value })} placeholder="Note espèces (ex: 07/04/2026 (450,00))" className="w-full px-3 py-2 bg-card border border-border rounded-lg text-xs" />
+
+                  <input type="text" value={cashSheet.especes_note || ''} onChange={e => setCashSheet({ ...cashSheet, especes_note: e.target.value })} placeholder="Note espèces (ex: 07/04/2026 (450,00))" className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm outline-none focus:border-[#606338] transition-colors" />
+
+                  {/* ── Dépenses ── */}
+                  <div className="flex items-center gap-3 pt-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Dépenses</span>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
 
                   {/* Columns: 3 fixed (Payé / Non payé / Payé hors caisse) + user-defined custom columns */}
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                     {([
-                      { key: 'paid_items' as const, title: 'PAYÉ', color: 'text-emerald-600', bg: 'bg-emerald-500/5' },
-                      { key: 'unpaid_items' as const, title: 'NON PAYÉ', color: 'text-orange-600', bg: 'bg-orange-500/5' },
-                      { key: 'paid_outside_items' as const, title: 'PAYÉ HORS CAISSE', color: 'text-blue-600', bg: 'bg-blue-500/5' },
+                      { key: 'paid_items' as const, title: 'PAYÉ', dot: 'bg-emerald-500' },
+                      { key: 'unpaid_items' as const, title: 'NON PAYÉ', dot: 'bg-amber-500' },
+                      { key: 'paid_outside_items' as const, title: 'PAYÉ HORS CAISSE', dot: 'bg-sky-500' },
                     ]).map(col => (
-                      <div key={col.key} className={`${col.bg} border border-border rounded-lg p-3`}>
-                        <div className={`text-xs font-bold uppercase ${col.color} mb-2 text-center`}>{col.title}</div>
+                      <div key={col.key} className="bg-secondary/40 border border-border rounded-xl p-3">
+                        <div className="flex items-center gap-1.5 mb-2.5">
+                          <span className={`w-1.5 h-1.5 rounded-full ${col.dot}`} />
+                          <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">{col.title}</span>
+                        </div>
                         <div className="space-y-1.5">
                           {cashSheet[col.key].map((item, idx) => (
                             <div key={idx} className="flex items-center gap-1.5">
@@ -1496,7 +1664,7 @@ export default function ReportsPage() {
                                   setCashSheet({ ...cashSheet, [col.key]: items });
                                 }}
                                 placeholder="Description"
-                                className="flex-1 min-w-0 px-2 py-1.5 bg-card border border-border rounded text-xs"
+                                className="flex-1 min-w-0 px-2 py-1.5 bg-card border border-border rounded-lg text-xs"
                               />
                               <input
                                 type="number"
@@ -1508,7 +1676,7 @@ export default function ReportsPage() {
                                   setCashSheet({ ...cashSheet, [col.key]: items });
                                 }}
                                 placeholder="0"
-                                className="w-20 px-2 py-1.5 bg-card border border-border rounded text-xs text-right"
+                                className="w-20 px-2 py-1.5 bg-card border border-border rounded-lg text-xs text-right"
                               />
                               {cashSheet[col.key].length > 1 && (
                                 <button
@@ -1525,7 +1693,7 @@ export default function ReportsPage() {
                           ))}
                           <button
                             onClick={() => setCashSheet({ ...cashSheet, [col.key]: [...cashSheet[col.key], { label: '', amount: 0 }] })}
-                            className="w-full text-xs text-muted-foreground hover:text-foreground py-1 border border-dashed border-border rounded flex items-center justify-center gap-1"
+                            className="w-full text-xs text-muted-foreground hover:text-foreground py-1 border border-dashed border-border rounded-lg flex items-center justify-center gap-1"
                           >
                             <Plus className="w-3 h-3" /> Ajouter
                           </button>
@@ -1541,22 +1709,32 @@ export default function ReportsPage() {
 
                     {/* User-defined custom columns (editable title, print with the sheet) */}
                     {cashSheet.custom_columns.map((col, colIdx) => (
-                      <div key={`custom-${colIdx}`} className="bg-violet-500/5 border border-border rounded-lg p-3">
-                        <div className="flex items-center gap-1 mb-2">
+                      <div key={`custom-${colIdx}`} className="bg-secondary/40 border border-border rounded-xl p-3">
+                        <div className="flex items-center gap-1.5 mb-2.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-violet-500 shrink-0" />
                           <input
                             type="text"
                             value={col.title}
                             onChange={e => updateCustomColumn(colIdx, { title: e.target.value })}
                             placeholder="TITRE DE LA COLONNE"
-                            className="flex-1 min-w-0 px-2 py-1 bg-card border border-border rounded text-xs font-bold uppercase text-center text-violet-600 placeholder:font-normal placeholder:normal-case placeholder:text-muted-foreground"
+                            className="flex-1 min-w-0 bg-transparent text-xs font-semibold uppercase tracking-wide text-foreground/80 outline-none placeholder:font-normal placeholder:text-muted-foreground/60"
                           />
                           <button
                             onClick={() => removeCustomColumn(colIdx)}
                             title="Supprimer la colonne"
-                            className="p-1 text-red-500 hover:bg-red-500/10 rounded shrink-0"
+                            className="p-1 text-muted-foreground/60 hover:text-red-500 hover:bg-red-500/10 rounded shrink-0 transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
+                        </div>
+                        <div className="mb-2">
+                          <ToggleSwitch
+                            checked={!!col.count_as_depense}
+                            onChange={v => updateCustomColumn(colIdx, { count_as_depense: v })}
+                            label="Compter dans la dépense"
+                            variant="orange"
+                            title="Ajouter le total de cette colonne à la dépense (et le déduire du reste)"
+                          />
                         </div>
                         <div className="space-y-1.5">
                           {col.items.map((item, idx) => (
@@ -1566,7 +1744,7 @@ export default function ReportsPage() {
                                 value={item.label}
                                 onChange={e => updateCustomItem(colIdx, idx, { label: e.target.value })}
                                 placeholder="Description"
-                                className="flex-1 min-w-0 px-2 py-1.5 bg-card border border-border rounded text-xs"
+                                className="flex-1 min-w-0 px-2 py-1.5 bg-card border border-border rounded-lg text-xs"
                               />
                               <input
                                 type="number"
@@ -1574,7 +1752,7 @@ export default function ReportsPage() {
                                 value={item.amount || ''}
                                 onChange={e => updateCustomItem(colIdx, idx, { amount: parseFloat(e.target.value) || 0 })}
                                 placeholder="0"
-                                className="w-20 px-2 py-1.5 bg-card border border-border rounded text-xs text-right"
+                                className="w-20 px-2 py-1.5 bg-card border border-border rounded-lg text-xs text-right"
                               />
                               {col.items.length > 1 && (
                                 <button
@@ -1588,11 +1766,17 @@ export default function ReportsPage() {
                           ))}
                           <button
                             onClick={() => addCustomItem(colIdx)}
-                            className="w-full text-xs text-muted-foreground hover:text-foreground py-1 border border-dashed border-border rounded flex items-center justify-center gap-1"
+                            className="w-full text-xs text-muted-foreground hover:text-foreground py-1 border border-dashed border-border rounded-lg flex items-center justify-center gap-1"
                           >
                             <Plus className="w-3 h-3" /> Ajouter
                           </button>
                         </div>
+                        {col.count_as_depense && (
+                          <div className="mt-2 pt-2 border-t border-border text-xs flex justify-between font-medium text-orange-600">
+                            <span>Dépense :</span>
+                            <span>{fmtMAD(columnItemsTotal(col))}</span>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1600,34 +1784,40 @@ export default function ReportsPage() {
                   {/* Add a new custom column */}
                   <button
                     onClick={addCustomColumn}
-                    className="w-full text-xs font-semibold text-violet-600 hover:bg-violet-500/10 py-2 border border-dashed border-violet-500/40 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                    className="w-full text-xs font-medium text-muted-foreground hover:text-foreground py-2 border border-dashed border-border rounded-xl flex items-center justify-center gap-1.5 hover:border-[#606338]/40 transition-colors"
                   >
                     <Plus className="w-4 h-4" /> Ajouter une colonne
                   </button>
 
                   {/* Bottom totals */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-border">
-                    <div className="bg-card border border-border rounded-lg p-3 flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground font-medium">TOTAL DÉPENSE</span>
-                      <span className="text-lg font-bold text-orange-600">{fmtMAD(currentCashSheetTotals.totalDepense)}</span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl border border-border bg-card px-4 py-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Total Dépense</div>
+                      <div className="text-lg font-bold text-orange-500 mt-0.5">{fmtMAD(currentCashSheetTotals.totalDepense)}</div>
                     </div>
-                    <div className="bg-card border border-border rounded-lg p-3 flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground font-medium">RESTE EN ESPÈCES</span>
-                      <span className={`text-lg font-bold ${currentCashSheetTotals.resteEspeces >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                    <div className={`rounded-xl border px-4 py-3 ${currentCashSheetTotals.resteEspeces >= 0 ? 'border-[#606338]/30 bg-[#606338]/5' : 'border-red-500/30 bg-red-500/5'}`}>
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Reste en espèces</div>
+                      <div className={`text-lg font-bold mt-0.5 ${currentCashSheetTotals.resteEspeces >= 0 ? 'text-[#606338]' : 'text-red-500'}`}>
                         {fmtMAD(currentCashSheetTotals.resteEspeces)}
-                      </span>
+                      </div>
                     </div>
+                  </div>
+
+                  {/* ── Validation ── */}
+                  <div className="flex items-center gap-3 pt-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Validation</span>
+                    <div className="h-px flex-1 bg-border" />
                   </div>
 
                   {/* Signatures */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <label className="block">
-                      <span className="text-xs text-muted-foreground">MANAGER</span>
-                      <input type="text" value={cashSheet.manager_name || ''} onChange={e => setCashSheet({ ...cashSheet, manager_name: e.target.value })} placeholder="Nom du manager" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm" />
+                      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Manager</span>
+                      <input type="text" value={cashSheet.manager_name || ''} onChange={e => setCashSheet({ ...cashSheet, manager_name: e.target.value })} placeholder="Nom du manager" className="w-full mt-1.5 px-3 py-2 bg-card border border-border rounded-lg text-sm outline-none focus:border-[#606338] transition-colors" />
                     </label>
                     <label className="block">
-                      <span className="text-xs text-muted-foreground">VISA CAISSE</span>
-                      <input type="text" value={cashSheet.visa_caisse || ''} onChange={e => setCashSheet({ ...cashSheet, visa_caisse: e.target.value })} placeholder="Visa" className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm" />
+                      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Visa Caisse</span>
+                      <input type="text" value={cashSheet.visa_caisse || ''} onChange={e => setCashSheet({ ...cashSheet, visa_caisse: e.target.value })} placeholder="Visa" className="w-full mt-1.5 px-3 py-2 bg-card border border-border rounded-lg text-sm outline-none focus:border-[#606338] transition-colors" />
                     </label>
                   </div>
 
@@ -1637,6 +1827,11 @@ export default function ReportsPage() {
                       <Paperclip className="w-4 h-4 text-[#606338]" />
                       <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Pièces jointes (scans / photos)
+                        {cashSheet.attachments?.length > 0 && (
+                          <span className="ml-1.5 inline-flex items-center justify-center px-1.5 py-0.5 rounded-full bg-[#606338]/15 text-[#606338] text-[10px] font-bold">
+                            {cashSheet.attachments.length}
+                          </span>
+                        )}
                       </span>
                       {cashSheetUploading && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#606338]" />}
                     </div>
@@ -1661,41 +1856,65 @@ export default function ReportsPage() {
                       </div>
                     )}
 
-                    {/* Always show attachments section, even if empty */}
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                      {cashSheet.attachments?.length > 0 ? (
-                        cashSheet.attachments.map((a) => {
-                          const isImg = (a.mime || '').startsWith('image/');
-                          return (
-                            <div key={a.url} className="relative group border border-border rounded-lg overflow-hidden bg-card aspect-square">
-                              <a href={a.url} target="_blank" rel="noopener noreferrer" className="block w-full h-full" title={a.name}>
-                                {isImg ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={a.url} alt={a.name} className="w-full h-full object-cover" onError={(e) => { console.error('Image load error:', a.url, e); (e.target as HTMLImageElement).style.display = 'none'; }} />
-                                ) : (
-                                  <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-1 text-muted-foreground">
-                                    <FileText className="w-6 h-6" />
-                                    <span className="text-[9px] truncate w-full text-center px-1">{a.name}</span>
-                                  </div>
-                                )}
-                              </a>
+                    {/* Attachments — collapsed to a cap so many files never blow out the
+                        layout; images open in a lightbox, PDFs open in a new tab. */}
+                    {cashSheet.attachments?.length > 0 ? (() => {
+                      const CAP = 12;
+                      const all = cashSheet.attachments;
+                      const visible = showAllAttachments ? all : all.slice(0, CAP);
+                      const hidden = all.length - visible.length;
+                      return (
+                        <>
+                          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+                            {visible.map((a) => {
+                              const isImg = (a.mime || '').startsWith('image/');
+                              return (
+                                <div key={a.url} className="relative group border border-border rounded-lg overflow-hidden bg-card aspect-square">
+                                  {isImg ? (
+                                    <button type="button" onClick={() => setLightboxUrl(a.url)} className="block w-full h-full cursor-zoom-in" title={a.name}>
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img src={a.url} alt={a.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                    </button>
+                                  ) : (
+                                    <a href={a.url} target="_blank" rel="noopener noreferrer" className="flex w-full h-full flex-col items-center justify-center gap-1 p-1 text-muted-foreground" title={a.name}>
+                                      <FileText className="w-6 h-6" />
+                                      <span className="text-[9px] truncate w-full text-center px-1">{a.name}</span>
+                                    </a>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => removeCashSheetAttachment(a.url)}
+                                    className="absolute top-1 right-1 p-0.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="Supprimer"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                            {!showAllAttachments && hidden > 0 && (
                               <button
                                 type="button"
-                                onClick={() => removeCashSheetAttachment(a.url)}
-                                className="absolute top-1 right-1 p-0.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                                title="Supprimer"
+                                onClick={() => setShowAllAttachments(true)}
+                                className="border border-dashed border-border rounded-lg bg-card aspect-square flex items-center justify-center text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                                title="Afficher toutes les pièces jointes"
                               >
-                                <X className="w-3.5 h-3.5" />
+                                +{hidden}
                               </button>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="col-span-full text-center py-4 text-muted-foreground text-xs">
-                          Aucune pièce jointe pour le moment
-                        </div>
-                      )}
-                    </div>
+                            )}
+                          </div>
+                          {showAllAttachments && all.length > CAP && (
+                            <button type="button" onClick={() => setShowAllAttachments(false)} className="mt-2 text-xs text-muted-foreground hover:text-foreground">
+                              Réduire
+                            </button>
+                          )}
+                        </>
+                      );
+                    })() : (
+                      <div className="text-center py-4 text-muted-foreground text-xs border border-dashed border-border rounded-lg">
+                        Aucune pièce jointe pour le moment
+                      </div>
+                    )}
                   </div>
 
                   {/* One button that toggles Save ⇄ Print: it says "Enregistrer" while
@@ -2527,6 +2746,30 @@ export default function ReportsPage() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* R3 — attachment lightbox */}
+        {lightboxUrl && (
+          <div
+            className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"
+            onClick={() => setLightboxUrl(null)}
+          >
+            <button
+              type="button"
+              onClick={() => setLightboxUrl(null)}
+              className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+              title="Fermer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={lightboxUrl}
+              alt="Pièce jointe"
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            />
           </div>
         )}
       </div>
