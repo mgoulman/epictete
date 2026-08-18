@@ -49,3 +49,10 @@
 - **Next Phase 1:** baseline the 35 module tables (+tenant_id/branch_id/source +RLS) once the
   pg_dump baseline exists; tenant-context plumbing (ALS + JWT tenant_id + compat-layer GUC injection);
   lock /api/db/query + MCP; Blob tenant-prefixing; suspend side-effect gating; leak-test suite gate.
+
+## 2026-08-18 — Phase 1 (tenant-context plumbing) — localhost, live Neon untouched
+- Started `packages/core` (@epictete/core) — the shared, tenant-aware db layer:
+  - `src/db/tenant-context.ts`: AsyncLocalStorage TenantContext + runWithTenant()/getTenantContext()/requireTenantContext().
+  - `src/db/client.ts`: TenantDb — every query() wraps in `BEGIN; [SET LOCAL ROLE <rlsRole>]; select set_config('app.tenant_id',$1,true); <query>; COMMIT`, reading tenant from ALS. Fail-closed (throws with no context). unsafeQuery() escape hatch for provisioning/platform-admin. rlsRole configurable (dev superuser drops to saas_app per-txn; prod connects as saas_app directly).
+- Added tsx (root) + a plumbing test: through TenantDb.query()+runWithTenant() on epictete_saas_dev — 6/6 pass (per-tenant reads, fail-closed on no context, WITH CHECK blocks cross-tenant insert). tsc 0 errors.
+- **Next Phase 1:** wire ALS population at request entry (JWT tenant_id claim + middleware/route boundary) into apps/saas; then baseline+retrofit the 35 module tables (tenant_id/branch_id/source + RLS) once pg_dump baseline exists; lock /api/db/query + MCP; Blob prefixing; suspend gating; leak-test suite gate.

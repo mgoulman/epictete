@@ -13,6 +13,7 @@
     "build:saas": "pnpm --filter @epictete/saas build"
   },
   "devDependencies": {
+    "tsx": "^4.19.0",
     "turbo": "^2.5.0"
   },
   "pnpm": {
