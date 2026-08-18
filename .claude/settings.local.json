@@ -79,7 +79,14 @@
       "Bash(../../node_modules/.bin/tsx _compat_tenant.mts)",
       "Bash(pnpm --filter @epictete/restaurant build)",
       "Bash(curl -s -o /dev/null -w '%{http_code}' -m 40 http://localhost:4020/api/_tenant_probe?t=__TRACKED_VAR__)",
-      "Bash(pnpm --filter @epictete/restaurant exec tsc --noEmit)"
+      "Bash(pnpm --filter @epictete/restaurant exec tsc --noEmit)",
+      "Bash(pnpm --filter @epictete/saas add lucide-react)",
+      "Bash(pnpm --filter @epictete/saas build)",
+      "Bash(lsof -ti:3020)",
+      "Bash(xargs kill -9)",
+      "Bash(PORT=3020 pnpm --filter @epictete/saas dev)",
+      "Bash(echo \"started, pid $!\")",
+      "Bash(curl -s -b /tmp/saas.cookies __TRACKED_VAR__/stock -o /tmp/stock.html -w 'status=%{http_code}\\\\n')"
     ]
   },
   "enableAllProjectMcpServers": true,

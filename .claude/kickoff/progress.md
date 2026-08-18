@@ -119,3 +119,41 @@
 - **Route/compat-layer migration foundation is DONE**: one shared tenant-aware builder for both apps.
   Remaining: bring the actual restaurant route handlers + the auth/session/enforce layer into the SaaS
   (tenant-aware), lock /api/db/query + MCP, Blob prefixing, suspend gating, provisionTenant, leak-test gate.
+
+## 2026-08-18 — Phase 9: SaaS route/auth migration + UI redesign (localhost, live Neon untouched)
+Re-consulted product-ux (scope + UI critique + redesign direction). User decisions: foundation-first
+design; Menu/Recipes -> Phase 2; pure-wedge (defer Salle/Cuisine POS); drop dead search.
+
+**MVP scope locked:** Dashboard · Feuille de Caisse (hero) · Rapports · Dépenses · Fournisseurs ·
+Inventaire · Achats · Personnel · Présence · Utilisateurs · Restaurant-profile. Deferred/dropped:
+Salle, Cuisine, Transport, Marketing, Docs, serveur role.
+
+**Built + VERIFIED at runtime (dev server, real login):**
+- Design system: apps/saas/app/globals.css — olive ramp, cream surfaces, semantic tokens
+  (positive/warning/danger/info), 3-step radius, one soft shadow, Inter-only (no Playfair/glow).
+  Inter wired via next/font in layout.tsx.
+- UI primitives (apps/saas/components/ui): Button, Input+Label, Card, Badge, StatCard, Table,
+  Sparkline, PageHeader, cn. No hardcoded hex — all via --color-accent tokens.
+- App shell (components/shell): AppShell + Sidebar (grouped wedge-first nav PILOTAGE/ARGENT/STOCK/
+  ÉQUIPE/RÉGLAGES) + Header (branch-context pill, lang toggle, bell, profile dropdown w/ logout).
+  Mobile drawer. No splash, no dead search, no serveur redirect. Nav model in lib/nav.ts (perm-gated).
+- Auth/session (the route/auth migration core):
+  - packages/core compat.ts: added unsafeQuery() escape hatch (platform-level, bypasses tenant txn)
+    for cross-tenant identity/session lookups.
+  - apps/saas/lib/auth.ts: withTenant() route boundary (resolve -> runWithTenant), getSaasSession()
+    (membership role+perms), enforce().
+  - lib/session.ts getSessionView(); login page + /api/auth/login (crypt() verify -> active membership
+    -> signSaasJWT{sub,tenant_id,tenant_slug,role} -> saas_token cookie) + /api/auth/logout.
+  - (app)/layout.tsx gates on getSessionView -> redirect /login; root / redirects by session.
+- Screens: Dashboard (cash-first 3-tile hero + supplier + 7-day sparkline + "Fermer la caisse" CTA +
+  first-run 3-step guided card when no cash sheet); Inventaire /stock list (Table template, status
+  badges, empty state); ComingSoon placeholders for the Phase-2 nav routes.
+- Seed: apps/saas/db/seed/demo.sql — idempotent demo tenant "Le Gourmet" + owner login
+  (owner@demo.ma / demo1234) + 7d cash sheets, inventory (2 low), staff+attendance, vendor debts.
+
+**E2E verification (curl, real dev runtime):** unauth / -> 307 /login; correct login sets cookie;
+bad password -> 401; authed dashboard 200 with tenant-scoped KPIs computed correctly (Caisse 8 450 DH,
+Dû fournisseurs 4 250 DH, Espèces 3 448 DH, Présence 3/4, Stock bas 2); /stock lists real items;
+logout clears cookie -> dashboard 307 -> /login. All data RLS-scoped to the logged-in tenant.
+
+**Remaining:** Feuille de Caisse extraction to /caisse (the hero, task #45); then Phase-2 modules.

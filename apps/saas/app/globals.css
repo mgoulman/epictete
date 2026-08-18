@@ -1,5 +1,124 @@
 @import "tailwindcss";
 
-:root {
-  --olive: #606338;
+/* ── Epictète SaaS design system ─────────────────────────────────────────────
+   One family (Inter), an olive brand ramp, a warm-cream neutral surface, and
+   named semantic tokens so money/stock/staff states read consistently. Border-
+   first elevation, one soft shadow, a 3-step radius scale. No serif, no glow. */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Typography — Inter only (brand serif stays on the marketing site) */
+  --font-body: var(--font-inter);
+  --font-heading: var(--font-inter);
+
+  /* Motion */
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+
+  /* Radius scale (collapsed to three steps) */
+  --radius-sm: 8px;   /* inputs, badges */
+  --radius: 12px;     /* cards, buttons */
+  --radius-lg: 16px;  /* modals, panels */
+
+  /* Elevation — one soft shadow, for popovers/toasts only */
+  --shadow-soft: 0 4px 16px -2px rgb(20 20 19 / 0.10), 0 2px 6px -2px rgb(20 20 19 / 0.06);
+
+  /* Brand — olive ramp */
+  --color-olive-50: #f7f7f0;
+  --color-olive-100: #ede9d9;
+  --color-olive-200: #ddd8b5;
+  --color-olive-300: #c8c089;
+  --color-olive-400: #b5ab64;
+  --color-olive-500: #9d9451;
+  --color-olive-600: #606338;
+  --color-olive-700: #4d4f2e;
+  --color-olive-800: #40412a;
+  --color-olive-900: #383827;
+
+  /* Accent = brand action color (route ALL uses through this, never hardcode) */
+  --color-accent: #606338;
+  --color-accent-hover: #4d4f2e;
+  --color-accent-foreground: #faf9f5;
+  --color-ring: #606338;
+
+  /* Neutral surfaces — warm cream (light) */
+  --color-background: #fdfcf9;
+  --color-foreground: #1a1a18;
+  --color-card: #ffffff;
+  --color-card-foreground: #1a1a18;
+  --color-secondary: #f5f3ed;
+  --color-secondary-foreground: #2d2d28;
+  --color-muted: #f0eee7;
+  --color-muted-foreground: #6b6b5f;
+  --color-border: #e8e6de;
+  --color-border-strong: #d9d6cb;
+
+  /* Semantic — money / stock / staff states */
+  --color-positive: #3f7d3f;         /* cash surplus, in-stock, present */
+  --color-positive-bg: #eaf3ea;
+  --color-warning: #b5701a;          /* low stock, late */
+  --color-warning-bg: #fbf1e2;
+  --color-danger: #b5342f;           /* owed, absent, negative solde */
+  --color-danger-bg: #f9e9e8;
+  --color-info: #2f5fa0;             /* neutral emphasis */
+  --color-info-bg: #e9eef7;
+
+  /* Dark theme surfaces (charcoal/olive) */
+  --color-background-dark: #100f0d;
+  --color-foreground-dark: #f2f1ea;
+  --color-card-dark: #1a1a17;
+  --color-secondary-dark: #23231f;
+  --color-muted-dark: #23231f;
+  --color-muted-foreground-dark: #a4a294;
+  --color-border-dark: #2e2d28;
+  --color-border-strong-dark: #3b3a33;
 }
+
+.dark {
+  --color-background: var(--color-background-dark);
+  --color-foreground: var(--color-foreground-dark);
+  --color-card: var(--color-card-dark);
+  --color-card-foreground: var(--color-foreground-dark);
+  --color-secondary: var(--color-secondary-dark);
+  --color-secondary-foreground: var(--color-foreground-dark);
+  --color-muted: var(--color-muted-dark);
+  --color-muted-foreground: var(--color-muted-foreground-dark);
+  --color-border: var(--color-border-dark);
+  --color-border-strong: var(--color-border-strong-dark);
+  --color-accent-foreground: #faf9f5;
+}
+
+/* Hide number-input spinners */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-body), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading), system-ui, sans-serif;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+/* Money is always tabular + right-aligned */
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* Thin, unobtrusive scrollbars in the app chrome */
+.scroll-thin { scrollbar-width: thin; scrollbar-color: var(--color-border-strong) transparent; }
+.scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+.scroll-thin::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 999px; }

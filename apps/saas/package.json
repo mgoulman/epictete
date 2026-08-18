@@ -11,6 +11,7 @@
   "dependencies": {
     "@epictete/core": "workspace:*",
     "jose": "^6.2.2",
+    "lucide-react": "^0.562.0",
     "next": "16.0.10",
     "pg": "^8.20.0",
     "react": "19.2.1",

@@ -340,6 +340,14 @@ export interface CreateDbConfig {
 export interface CompatDb {
   from<T = Record<string, unknown>>(table: string): TableRef<T>;
   query<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<{ rows: T[]; rowCount: number }>;
+  /**
+   * Platform-level escape hatch: a plain pool.query that NEVER enters the tenant
+   * transaction wrapper. Use only for cross-tenant identity/session lookups that
+   * establish the very context RLS would need (e.g. resolving which tenant a login
+   * belongs to). In dev the superuser login bypasses RLS; in prod this must run as
+   * a platform role (or SECURITY DEFINER) able to read the identity tables.
+   */
+  unsafeQuery<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<{ rows: T[]; rowCount: number }>;
   pool: Pool;
 }
 
@@ -378,6 +386,10 @@ export function createDb(config: CreateDbConfig): CompatDb {
     from<T = Record<string, unknown>>(table: string) { return new TableRef<T>(table, ctx); },
     async query<T = Record<string, unknown>>(text: string, params?: unknown[]) {
       const r = await execute(text, params);
+      return { rows: r.rows as T[], rowCount: r.rowCount || 0 };
+    },
+    async unsafeQuery<T = Record<string, unknown>>(text: string, params?: unknown[]) {
+      const r = await pool.query(text, params);
       return { rows: r.rows as T[], rowCount: r.rowCount || 0 };
     },
     pool,
