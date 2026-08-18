@@ -82,8 +82,8 @@ const fixedFlag = (flags: CashSheetColumnFlags | undefined, key: FixedColumnKey)
 };
 
 // A user-defined non-cash payment source on the Feuille de Caisse (e.g. Virement, Chèque).
-// counts_as_cash = false → subtracted from CA like CB when isolating cash-in-drawer.
-// counts_as_cash = true  → left inside the espèces bucket (treated as cash).
+// counts_as_cash = true  → "Espèce": amount ADDED to Total Espèces (drawer total untouched).
+// counts_as_cash = false → "Déduit": not counted at all.
 interface CashPaymentSource {
   name: string;
   amount: number;
@@ -262,9 +262,10 @@ const cashSheetTotals = (sheet: CashSheet) => {
   const glovoEspece = parseCashNumber(sheet.glovo_ttc_espece);
   const glovoOnline = parseCashNumber(sheet.glovo_ttc_online);
 
-  // R1 — extra non-cash payment sources (toggle OFF) come out of CA like CB does.
-  const nonCashSources = (sheet.payment_sources || [])
-    .filter(s => !s.counts_as_cash)
+  // R1 — extra "espèce" encaissements (toggle = Espèce) ADD to Total Espèces only;
+  // the caisse (drawer) total is left untouched. "Déduit" sources are not counted at all.
+  const especeSources = (sheet.payment_sources || [])
+    .filter(s => s.counts_as_cash)
     .reduce((s, src) => s + parseCashNumber(src.amount), 0);
 
   // R2 — custom columns flagged "compter dans la dépense" add to TOTAL DÉPENSE.
@@ -280,17 +281,19 @@ const cashSheetTotals = (sheet: CashSheet) => {
     return sum + (sheet[key] || []).reduce((s, i) => s + parseCashNumber(i.amount), 0);
   }, 0);
   const totalDepense = fixedDepense + customDepense;
-  // Espèce caisse (cash physically in the drawer) = CA − CB − les deux Glovo (− encaissements non-espèces).
-  const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline - nonCashSources);
-  // Total espèces = CA − CB − Glovo online only (Glovo espèce stays counted as cash).
-  const totalEspeces = Math.max(0, totalCA - totalCB - glovoOnline - nonCashSources);
+  // Espèce caisse (cash physically in the drawer) = CA − CB − les deux Glovo. Untouched by the
+  // extra encaissements — they never move the drawer figure.
+  const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline);
+  // Total espèces = CA − CB − Glovo online (Glovo espèce stays counted as cash), PLUS any
+  // "espèce" encaissements. "Déduit" sources are ignored entirely.
+  const totalEspeces = Math.max(0, totalCA - totalCB - glovoOnline) + especeSources;
 
   return {
     caisseEspeces,
     totalCB,
     glovoEspece,
     glovoOnline,
-    nonCashSources,
+    especeSources,
     customDepense,
     totalDepense,
     totalEspeces,
@@ -1705,10 +1708,10 @@ export default function ReportsPage() {
                         Ajouter
                       </button>
                     </div>
-                    {currentCashSheetTotals.nonCashSources > 0 && (
+                    {currentCashSheetTotals.especeSources > 0 && (
                       <div className="mt-2 pt-2 border-t border-border text-[11px] text-muted-foreground flex justify-between">
-                        <span>Déduit du CA (non-espèces) :</span>
-                        <span className="font-medium">{fmtMAD(currentCashSheetTotals.nonCashSources)}</span>
+                        <span>Ajouté aux espèces :</span>
+                        <span className="font-medium">+{fmtMAD(currentCashSheetTotals.especeSources)}</span>
                       </div>
                     )}
                   </div>

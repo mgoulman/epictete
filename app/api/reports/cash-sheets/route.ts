@@ -21,11 +21,13 @@ function parseCashNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function nonCashSourcesTotal(sources: unknown): number {
+// "Espèce" encaissements (counts_as_cash = true) ADD to Total Espèces only; the drawer
+// total is untouched. "Déduit" sources (counts_as_cash = false) are not counted at all.
+function especeSourcesTotal(sources: unknown): number {
   if (!Array.isArray(sources)) return 0;
   return sources
     .filter((s): s is { amount: unknown; counts_as_cash?: unknown } => !!s && typeof s === 'object')
-    .filter(s => !s.counts_as_cash)
+    .filter(s => s.counts_as_cash)
     .reduce((sum, s) => sum + parseCashNumber(s.amount), 0);
 }
 
@@ -63,10 +65,10 @@ function normalizeStoredCashSheet<T extends Record<string, unknown>>(sheet: T | 
   const totalCB = parseCashNumber(sheet.total_cb);
   const glovoEspece = parseCashNumber(sheet.glovo_ttc_espece);
   const glovoOnline = parseCashNumber(sheet.glovo_ttc_online);
-  const nonCashSources = nonCashSourcesTotal(sheet.payment_sources);
+  const especeSources = especeSourcesTotal(sheet.payment_sources);
 
-  const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline - nonCashSources);
-  const totalEspeces = Math.max(0, totalCA - totalCB - glovoOnline - nonCashSources);
+  const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline);
+  const totalEspeces = Math.max(0, totalCA - totalCB - glovoOnline) + especeSources;
 
   return { ...sheet, total_especes_caisse: caisseEspeces, total_especes: totalEspeces };
 }
@@ -115,9 +117,9 @@ export async function POST(request: NextRequest) {
     const totalCB = parseCashNumber(body.total_cb);
     const glovoEspece = parseCashNumber(body.glovo_ttc_espece);
     const glovoOnline = parseCashNumber(body.glovo_ttc_online);
-    const nonCashSources = nonCashSourcesTotal(paymentSources);
-    const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline - nonCashSources);
-    const totalEspeces = Math.max(0, totalCA - totalCB - glovoOnline - nonCashSources);
+    const especeSources = especeSourcesTotal(paymentSources);
+    const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline);
+    const totalEspeces = Math.max(0, totalCA - totalCB - glovoOnline) + especeSources;
     const resteEspeces = totalEspeces - totalDepense;
 
     const sheet = {
