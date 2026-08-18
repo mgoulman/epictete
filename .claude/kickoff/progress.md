@@ -33,3 +33,19 @@
 - **Next (Phase 0 finish → Phase 1):** generate the schema baseline; front-load security fixes
   (Sentry includeLocalVariables off, lock /api/db/query + MCP, kill hardcoded JWT secret); then
   Phase 1 tenant model (tenants/branches/memberships + tenant_id + RLS + billing skeleton).
+
+## 2026-08-18 — Phase 1 (core tenancy model) — localhost, live Neon untouched
+- Wrote the SaaS DB migration set (apps/saas/db/migrations/): 0001 identity+RBAC
+  (users/profiles/roles/permissions — role moved OFF profiles to memberships),
+  0002 tenancy (tenants/branches/memberships + RLS), 0003 billing skeleton
+  (plans/subscriptions/subscription_items[per-branch]/invoices/payments[method-agnostic]
+  + tenant ICE/RC), 0004 analytics_events, 0005 non-superuser saas_app role + grants.
+- RLS uses the Spike-1-validated pattern: FORCE ROW LEVEL SECURITY + policy
+  `tenant_id = nullif(current_setting('app.tenant_id',true),'')::uuid`.
+- Created fresh local DB `epictete_saas_dev`, applied all 5 migrations (14 tables), and ran a
+  multi-tenant isolation test: provisioned 2 tenants, then as the non-superuser saas_app role
+  verified per-tenant isolation on tenants/branches/memberships/subscriptions/subscription_items/
+  analytics_events, fail-closed on unset tenant, and WITH-CHECK blocking cross-tenant insert — 11/11 pass.
+- **Next Phase 1:** baseline the 35 module tables (+tenant_id/branch_id/source +RLS) once the
+  pg_dump baseline exists; tenant-context plumbing (ALS + JWT tenant_id + compat-layer GUC injection);
+  lock /api/db/query + MCP; Blob tenant-prefixing; suspend side-effect gating; leak-test suite gate.
