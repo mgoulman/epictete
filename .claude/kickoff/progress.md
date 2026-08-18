@@ -63,3 +63,23 @@
 - E2E through a REAL Next route on the saas dev server (:4010): forged per-tenant JWTs, curled /api/my-tenant — each token returns ONLY its own tenant/branches, two tokens see different tenants, no cookie -> 401. 5/5 pass. tsc 0 errors (core + saas).
 - The full chain is now proven: request -> JWT(tenant_id) -> ALS context -> SET LOCAL app.tenant_id -> RLS. 
 - **Next Phase 1:** baseline + retrofit the 35 module tables (tenant_id/branch_id/source + RLS) once the pg_dump baseline exists; lock /api/db/query + MCP; Blob tenant-prefixing; suspend side-effect gating; cross-tenant leak-test suite gate. Then Phase 2 (invite/login flow to actually mint these JWTs + onboarding + super-admin console).
+
+## 2026-08-18 — Phase 1 (data foundation COMPLETE) — localhost, live Neon untouched
+- Generated the full schema baseline via /Library/PostgreSQL/15/bin/pg_dump (server 15.6):
+  apps/saas/db/schema/restaurant-baseline.sql (53 tables, --schema-only reproducibility artifact).
+- 0003 rewritten with `billing_`-prefixed tables (billing_invoices etc.) to avoid clashing with
+  the restaurant module `invoices` table.
+- 0006 module tables: 47 restaurant module tables baselined into the SaaS DB (excl. identity/rbac/audit,
+  which are modeled cleanly in 0001; carried the benign update_updated_at trigger).
+- 0007 tenantize: added tenant_id (FK cascade) + nullable branch_id + fail-closed RLS to all 47 module
+  tables; source column on cash_sheets/inventory_movements/sales_items/daily_entries.
+- 0008: converted single-tenant UNIQUE constraints to per-tenant (cash_sheets/daily_entries date,
+  inventory_categories name, notifications dedup_key, salary_records, site_content section, attendance,
+  sales_items index); tenants.slug stays globally unique.
+- Full sequence 0001..0008 applies cleanly from scratch (61 tables: 55 tenant-scoped + 6 global catalog).
+  Module isolation test on real business tables (cash_sheets/inventory_items/menus/inventory_categories):
+  two tenants share the same date/category name, each sees only its own rows, fail-closed on unset tenant,
+  WITH CHECK blocks cross-tenant insert — all pass.
+- **Data foundation is complete.** Next: SaaS auth/login (Phase 2) to mint JWTs; point shared module code
+  at TenantDb; lock /api/db/query + MCP; Blob prefixing; suspend gating; provisionTenant + lifecycle hooks;
+  leak-test suite gate.

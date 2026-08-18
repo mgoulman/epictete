@@ -1,15 +1,16 @@
 -- SaaS DB — 0003 billing skeleton (day-1 shape, NO charging logic).
--- Billing unit = the BRANCH (subscription_items); billing entity/signatory = the
--- TENANT account. payments.method is provider-agnostic so manual collection
--- (virement/CMI link) works now and no rail is hard-wired. ICE/RC on tenants for
--- Moroccan invoicing.
+-- All billing tables are `billing_`-prefixed so they never collide with restaurant
+-- module tables (e.g. the modules already have their own `invoices`).
+-- Billing unit = the BRANCH (billing_subscription_items); billing entity = the TENANT
+-- account. billing_payments.method is provider-agnostic (manual/CMI works day 1, no
+-- rail hard-wired). ICE/RC on tenants for Moroccan invoicing.
 
 alter table tenants
   add column if not exists ice           text,
   add column if not exists rc            text,
   add column if not exists billing_email text;
 
-create table if not exists plans (  -- GLOBAL catalog (not tenant-scoped)
+create table if not exists billing_plans (  -- GLOBAL catalog (not tenant-scoped)
   id         uuid primary key default gen_random_uuid(),
   code       text not null unique,
   name       text not null,
@@ -21,10 +22,10 @@ create table if not exists plans (  -- GLOBAL catalog (not tenant-scoped)
   created_at timestamptz not null default now()
 );
 
-create table if not exists subscriptions (
+create table if not exists billing_subscriptions (
   id                    uuid primary key default gen_random_uuid(),
   tenant_id             uuid not null references tenants(id) on delete cascade,
-  plan_id               uuid references plans(id),
+  plan_id               uuid references billing_plans(id),
   status                text not null default 'pilot' check (status in ('pilot','trial','active','past_due','canceled')),
   trial_end             date,
   pilot_end             date,
@@ -35,23 +36,23 @@ create table if not exists subscriptions (
   created_at            timestamptz not null default now(),
   updated_at            timestamptz not null default now()
 );
-create index if not exists subscriptions_tenant_idx on subscriptions(tenant_id);
+create index if not exists billing_subscriptions_tenant_idx on billing_subscriptions(tenant_id);
 
-create table if not exists subscription_items (  -- one item per BRANCH = the billing unit
+create table if not exists billing_subscription_items (  -- one item per BRANCH = the billing unit
   id              uuid primary key default gen_random_uuid(),
   tenant_id       uuid not null references tenants(id) on delete cascade,
-  subscription_id uuid not null references subscriptions(id) on delete cascade,
+  subscription_id uuid not null references billing_subscriptions(id) on delete cascade,
   branch_id       uuid references branches(id) on delete cascade,
   unit_price      numeric(12,2) not null default 0,
   quantity        int not null default 1,
   created_at      timestamptz not null default now()
 );
-create index if not exists subscription_items_tenant_idx on subscription_items(tenant_id);
+create index if not exists billing_subscription_items_tenant_idx on billing_subscription_items(tenant_id);
 
-create table if not exists invoices (
+create table if not exists billing_invoices (
   id              uuid primary key default gen_random_uuid(),
   tenant_id       uuid not null references tenants(id) on delete cascade,
-  subscription_id uuid references subscriptions(id),
+  subscription_id uuid references billing_subscriptions(id),
   period          text,
   currency        text not null default 'MAD',
   amount_due      numeric(12,2) not null default 0,
@@ -62,25 +63,25 @@ create table if not exists invoices (
   pdf_url         text,
   created_at      timestamptz not null default now()
 );
-create index if not exists invoices_tenant_idx on invoices(tenant_id);
+create index if not exists billing_invoices_tenant_idx on billing_invoices(tenant_id);
 
-create table if not exists payments (
+create table if not exists billing_payments (
   id         uuid primary key default gen_random_uuid(),
   tenant_id  uuid not null references tenants(id) on delete cascade,
-  invoice_id uuid references invoices(id) on delete set null,
+  invoice_id uuid references billing_invoices(id) on delete set null,
   method     text not null default 'manual' check (method in ('manual','virement','cheque','cmi','stripe','other')),
   amount     numeric(12,2) not null default 0,
   reference  text,
   paid_at    timestamptz,
   created_at timestamptz not null default now()
 );
-create index if not exists payments_tenant_idx on payments(tenant_id);
+create index if not exists billing_payments_tenant_idx on billing_payments(tenant_id);
 
--- RLS on tenant-scoped billing tables (plans stays a global catalog, no RLS)
+-- RLS on tenant-scoped billing tables (billing_plans stays a global catalog, no RLS)
 do $$
 declare t text;
 begin
-  foreach t in array array['subscriptions','subscription_items','invoices','payments'] loop
+  foreach t in array array['billing_subscriptions','billing_subscription_items','billing_invoices','billing_payments'] loop
     execute format('alter table %I enable row level security', t);
     execute format('alter table %I force row level security', t);
     execute format(
