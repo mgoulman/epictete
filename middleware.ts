@@ -90,5 +90,6 @@ export default async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Exclude the Sentry tunnel route (/monitoring) so it isn't intercepted.
+  matcher: ["/((?!monitoring|_next/static|_next/image|favicon.ico).*)"],
 };

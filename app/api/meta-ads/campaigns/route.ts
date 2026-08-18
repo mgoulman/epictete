@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCampaigns, getCampaignDetails, createCampaign, updateCampaign, CampaignStatus, CampaignObjective } from '@/lib/meta-ads/campaigns';
 import { GraphAPIError } from '@/lib/meta-ads/api';
-import { enforce } from '@/lib/auth/supabase-server';
+import { enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 function getAccessToken(request: NextRequest): string {
   const authHeader = request.headers.get('authorization');
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest) {
   if (!accessToken) {
     return NextResponse.json({ error: 'Access token is required' }, { status: 401 });
   }
+  const userId = await getCurrentUserId();
 
   try {
     const body = await request.json();
@@ -73,6 +75,7 @@ export async function POST(request: NextRequest) {
       specialAdCategories: special_ad_categories,
     });
 
+    await createAuditLog({ userId, action: 'create', resourceType: 'meta_ad_campaign', resourceId: result?.id ? String(result.id) : null, newValues: { account_id, name, objective, status: status || 'PAUSED' } });
     return NextResponse.json(result);
   } catch (error) {
     console.error('Create campaign error:', error);
@@ -89,6 +92,7 @@ export async function PATCH(request: NextRequest) {
   if (!accessToken) {
     return NextResponse.json({ error: 'Access token is required' }, { status: 401 });
   }
+  const userId = await getCurrentUserId();
 
   try {
     const body = await request.json();
@@ -106,6 +110,7 @@ export async function PATCH(request: NextRequest) {
       bidStrategy: bid_strategy,
     });
 
+    await createAuditLog({ userId, action: status === 'PAUSED' ? 'pause' : 'update', resourceType: 'meta_ad_campaign', resourceId: String(campaign_id), newValues: { campaign_id, name, status } });
     return NextResponse.json(result);
   } catch (error) {
     console.error('Update campaign error:', error);

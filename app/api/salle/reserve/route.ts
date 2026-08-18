@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 // POST — quick-reserve a table { table_id, reserved_name, reserved_time, reserved_guests }
 export async function POST(request: NextRequest) {
   const denied = await enforce('salle.serve'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const { table_id, reserved_name, reserved_time, reserved_guests } = await request.json();
     if (!table_id) return NextResponse.json({ error: 'table_id required' }, { status: 400 });
 
@@ -22,6 +24,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await createAuditLog({ userId, action: 'reserve', resourceType: 'table_reservation', resourceId: String(table_id), newValues: data });
     return NextResponse.json({ table: data });
   } catch (error) {
     console.error('Reserve error:', error);
@@ -34,6 +37,7 @@ export async function DELETE(request: NextRequest) {
   const denied = await enforce('salle.serve'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const id = new URL(request.url).searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
 
@@ -43,6 +47,7 @@ export async function DELETE(request: NextRequest) {
       .eq('id', id);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await createAuditLog({ userId, action: 'release', resourceType: 'table_reservation', resourceId: String(id) });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Release error:', error);

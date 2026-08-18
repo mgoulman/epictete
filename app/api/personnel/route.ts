@@ -174,6 +174,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
     const { type, ...data } = body;
+    const actor = await getServerSession();
 
     if (type === 'staff') {
       // Optional: also create a login account for this staff member.
@@ -198,6 +199,7 @@ export async function POST(request: NextRequest) {
         if (r.userId) result.profile_id = r.userId;
       }
 
+      await createAuditLog({ userId: actor?.id, userEmail: actor?.email, action: 'create', resourceType: 'staff_members', resourceId: result?.id ?? null, newValues: result });
       return NextResponse.json({ success: true, staff: result, accountError });
     }
 
@@ -209,6 +211,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId: actor?.id, userEmail: actor?.email, action: 'create', resourceType: 'staff_types', resourceId: result?.id ?? null, newValues: result });
       return NextResponse.json({ success: true, staffType: result });
     }
 
@@ -220,6 +223,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId: actor?.id, userEmail: actor?.email, action: 'create', resourceType: 'staff_schedules', resourceId: result?.id ?? null, newValues: result });
       return NextResponse.json({ success: true, schedule: result });
     }
 
@@ -232,6 +236,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId: actor?.id, userEmail: actor?.email, action: 'create', resourceType: 'staff_time_off', resourceId: result?.id ?? null, newValues: result });
       return NextResponse.json({ success: true, timeOff: result });
     }
 
@@ -252,6 +257,7 @@ export async function POST(request: NextRequest) {
           ? `${String(result.month).padStart(2, '0')}/${result.year}` : '';
         notifyPayslipReady(result.staff_id, period).catch(() => {});
       }
+      await createAuditLog({ userId: actor?.id, userEmail: actor?.email, action: 'create', resourceType: 'salary_records', resourceId: result?.id ?? null, newValues: result });
       return NextResponse.json({ success: true, salary: result });
     }
 
@@ -273,6 +279,8 @@ export async function PATCH(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'ID required' }, { status: 400 });
     }
+
+    const actor = await getServerSession();
 
     if (type === 'staff') {
       // Optional: also create a login account while editing (if not linked yet).
@@ -298,6 +306,7 @@ export async function PATCH(request: NextRequest) {
         if (r.userId) result.profile_id = r.userId;
       }
 
+      await createAuditLog({ userId: actor?.id, userEmail: actor?.email, action: 'update', resourceType: 'staff_members', resourceId: id, newValues: result });
       return NextResponse.json({ success: true, staff: result, accountError });
     }
 
@@ -310,6 +319,7 @@ export async function PATCH(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId: actor?.id, userEmail: actor?.email, action: 'update', resourceType: 'staff_types', resourceId: id, newValues: result });
       return NextResponse.json({ success: true, staffType: result });
     }
 
@@ -322,6 +332,7 @@ export async function PATCH(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId: actor?.id, userEmail: actor?.email, action: 'update', resourceType: 'staff_schedules', resourceId: id, newValues: result });
       return NextResponse.json({ success: true, schedule: result });
     }
 
@@ -334,6 +345,7 @@ export async function PATCH(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId: actor?.id, userEmail: actor?.email, action: 'update', resourceType: 'staff_time_off', resourceId: id, newValues: result });
       return NextResponse.json({ success: true, timeOff: result });
     }
 
@@ -362,6 +374,7 @@ export async function PATCH(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId: actor?.id, userEmail: actor?.email, action: 'update', resourceType: 'salary_records', resourceId: id, newValues: result });
       return NextResponse.json({ success: true, salary: result });
     }
 
@@ -404,6 +417,8 @@ export async function DELETE(request: NextRequest) {
       .eq('id', id);
 
     if (error) throw error;
+    const actor = await getServerSession();
+    await createAuditLog({ userId: actor?.id, userEmail: actor?.email, action: 'delete', resourceType: table, resourceId: id });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Personnel DELETE error:', error);

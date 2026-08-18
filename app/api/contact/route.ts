@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { createAuditLog } from "@/lib/auth/audit";
 
 interface ContactFormData {
   name: string;
@@ -52,6 +53,15 @@ export async function POST(request: Request) {
       console.log("Subject:", subjectText);
       console.log("Message:", body.message);
       console.log("==========================================");
+
+      await createAuditLog({
+        userId: null,
+        userEmail: body.email,
+        action: 'create',
+        resourceType: 'contact_message',
+        resourceId: null,
+        newValues: { name: body.name, email: body.email, subject: subjectText },
+      });
 
       return NextResponse.json({
         success: true,
@@ -112,6 +122,16 @@ export async function POST(request: Request) {
     });
 
     console.log("Contact email sent successfully to", CONTACT_EMAIL);
+
+    await createAuditLog({
+      userId: null,
+      userEmail: body.email,
+      action: 'create',
+      resourceType: 'contact_message',
+      resourceId: null,
+      newValues: { name: body.name, email: body.email, subject: subjectText },
+    });
+
     return NextResponse.json({ success: true });
 
   } catch (error) {

@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { registerOAuthToken } from '@/lib/mcp/auth';
+import { createAuditLog } from '@/lib/auth/audit';
 import { dynamicClients } from '../register/route';
 
 // In-memory stores (use Redis/DB in production)
@@ -89,9 +90,9 @@ export async function POST(request: NextRequest) {
   if (grantType === 'authorization_code') {
     return await handleAuthorizationCode(params, clientId);
   } else if (grantType === 'refresh_token') {
-    return handleRefreshToken(params, clientId);
+    return await handleRefreshToken(params, clientId);
   } else if (grantType === 'client_credentials') {
-    return handleClientCredentials(clientId);
+    return await handleClientCredentials(clientId);
   }
 
   return NextResponse.json(
@@ -181,6 +182,14 @@ async function handleAuthorizationCode(params: URLSearchParams, clientId: string
     scope: authData?.scope || scope,
   });
 
+  await createAuditLog({
+    userId: null,
+    action: 'oauth_token',
+    resourceType: 'oauth',
+    resourceId: clientId,
+    newValues: { grant_type: 'authorization_code', client_id: clientId },
+  });
+
   return NextResponse.json({
     access_token: accessToken,
     token_type: 'Bearer',
@@ -214,7 +223,7 @@ async function validatePKCE(
   return base64 === codeChallenge;
 }
 
-function handleRefreshToken(params: URLSearchParams, clientId: string) {
+async function handleRefreshToken(params: URLSearchParams, clientId: string) {
   const refreshToken = params.get('refresh_token');
 
   if (!refreshToken) {
@@ -243,6 +252,14 @@ function handleRefreshToken(params: URLSearchParams, clientId: string) {
     expiresAt: Date.now() + expiresIn * 1000,
   });
 
+  await createAuditLog({
+    userId: null,
+    action: 'oauth_token',
+    resourceType: 'oauth',
+    resourceId: clientId,
+    newValues: { grant_type: 'refresh_token', client_id: clientId },
+  });
+
   return NextResponse.json({
     access_token: accessToken,
     token_type: 'Bearer',
@@ -251,7 +268,7 @@ function handleRefreshToken(params: URLSearchParams, clientId: string) {
   });
 }
 
-function handleClientCredentials(clientId: string) {
+async function handleClientCredentials(clientId: string) {
   // For client_credentials grant, issue token directly
   const accessToken = generateToken();
   const expiresIn = 3600;
@@ -260,6 +277,14 @@ function handleClientCredentials(clientId: string) {
     clientId,
     scope: 'mcp:access',
     expiresAt: Date.now() + expiresIn * 1000,
+  });
+
+  await createAuditLog({
+    userId: null,
+    action: 'oauth_token',
+    resourceType: 'oauth',
+    resourceId: clientId,
+    newValues: { grant_type: 'client_credentials', client_id: clientId },
   });
 
   return NextResponse.json({

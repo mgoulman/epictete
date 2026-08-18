@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { withErrorHandler } from '@/lib/api/handler';
 import { enforce } from '@/lib/auth/supabase-server';
 import { plannedShiftFor } from '@/lib/schedule';
 
@@ -13,7 +14,7 @@ function localNow() {
 }
 
 // GET /api/presence/summary?date= — counts of present / late / absent vs scheduled
-export async function GET(request: NextRequest) {
+export const GET = withErrorHandler(async (request) => {
   const denied = await enforce('personnel.read'); if (denied) return denied;
   const { date: today, minutes: nowMin } = localNow();
   const date = new URL(request.url).searchParams.get('date') || today;
@@ -42,4 +43,4 @@ export async function GET(request: NextRequest) {
     }
   }
   return NextResponse.json({ scheduled: scheduled.length, present, late, absent });
-}
+});

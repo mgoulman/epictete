@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { getServerSession } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 import { generateLowStockNotifications } from '@/lib/notifications';
 
 interface NotificationRow {
@@ -51,9 +52,11 @@ export async function PATCH(request: NextRequest) {
 
   const body = await request.json().catch(() => ({}));
   if (body.all) {
-    await db.query('UPDATE notifications SET is_read = true, read_at = now() WHERE is_read = false');
+    const { rowCount } = await db.query('UPDATE notifications SET is_read = true, read_at = now() WHERE is_read = false');
+    await createAuditLog({ userId: session.id, action: 'mark_read', resourceType: 'notification', resourceId: null, newValues: { count: rowCount } });
   } else if (body.id) {
     await db.query('UPDATE notifications SET is_read = true, read_at = now() WHERE id = $1', [body.id]);
+    await createAuditLog({ userId: session.id, action: 'mark_read', resourceType: 'notification', resourceId: String(body.id) });
   } else {
     return NextResponse.json({ error: 'id or all required' }, { status: 400 });
   }

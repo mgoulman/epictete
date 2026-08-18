@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 export async function GET(request: NextRequest) {
   const denied = await enforce('reports.read'); if (denied) return denied;
@@ -102,6 +103,15 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    await createAuditLog({
+      userId: (user?.user?.id as string) || null,
+      action: 'upsert',
+      resourceType: 'daily_entry',
+      resourceId: String(entry.entry_date),
+      newValues: data,
+    });
+
     return NextResponse.json({ success: true, entry: data });
   } catch (error) {
     console.error('Daily entries POST error:', error);
@@ -135,6 +145,15 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    await createAuditLog({
+      userId: await getCurrentUserId(),
+      action: 'update',
+      resourceType: 'daily_entry',
+      resourceId: String(id),
+      newValues: data,
+    });
+
     return NextResponse.json({ success: true, entry: data });
   } catch (error) {
     console.error('Daily entries PATCH error:', error);

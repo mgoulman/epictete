@@ -1,15 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { withErrorHandler } from '@/lib/api/handler';
 import { getServerSession } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 import { getVapidPublicKey, isPushConfigured } from '@/lib/push';
 
 // GET → expose the VAPID public key + whether push is configured (for the client)
-export async function GET() {
+export const GET = withErrorHandler(async () => {
   return NextResponse.json({ publicKey: getVapidPublicKey(), enabled: isPushConfigured() });
-}
+});
 
 // POST → store a push subscription for the current user
-export async function POST(request: NextRequest) {
+export const POST = withErrorHandler(async (request) => {
   const session = await getServerSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -27,16 +29,18 @@ export async function POST(request: NextRequest) {
      ON CONFLICT (endpoint) DO UPDATE SET p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, user_id = EXCLUDED.user_id`,
     [endpoint, p256dh, auth, session.id, request.headers.get('user-agent')]
   );
+  await createAuditLog({ userId: session.id, action: 'subscribe', resourceType: 'push_subscription', resourceId: String(endpoint) });
   return NextResponse.json({ success: true });
-}
+});
 
 // DELETE → remove a subscription by endpoint
-export async function DELETE(request: NextRequest) {
+export const DELETE = withErrorHandler(async (request) => {
   const session = await getServerSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const endpoint = new URL(request.url).searchParams.get('endpoint');
   if (!endpoint) return NextResponse.json({ error: 'endpoint required' }, { status: 400 });
   await db.query('DELETE FROM push_subscriptions WHERE endpoint = $1', [endpoint]);
+  await createAuditLog({ userId: session.id, action: 'unsubscribe', resourceType: 'push_subscription', resourceId: String(endpoint) });
   return NextResponse.json({ success: true });
-}
+});

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 // GET - Fetch recipes or recipe details
 export async function GET(request: NextRequest) {
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest) {
   const denied = await enforce('recipes.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const body = await request.json();
     const { type, ...data } = body;
 
@@ -95,6 +97,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'create', resourceType: 'recipe', resourceId: result?.id ? String(result.id) : null, newValues: result });
       return NextResponse.json({ success: true, recipe: result });
     }
 
@@ -123,6 +126,7 @@ export async function POST(request: NextRequest) {
       // Recalculate recipe cost
       await recalculateRecipeCost(supabase, data.recipe_id);
 
+      await createAuditLog({ userId, action: 'update', resourceType: 'recipe', resourceId: data.recipe_id ? String(data.recipe_id) : null, newValues: result });
       return NextResponse.json({ success: true, ingredient: result });
     }
 
@@ -147,6 +151,7 @@ export async function POST(request: NextRequest) {
       // Recalculate recipe cost
       await recalculateRecipeCost(supabase, data.recipe_id);
 
+      await createAuditLog({ userId, action: 'update', resourceType: 'recipe', resourceId: data.recipe_id ? String(data.recipe_id) : null, newValues: { count: ingredients.length } });
       return NextResponse.json({ success: true });
     }
 
@@ -185,6 +190,7 @@ export async function POST(request: NextRequest) {
         if (ingError) throw ingError;
       }
 
+      await createAuditLog({ userId, action: 'create', resourceType: 'recipe', resourceId: recipe?.id ? String(recipe.id) : null, newValues: recipe });
       return NextResponse.json({ success: true, recipe });
     }
 
@@ -200,6 +206,7 @@ export async function PATCH(request: NextRequest) {
   const denied = await enforce('recipes.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const body = await request.json();
     const { type, id, ...data } = body;
 
@@ -228,6 +235,7 @@ export async function PATCH(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'update', resourceType: 'recipe', resourceId: String(id), newValues: result });
       return NextResponse.json({ success: true, recipe: result });
     }
 
@@ -255,6 +263,7 @@ export async function PATCH(request: NextRequest) {
         await recalculateRecipeCost(supabase, result.recipe_id);
       }
 
+      await createAuditLog({ userId, action: 'update', resourceType: 'recipe', resourceId: result?.recipe_id ? String(result.recipe_id) : String(id), newValues: result });
       return NextResponse.json({ success: true, ingredient: result });
     }
 
@@ -266,6 +275,7 @@ export async function PATCH(request: NextRequest) {
         .eq('id', id);
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'update', resourceType: 'recipe', resourceId: data.recipe_id ? String(data.recipe_id) : null, newValues: { menu_item_id: id, recipe_id: data.recipe_id } });
       return NextResponse.json({ success: true });
     }
 
@@ -281,6 +291,7 @@ export async function DELETE(request: NextRequest) {
   const denied = await enforce('recipes.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
     const id = searchParams.get('id');
@@ -302,6 +313,7 @@ export async function DELETE(request: NextRequest) {
         .eq('id', id);
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'delete', resourceType: 'recipe', resourceId: String(id) });
       return NextResponse.json({ success: true });
     }
 
@@ -325,6 +337,7 @@ export async function DELETE(request: NextRequest) {
         await recalculateRecipeCost(supabase, ingredient.recipe_id);
       }
 
+      await createAuditLog({ userId, action: 'update', resourceType: 'recipe', resourceId: ingredient?.recipe_id ? String(ingredient.recipe_id) : String(id), oldValues: ingredient });
       return NextResponse.json({ success: true });
     }
 

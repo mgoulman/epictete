@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { withErrorHandler } from '@/lib/api/handler';
 import { enforce, getServerSession } from '@/lib/auth/supabase-server';
 import { createAuditLog } from '@/lib/auth/audit';
 
@@ -10,16 +11,16 @@ interface SettingRow {
 }
 
 // GET /api/notifications/settings → all per-type settings (any authenticated user)
-export async function GET() {
+export const GET = withErrorHandler(async () => {
   const denied = await enforce(); if (denied) return denied;
   const { rows } = await db.query<SettingRow>(
     'SELECT type, enabled, config FROM notification_settings ORDER BY type'
   );
   return NextResponse.json({ settings: rows });
-}
+});
 
 // PATCH /api/notifications/settings → { type, enabled?, config? } (admin: settings.write)
-export async function PATCH(request: NextRequest) {
+export const PATCH = withErrorHandler(async (request) => {
   const denied = await enforce('settings.write'); if (denied) return denied;
   const { type, enabled, config } = await request.json().catch(() => ({}));
   if (!type) return NextResponse.json({ error: 'type required' }, { status: 400 });
@@ -35,4 +36,4 @@ export async function PATCH(request: NextRequest) {
   const actor = await getServerSession();
   await createAuditLog({ userId: actor?.id, userEmail: actor?.email, action: 'update', resourceType: 'notification_setting', resourceId: type, newValues: { enabled, config } });
   return NextResponse.json({ success: true });
-}
+});

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 // GET - Fetch menus or menu details
 export async function GET(request: NextRequest) {
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
   const denied = await enforce('menu.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const body = await request.json();
     const { type, ...data } = body;
 
@@ -114,6 +116,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'create', resourceType: 'menu', resourceId: result?.id ? String(result.id) : null, newValues: result });
       return NextResponse.json({ success: true, menu: result });
     }
 
@@ -131,6 +134,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'update', resourceType: 'menu', resourceId: data.menu_id ? String(data.menu_id) : null, newValues: result });
       return NextResponse.json({ success: true, item: result });
     }
 
@@ -147,6 +151,7 @@ export async function POST(request: NextRequest) {
         .insert(items);
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'update', resourceType: 'menu', resourceId: data.menu_id ? String(data.menu_id) : null, newValues: { count: items.length } });
       return NextResponse.json({ success: true });
     }
 
@@ -162,6 +167,7 @@ export async function PATCH(request: NextRequest) {
   const denied = await enforce('menu.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const body = await request.json();
     const { type, id, ...data } = body;
 
@@ -188,6 +194,7 @@ export async function PATCH(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'update', resourceType: 'menu', resourceId: String(id), newValues: result });
       return NextResponse.json({ success: true, menu: result });
     }
 
@@ -204,6 +211,7 @@ export async function PATCH(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'update', resourceType: 'menu', resourceId: String(id), newValues: result });
       return NextResponse.json({ success: true, item: result });
     }
 
@@ -217,6 +225,7 @@ export async function PATCH(request: NextRequest) {
       );
 
       await Promise.all(updates);
+      await createAuditLog({ userId, action: 'update', resourceType: 'menu', resourceId: null, newValues: { count: data.items?.length || 0 } });
       return NextResponse.json({ success: true });
     }
 
@@ -232,6 +241,7 @@ export async function DELETE(request: NextRequest) {
   const denied = await enforce('menu.delete'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
     const id = searchParams.get('id');
@@ -247,6 +257,7 @@ export async function DELETE(request: NextRequest) {
         .eq('id', id);
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'delete', resourceType: 'menu', resourceId: String(id) });
       return NextResponse.json({ success: true });
     }
 
@@ -258,6 +269,7 @@ export async function DELETE(request: NextRequest) {
         .eq('id', id);
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'update', resourceType: 'menu', resourceId: String(id) });
       return NextResponse.json({ success: true });
     }
 

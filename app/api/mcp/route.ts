@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MCPHTTPHandler, MCPRequest } from '@/lib/mcp/http-handler';
 import { validateAuth } from '@/lib/mcp/auth';
+import { createAuditLog } from '@/lib/auth/audit';
 
 // Initialize handler with environment tokens
 function getHandler(): MCPHTTPHandler | null {
@@ -76,6 +77,18 @@ export async function POST(request: NextRequest) {
 
   const authHeader = request.headers.get('authorization') || undefined;
   const response = await handler.handleRequest(body, authHeader, isDiscoveryMethod);
+
+  // Coarse audit: one entry per tool invocation only (skip chatty discovery/ping traffic)
+  if (body.method === 'tools/call') {
+    const toolName = (body.params as { name?: string } | undefined)?.name;
+    await createAuditLog({
+      userId: null,
+      action: 'mcp_request',
+      resourceType: 'mcp',
+      resourceId: null,
+      newValues: { method: toolName || body.method },
+    });
+  }
 
   return NextResponse.json(response, {
     headers: {

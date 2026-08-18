@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 // In-memory client store (use database in production)
 const dynamicClients = new Map<string, {
@@ -65,6 +66,14 @@ export async function POST(request: NextRequest) {
       response.client_secret = clientSecret;
       response.client_secret_expires_at = 0; // Never expires
     }
+
+    await createAuditLog({
+      userId: null,
+      action: 'oauth_register',
+      resourceType: 'oauth',
+      resourceId: clientId,
+      newValues: { client_name: client.client_name },
+    });
 
     return NextResponse.json(response, {
       status: 201,

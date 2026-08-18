@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 export async function GET(request: NextRequest) {
   const denied = await enforce('salle.read'); if (denied) return denied;
@@ -30,6 +31,7 @@ export async function POST(request: NextRequest) {
   const denied = await enforce('salle.serve'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const body = await request.json();
     const { session_id, menu_item_id, quantity, notes } = body;
 
@@ -62,6 +64,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await createAuditLog({ userId, action: 'create', resourceType: 'salle_order', resourceId: data?.id ? String(data.id) : null, newValues: data });
     return NextResponse.json({ order: data });
   } catch (error) {
     console.error('Orders POST error:', error);
@@ -73,6 +76,7 @@ export async function PATCH(request: NextRequest) {
   const denied = await enforce('salle.serve'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const body = await request.json();
     const { id, status, quantity, notes } = body;
 
@@ -91,6 +95,7 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await createAuditLog({ userId, action: 'update', resourceType: 'salle_order', resourceId: id ? String(id) : null, newValues: data });
     return NextResponse.json({ order: data });
   } catch (error) {
     console.error('Orders PATCH error:', error);
@@ -102,6 +107,7 @@ export async function DELETE(request: NextRequest) {
   const denied = await enforce('salle.serve'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -121,6 +127,7 @@ export async function DELETE(request: NextRequest) {
 
     const { error } = await supabase.from('table_orders').delete().eq('id', id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await createAuditLog({ userId, action: 'delete', resourceType: 'salle_order', resourceId: String(id), oldValues: order });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Orders DELETE error:', error);

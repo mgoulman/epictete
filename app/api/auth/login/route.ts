@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import db from '@/lib/db';
 import { createJWT } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 import type { PermissionName, RoleName } from '@/lib/types/auth';
 
 async function logAuthEvent(
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
 
     if (users.length === 0) {
       await logAuthEvent('login_failed', email, null, request);
+      await createAuditLog({ userId: null, action: 'login_failed', resourceType: 'auth', newValues: { email } });
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
@@ -86,6 +88,7 @@ export async function POST(request: Request) {
     });
 
     await logAuthEvent('login_success', email, user.id as string, request);
+    await createAuditLog({ userId: user.id as string, action: 'login', resourceType: 'auth', newValues: { email } });
 
     return NextResponse.json({
       success: true,

@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { withErrorHandler } from '@/lib/api/handler';
 import { enforce } from '@/lib/auth/supabase-server';
 
 // GET /api/presence?date=YYYY-MM-DD — attendance records for a date (manager view)
-export async function GET(request: NextRequest) {
+export const GET = withErrorHandler(async (request) => {
   const denied = await enforce('personnel.read'); if (denied) return denied;
 
   const date = new URL(request.url).searchParams.get('date');
@@ -16,4 +17,4 @@ export async function GET(request: NextRequest) {
     [date]
   );
   return NextResponse.json({ records: rows });
-}
+});

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce, enforceAny } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, enforceAny, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 import { query } from '@/lib/db';
 
 // GET - Fetch vendors or transactions (finance OR inventory roles — vendors are
@@ -113,6 +114,7 @@ export async function POST(request: NextRequest) {
     // inventory-write roles as well as finance.
     const denied = await enforceAny(['finance.write', 'inventory.write']); if (denied) return denied;
   try {
+    const userId = await getCurrentUserId();
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
     const { type, ...data } = body;
@@ -125,6 +127,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'create', resourceType: 'vendor', resourceId: result?.id ? String(result.id) : null, newValues: result });
       return NextResponse.json({ success: true, vendor: result });
     }
 
@@ -137,6 +140,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'create', resourceType: 'vendor_transaction', resourceId: result?.id ? String(result.id) : null, newValues: result });
       return NextResponse.json({ success: true, transaction: result });
     }
 
@@ -179,6 +183,7 @@ export async function POST(request: NextRequest) {
         [targetVendorId, vendor?.name || null, itemIds],
       );
 
+      await createAuditLog({ userId, action: 'update', resourceType: 'inventory_item', resourceId: targetVendorId ? String(targetVendorId) : null, newValues: { movedCount: updatedRows.length, targetVendorId, itemIds } });
       return NextResponse.json({
         success: true,
         movedCount: updatedRows.length,
@@ -198,6 +203,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
     const denied = await enforce('finance.write'); if (denied) return denied;
   try {
+    const userId = await getCurrentUserId();
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
     const { type, id, ...data } = body;
@@ -215,6 +221,7 @@ export async function PATCH(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'update', resourceType: 'vendor', resourceId: String(id), newValues: result });
       return NextResponse.json({ success: true, vendor: result });
     }
 
@@ -227,6 +234,7 @@ export async function PATCH(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'update', resourceType: 'vendor_transaction', resourceId: String(id), newValues: result });
       return NextResponse.json({ success: true, transaction: result });
     }
 
@@ -241,6 +249,7 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
     const denied = await enforce('finance.write'); if (denied) return denied;
   try {
+    const userId = await getCurrentUserId();
     const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
@@ -258,6 +267,7 @@ export async function DELETE(request: NextRequest) {
       .eq('id', id);
 
     if (error) throw error;
+    await createAuditLog({ userId, action: 'delete', resourceType: type === 'vendor' ? 'vendor' : 'vendor_transaction', resourceId: String(id) });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Vendors DELETE error:', error);

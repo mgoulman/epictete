@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 export async function GET(request: NextRequest) {
   const denied = await enforce('reports.read'); if (denied) return denied;
@@ -65,6 +66,15 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    await createAuditLog({
+      userId: (user?.user?.id as string) || null,
+      action: 'create',
+      resourceType: 'expense',
+      resourceId: data?.id ? String(data.id) : null,
+      newValues: data,
+    });
+
     return NextResponse.json({ success: true, expense: data });
   } catch (error) {
     console.error('Expenses POST error:', error);
@@ -91,6 +101,15 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    await createAuditLog({
+      userId: await getCurrentUserId(),
+      action: 'update',
+      resourceType: 'expense',
+      resourceId: String(id),
+      newValues: data,
+    });
+
     return NextResponse.json({ success: true, expense: data });
   } catch (error) {
     console.error('Expenses PATCH error:', error);
@@ -115,6 +134,14 @@ export async function DELETE(request: NextRequest) {
       .eq('id', id);
 
     if (error) throw error;
+
+    await createAuditLog({
+      userId: await getCurrentUserId(),
+      action: 'delete',
+      resourceType: 'expense',
+      resourceId: String(id),
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Expenses DELETE error:', error);

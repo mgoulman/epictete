@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 import { query } from '@/lib/db';
 
 // GET - List invoices for a vendor
@@ -42,6 +43,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     const denied = await enforce('finance.write'); if (denied) return denied;
   try {
+    const userId = await getCurrentUserId();
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
 
@@ -160,6 +162,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    await createAuditLog({ userId, action: 'create', resourceType: 'invoice', resourceId: invoice?.id ? String(invoice.id) : null, newValues: invoice });
     return NextResponse.json({
       success: true,
       invoice,

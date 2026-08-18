@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 // GET - Fetch drivers, vehicles, trips, or staff with transport settings
 export async function GET(request: NextRequest) {
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
   const denied = await enforce('transport.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const body = await request.json();
     const { type, ...data } = body;
 
@@ -105,6 +107,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'create', resourceType: 'transport_driver', resourceId: result?.id ? String(result.id) : null, newValues: result });
       return NextResponse.json({ success: true, driver: result });
     }
 
@@ -116,6 +119,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'create', resourceType: 'transport_vehicle', resourceId: result?.id ? String(result.id) : null, newValues: result });
       return NextResponse.json({ success: true, vehicle: result });
     }
 
@@ -145,6 +149,7 @@ export async function POST(request: NextRequest) {
         if (passengersError) throw passengersError;
       }
 
+      await createAuditLog({ userId, action: 'create', resourceType: 'transport_trip', resourceId: trip?.id ? String(trip.id) : null, newValues: trip });
       return NextResponse.json({ success: true, trip });
     }
 
@@ -160,6 +165,7 @@ export async function PATCH(request: NextRequest) {
   const denied = await enforce('transport.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const body = await request.json();
     const { type, id, ...data } = body;
 
@@ -176,6 +182,7 @@ export async function PATCH(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'update', resourceType: 'transport_driver', resourceId: String(id), newValues: result });
       return NextResponse.json({ success: true, driver: result });
     }
 
@@ -188,6 +195,7 @@ export async function PATCH(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'update', resourceType: 'transport_vehicle', resourceId: String(id), newValues: result });
       return NextResponse.json({ success: true, vehicle: result });
     }
 
@@ -227,6 +235,7 @@ export async function PATCH(request: NextRequest) {
         }
       }
 
+      await createAuditLog({ userId, action: 'update', resourceType: 'transport_trip', resourceId: String(id), newValues: trip });
       return NextResponse.json({ success: true, trip });
     }
 
@@ -244,6 +253,7 @@ export async function PATCH(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      await createAuditLog({ userId, action: 'update', resourceType: 'transport', resourceId: String(id), newValues: result });
       return NextResponse.json({ success: true, staff: result });
     }
 
@@ -259,6 +269,7 @@ export async function DELETE(request: NextRequest) {
   const denied = await enforce('transport.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
     const id = searchParams.get('id');
@@ -284,6 +295,12 @@ export async function DELETE(request: NextRequest) {
       .eq('id', id);
 
     if (error) throw error;
+    const deleteResourceType: Record<string, string> = {
+      'driver': 'transport_driver',
+      'vehicle': 'transport_vehicle',
+      'trip': 'transport_trip'
+    };
+    await createAuditLog({ userId, action: 'delete', resourceType: deleteResourceType[type] || 'transport', resourceId: String(id) });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Transport DELETE error:', error);

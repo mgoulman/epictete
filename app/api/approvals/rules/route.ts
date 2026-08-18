@@ -1,19 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { withErrorHandler } from '@/lib/api/handler';
 import { enforce, getServerSession } from '@/lib/auth/supabase-server';
 import { createAuditLog } from '@/lib/auth/audit';
 
 // GET /api/approvals/rules → all module rules (admin: settings.write)
-export async function GET() {
+export const GET = withErrorHandler(async () => {
   const denied = await enforce('settings.write'); if (denied) return denied;
   const { rows } = await db.query(
     'SELECT module, enabled, requester_roles, approver_roles FROM approval_rules ORDER BY module'
   );
   return NextResponse.json({ rules: rows });
-}
+});
 
 // PATCH /api/approvals/rules → { module, enabled?, requester_roles?, approver_roles? }
-export async function PATCH(request: NextRequest) {
+export const PATCH = withErrorHandler(async (request) => {
   const denied = await enforce('settings.write'); if (denied) return denied;
   const { module, enabled, requester_roles, approver_roles } = await request.json().catch(() => ({}));
   if (!module) return NextResponse.json({ error: 'module required' }, { status: 400 });
@@ -35,4 +36,4 @@ export async function PATCH(request: NextRequest) {
   const actor = await getServerSession();
   await createAuditLog({ userId: actor?.id, userEmail: actor?.email, action: 'update', resourceType: 'approval_rule', resourceId: module, newValues: { enabled, requester_roles, approver_roles } });
   return NextResponse.json({ success: true });
-}
+});

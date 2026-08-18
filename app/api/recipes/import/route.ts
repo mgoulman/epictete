@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 import * as XLSX from 'xlsx';
 
 interface ParsedRecipe {
@@ -22,6 +23,7 @@ export async function POST(request: NextRequest) {
   const denied = await enforce('recipes.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const category = formData.get('category') as string || 'general';
@@ -107,6 +109,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    await createAuditLog({ userId, action: 'import', resourceType: 'recipe', resourceId: null, newValues: { count: importedCount } });
     return NextResponse.json({
       success: true,
       imported: importedCount,

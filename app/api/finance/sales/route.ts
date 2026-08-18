@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 import db from '@/lib/db';
 
 export async function GET(request: NextRequest) {
@@ -88,6 +89,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    await createAuditLog({
+      userId: await getCurrentUserId(),
+      action: 'create',
+      resourceType: 'sale',
+      resourceId: data?.id ? String(data.id) : null,
+      newValues: data,
+    });
+
     return NextResponse.json({ success: true, item: data });
   } catch (error) {
     console.error('Sales insert error:', error);
@@ -115,6 +124,13 @@ export async function DELETE(request: NextRequest) {
       console.error('Delete error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    await createAuditLog({
+      userId: await getCurrentUserId(),
+      action: 'delete',
+      resourceType: 'sale',
+      resourceId: String(id),
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

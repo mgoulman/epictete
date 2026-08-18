@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 export async function GET(request: NextRequest) {
   const denied = await enforce('salle.read'); if (denied) return denied;
@@ -45,6 +46,7 @@ export async function POST(request: NextRequest) {
   const denied = await enforce('salle.serve'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const body = await request.json();
     const { table_id, guests_count, waiter_id } = body;
 
@@ -72,6 +74,7 @@ export async function POST(request: NextRequest) {
       .update({ status: 'occupied' })
       .eq('id', table_id);
 
+    await createAuditLog({ userId, action: 'open', resourceType: 'salle_session', resourceId: session?.id ? String(session.id) : null, newValues: session });
     return NextResponse.json({ session });
   } catch (error) {
     console.error('Sessions POST error:', error);
@@ -83,6 +86,7 @@ export async function PATCH(request: NextRequest) {
   const denied = await enforce('salle.serve'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const body = await request.json();
     const { id, status, notes } = body;
 
@@ -169,6 +173,7 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await createAuditLog({ userId, action: status === 'closed' ? 'close' : 'update', resourceType: 'salle_session', resourceId: id ? String(id) : null, newValues: data });
     return NextResponse.json({ session: data });
   } catch (error) {
     console.error('Sessions PATCH error:', error);

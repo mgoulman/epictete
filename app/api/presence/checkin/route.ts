@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { withErrorHandler } from '@/lib/api/handler';
 import { getServerSession } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 import { plannedShiftFor } from '@/lib/schedule';
 
 const TZ = 'Africa/Casablanca';
@@ -22,7 +24,7 @@ function toMinutes(hhmm: string): number {
 
 // POST /api/presence/checkin — auto-records the logged-in staff member's presence
 // for today if they are scheduled, validating against the planning.
-export async function POST() {
+export const POST = withErrorHandler(async () => {
   const session = await getServerSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -62,6 +64,8 @@ export async function POST() {
     [staff.id, date, planned.start_time, status]
   );
 
+  await createAuditLog({ userId: session.id, action: 'checkin', resourceType: 'attendance', resourceId: String(staff.id), newValues: inserted[0] || { staff_id: staff.id, date, status, scheduled_start: planned.start_time } });
+
   return NextResponse.json({
     linked: true,
     scheduled: true,
@@ -69,4 +73,4 @@ export async function POST() {
     checkInTime: time,
     attendance: inserted[0] || { status, scheduled_start: planned.start_time },
   });
-}
+});

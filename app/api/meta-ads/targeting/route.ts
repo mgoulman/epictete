@@ -8,7 +8,8 @@ import {
   estimateAudienceSize,
 } from '@/lib/meta-ads/targeting';
 import { GraphAPIError } from '@/lib/meta-ads/api';
-import { enforce } from '@/lib/auth/supabase-server';
+import { enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 function getAccessToken(request: NextRequest): string {
   const authHeader = request.headers.get('authorization');
@@ -85,6 +86,7 @@ export async function POST(request: NextRequest) {
   if (!accessToken) {
     return NextResponse.json({ error: 'Access token is required' }, { status: 401 });
   }
+  const userId = await getCurrentUserId();
 
   try {
     const body = await request.json();
@@ -99,6 +101,7 @@ export async function POST(request: NextRequest) {
       optimizationGoal: optimization_goal,
     });
 
+    await createAuditLog({ userId, action: 'estimate', resourceType: 'meta_ad_targeting', resourceId: String(account_id), newValues: { account_id, optimization_goal } });
     return NextResponse.json(result);
   } catch (error) {
     console.error('Estimate audience error:', error);

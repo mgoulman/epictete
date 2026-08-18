@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { InstagramClient } from '@/lib/instagram/client';
-import { enforce } from '@/lib/auth/supabase-server';
+import { enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 const getClient = (accessToken?: string) => {
   return new InstagramClient({
@@ -93,6 +94,7 @@ export async function POST(request: NextRequest) {
   const denied = await enforce('marketing.write'); if (denied) return denied;
   const accessToken = request.headers.get('x-access-token') || undefined;
   const client = getClient(accessToken);
+  const userId = await getCurrentUserId();
 
   try {
     const body = await request.json();
@@ -110,6 +112,7 @@ export async function POST(request: NextRequest) {
         }
         const imageContainer = await client.createImageContainer(image_url, caption, account_id);
         const imageResult = await client.publishMedia(imageContainer.id, account_id);
+        await createAuditLog({ userId, action: 'create', resourceType: 'instagram', resourceId: imageResult?.id ? String(imageResult.id) : null, newValues: { type: 'publish_image', account_id, media_id: imageResult?.id } });
         return NextResponse.json(imageResult);
 
       case 'publish_video':
@@ -124,6 +127,7 @@ export async function POST(request: NextRequest) {
           account_id
         );
         // Video processing takes time, return container ID for status checking
+        await createAuditLog({ userId, action: 'create', resourceType: 'instagram', resourceId: videoContainer?.id ? String(videoContainer.id) : null, newValues: { type: 'publish_video', account_id, container_id: videoContainer?.id, media_type: media_type || 'VIDEO', status: 'processing' } });
         return NextResponse.json({ container_id: videoContainer.id, status: 'processing' });
 
       case 'publish_carousel':
@@ -133,6 +137,7 @@ export async function POST(request: NextRequest) {
         }
         const carouselContainer = await client.createCarouselContainer(children, carouselCaption, account_id);
         const carouselResult = await client.publishMedia(carouselContainer.id, account_id);
+        await createAuditLog({ userId, action: 'create', resourceType: 'instagram', resourceId: carouselResult?.id ? String(carouselResult.id) : null, newValues: { type: 'publish_carousel', account_id, media_id: carouselResult?.id, children_count: children.length } });
         return NextResponse.json(carouselResult);
 
       case 'check_container':
@@ -149,6 +154,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'container_id is required' }, { status: 400 });
         }
         const publishResult = await client.publishMedia(containerId, account_id);
+        await createAuditLog({ userId, action: 'create', resourceType: 'instagram', resourceId: publishResult?.id ? String(publishResult.id) : null, newValues: { type: 'publish_container', account_id, container_id: containerId, media_id: publishResult?.id } });
         return NextResponse.json(publishResult);
 
       case 'discover_business':

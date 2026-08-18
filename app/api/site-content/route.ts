@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 import db from '@/lib/db';
 
 // GET - Fetch site content (public, no auth needed)
@@ -53,6 +54,8 @@ export async function PATCH(request: NextRequest) {
 
     if (error) throw error;
 
+    const userId = await getCurrentUserId();
+    await createAuditLog({ userId, action: 'update', resourceType: 'site_content', resourceId: data?.id ? String(data.id) : String(section), newValues: { section, content } });
     return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error('Site content PATCH error:', error);

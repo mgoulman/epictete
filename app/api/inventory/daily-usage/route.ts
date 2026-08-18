@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 interface UsageLine {
   inventory_item_id: string;
@@ -87,6 +88,7 @@ export async function POST(request: NextRequest) {
       if (movError) throw movError;
     }
 
+    await createAuditLog({ userId: user?.id ? String(user.id) : null, action: 'create', resourceType: 'daily_usage', resourceId: date, newValues: { date, count: movements.length } });
     return NextResponse.json({
       success: true,
       count: movements.length,

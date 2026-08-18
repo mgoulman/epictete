@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, getServerSession } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 import { approvalRequiredFor, submitApprovalRequest } from '@/lib/approvals';
 import type { PermissionName } from '@/lib/types/auth';
 
@@ -77,11 +78,13 @@ export async function POST(request: NextRequest) {
 
     // Authorize per-table/per-action, except anonymous public marketing reads.
     const isPublicRead = action === 'select' && PUBLIC_READ_TABLES.has(table);
+    let userId: string | null = null;
     if (!isPublicRead) {
       const session = await getServerSession();
       if (!session) {
         return NextResponse.json({ data: null, error: { message: 'Unauthorized' } }, { status: 401 });
       }
+      userId = session.id;
       if (session.role !== 'admin') {
         const resource = TABLE_RESOURCE[table];
         const needed = resource ? requiredPermission(resource, action) : null;
@@ -128,6 +131,7 @@ export async function POST(request: NextRequest) {
       if (limitVal) q = q.limit(limitVal);
       if (single) q = q.single();
       const result = await q;
+      await createAuditLog({ userId, action: 'query', resourceType: 'database', newValues: { sql: `${action} ${table}`, rowCount: Array.isArray(result.data) ? result.data.length : (result.data ? 1 : null) } });
       return NextResponse.json(result);
     }
 
@@ -136,6 +140,7 @@ export async function POST(request: NextRequest) {
       if (select) q = q.select(select);
       if (single) q = q.single();
       const result = await q;
+      await createAuditLog({ userId, action: 'query', resourceType: 'database', newValues: { sql: `${action} ${table}`, rowCount: Array.isArray(result.data) ? result.data.length : (result.data ? 1 : null) } });
       return NextResponse.json(result);
     }
 
@@ -146,6 +151,7 @@ export async function POST(request: NextRequest) {
       }
       if (single) q = q.single();
       const result = await q;
+      await createAuditLog({ userId, action: 'query', resourceType: 'database', newValues: { sql: `${action} ${table}`, rowCount: Array.isArray(result.data) ? result.data.length : (result.data ? 1 : null) } });
       return NextResponse.json(result);
     }
 
@@ -156,6 +162,7 @@ export async function POST(request: NextRequest) {
         else if (f.op === 'IN') q = q.in(f.column, f.value as unknown[]);
       }
       const result = await q;
+      await createAuditLog({ userId, action: 'query', resourceType: 'database', newValues: { sql: `${action} ${table}`, rowCount: Array.isArray(result.data) ? result.data.length : (result.data ? 1 : null) } });
       return NextResponse.json(result);
     }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { InstagramClient } from '@/lib/instagram/client';
-import { enforce } from '@/lib/auth/supabase-server';
+import { enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 const getClient = (accessToken?: string) => {
   return new InstagramClient({
@@ -60,9 +61,10 @@ export async function POST(
   { params }: { params: Promise<{ mediaId: string }> }
 ) {
   const denied = await enforce('marketing.write'); if (denied) return denied;
-  const { mediaId: _mediaId } = await params; // Available for future use
+  const { mediaId } = await params;
   const accessToken = request.headers.get('x-access-token') || undefined;
   const client = getClient(accessToken);
+  const userId = await getCurrentUserId();
 
   try {
     const body = await request.json();
@@ -78,6 +80,7 @@ export async function POST(
           );
         }
         const replyResult = await client.replyToComment(comment_id, message);
+        await createAuditLog({ userId, action: 'update', resourceType: 'instagram_media', resourceId: String(mediaId), newValues: { type: 'reply_comment', comment_id } });
         return NextResponse.json(replyResult);
 
       case 'hide_comment':
@@ -86,6 +89,7 @@ export async function POST(
           return NextResponse.json({ error: 'comment_id is required' }, { status: 400 });
         }
         const hideResult = await client.hideComment(commentToHide, hide !== false);
+        await createAuditLog({ userId, action: 'hide', resourceType: 'instagram_media', resourceId: String(mediaId), newValues: { type: 'hide_comment', comment_id: commentToHide, hidden: hide !== false } });
         return NextResponse.json(hideResult);
 
       default:

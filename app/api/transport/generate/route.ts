@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 interface Shift {
   start_time: string;
@@ -108,6 +109,7 @@ export async function POST(request: NextRequest) {
   const denied = await enforce('transport.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const body = await request.json();
     const { startDate, endDate } = body;
 
@@ -242,6 +244,7 @@ export async function POST(request: NextRequest) {
       if (passengersError) throw passengersError;
     }
 
+    await createAuditLog({ userId, action: 'generate', resourceType: 'transport_trip', resourceId: null, newValues: { count: createdTrips?.length || 0, passengersAssigned: allPassengers.length, startDate, endDate } });
     return NextResponse.json({
       success: true,
       tripsCreated: createdTrips?.length || 0,

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import twilio from "twilio";
 import { createNotification } from "@/lib/notifications";
+import { createAuditLog } from "@/lib/auth/audit";
 
 interface ReservationData {
   name: string;
@@ -82,6 +83,15 @@ _Via epictetelerestaurant.ma_`;
       console.log(message);
       console.log("=============================================");
 
+      await createAuditLog({
+        userId: null,
+        userEmail: body.email || null,
+        action: 'create',
+        resourceType: 'reservation',
+        resourceId: null,
+        newValues: { name: body.name, date: body.date, guests: totalGuests },
+      });
+
       return NextResponse.json({
         success: true,
         note: "WhatsApp not configured - reservation logged"
@@ -98,6 +108,16 @@ _Via epictetelerestaurant.ma_`;
       });
 
       console.log("WhatsApp reservation sent successfully");
+
+      await createAuditLog({
+        userId: null,
+        userEmail: body.email || null,
+        action: 'create',
+        resourceType: 'reservation',
+        resourceId: null,
+        newValues: { name: body.name, date: body.date, guests: totalGuests },
+      });
+
       return NextResponse.json({ success: true, method: "whatsapp" });
 
     } catch (twilioError) {

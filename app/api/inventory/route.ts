@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 export async function GET(request: NextRequest) {
     const denied = await enforce('inventory.read'); if (denied) return denied;
@@ -51,6 +52,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     const denied = await enforce('inventory.write'); if (denied) return denied;
   try {
+    const userId = await getCurrentUserId();
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
 
@@ -96,6 +98,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    await createAuditLog({ userId, action: 'create', resourceType: 'inventory_item', resourceId: data?.id ? String(data.id) : null, newValues: data });
     return NextResponse.json({ success: true, item: data });
   } catch (error) {
     console.error('Inventory create error:', error);
@@ -106,6 +109,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
     const denied = await enforce('inventory.write'); if (denied) return denied;
   try {
+    const userId = await getCurrentUserId();
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
     const { id, ...updates } = body;
@@ -142,6 +146,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    await createAuditLog({ userId, action: 'update', resourceType: 'inventory_item', resourceId: String(id), newValues: data });
     return NextResponse.json({ success: true, item: data });
   } catch (error) {
     console.error('Inventory update error:', error);
@@ -152,6 +157,7 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
     const denied = await enforce('inventory.write'); if (denied) return denied;
   try {
+    const userId = await getCurrentUserId();
     const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -170,6 +176,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    await createAuditLog({ userId, action: 'delete', resourceType: 'inventory_item', resourceId: String(id) });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Inventory delete error:', error);

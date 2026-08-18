@@ -2,6 +2,7 @@ import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { del } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUserId, enforce } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 // POST — handle client-direct uploads to Vercel Blob.
 // The browser calls @vercel/blob/client `upload()` which exchanges with this
@@ -43,8 +44,21 @@ export async function POST(request: NextRequest) {
           tokenPayload: JSON.stringify({ userId, bucket }),
         };
       },
-      onUploadCompleted: async () => {
-        // Could record an audit log here in the future.
+      onUploadCompleted: async ({ blob, tokenPayload }) => {
+        let userId: string | null = null;
+        let bucket: string | null = null;
+        try {
+          const parsed = tokenPayload ? JSON.parse(tokenPayload) : {};
+          userId = parsed.userId ?? null;
+          bucket = parsed.bucket ?? null;
+        } catch { /* ignore malformed payload */ }
+        await createAuditLog({
+          userId,
+          action: 'upload',
+          resourceType: 'file',
+          resourceId: blob.pathname ? String(blob.pathname) : null,
+          newValues: { name: blob.pathname, bucket, size: (blob as { size?: number }).size },
+        });
       },
     });
 
@@ -69,6 +83,7 @@ export async function DELETE(request: NextRequest) {
     if (!url) return NextResponse.json({ error: 'No url provided' }, { status: 400 });
 
     await del(url);
+    await createAuditLog({ userId, action: 'delete', resourceType: 'file', resourceId: String(url) });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Delete error:', error);

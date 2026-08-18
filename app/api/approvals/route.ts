@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { withErrorHandler } from '@/lib/api/handler';
 import { getServerSession } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 import { listPendingApprovals, reviewApproval, type ApprovalRequest } from '@/lib/approvals';
 
 // Build a human-readable detail view of what a request would change.
@@ -37,16 +39,16 @@ async function buildDetails(req: ApprovalRequest) {
 }
 
 // GET /api/approvals → pending requests the current user can approve (+ details)
-export async function GET() {
+export const GET = withErrorHandler(async () => {
   const session = await getServerSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const requests = await listPendingApprovals(session);
   const enriched = await Promise.all(requests.map(async r => ({ ...r, details: await buildDetails(r) })));
   return NextResponse.json({ requests: enriched });
-}
+});
 
 // PATCH /api/approvals → { id, decision: 'approved'|'rejected', note? }
-export async function PATCH(request: NextRequest) {
+export const PATCH = withErrorHandler(async (request) => {
   const session = await getServerSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -56,5 +58,12 @@ export async function PATCH(request: NextRequest) {
   }
   const result = await reviewApproval(id, decision, note ?? null, session);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
+  await createAuditLog({
+    userId: session.id,
+    action: decision === 'approved' ? 'approve' : 'reject',
+    resourceType: 'approval',
+    resourceId: String(id),
+    newValues: { status: decision },
+  });
   return NextResponse.json({ success: true });
-}
+});

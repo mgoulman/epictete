@@ -156,6 +156,7 @@ export async function POST(request: NextRequest) {
         targetUsers: unread, system: true,
       });
     }
+    await createAuditLog({ userId: session.id, userEmail: session.email, action: 'memo_reminded', resourceType: 'memo', resourceId: body.id, newValues: { reminded: unread.length } });
     return NextResponse.json({ reminded: unread.length });
   }
 

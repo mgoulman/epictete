@@ -2,15 +2,18 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import db from '@/lib/db';
 import { verifyJWT } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 export async function POST(request: Request) {
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value;
 
+  let userId: string | null = null;
   if (token) {
     try {
       const payload = await verifyJWT(token);
       if (payload?.sub) {
+        userId = payload.sub;
         const ipAddress =
           request.headers.get('x-forwarded-for')?.split(',')[0] ||
           request.headers.get('x-real-ip') ||
@@ -33,5 +36,6 @@ export async function POST(request: Request) {
     maxAge: 0,
     path: '/',
   });
+  await createAuditLog({ userId, action: 'logout', resourceType: 'auth' });
   return NextResponse.json({ success: true });
 }

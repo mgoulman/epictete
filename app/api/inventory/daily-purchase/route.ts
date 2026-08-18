@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce, getServerSession } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getServerSession, getCurrentUserId } from '@/lib/auth/supabase-server';
 import { applyDailyPurchase, type DailyPurchaseBody } from '@/lib/inventory-actions';
 import { approvalRequiredFor, submitApprovalRequest } from '@/lib/approvals';
+import { createAuditLog } from '@/lib/auth/audit';
 
 // POST — batch-save daily purchases: update quantities + create movements.
 // Subject to the inventory approval rule: requester roles get held for review.
@@ -34,10 +35,12 @@ export async function POST(request: NextRequest) {
         session,
         rule,
       });
+      await createAuditLog({ userId: session.id, action: 'submit_for_approval', resourceType: 'daily_purchase', resourceId: date, newValues: { date, count: items.length } });
       return NextResponse.json({ pending: true, message: "Soumis pour approbation" });
     }
 
     const count = await applyDailyPurchase(supabase, body, session.id);
+    await createAuditLog({ userId: session.id, action: 'create', resourceType: 'daily_purchase', resourceId: date, newValues: { date, count } });
     return NextResponse.json({ success: true, count });
   } catch (error) {
     console.error('Daily purchase error:', error);
@@ -49,6 +52,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
     const denied = await enforce('inventory.write'); if (denied) return denied;
   try {
+    const userId = await getCurrentUserId();
     const supabase = await createSupabaseServerClient();
     const { id, quantity, unit_cost } = await request.json();
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
@@ -90,6 +94,7 @@ export async function PATCH(request: NextRequest) {
       if (updateErr) console.error('Item update error:', updateErr);
     }
 
+    await createAuditLog({ userId, action: 'update', resourceType: 'daily_purchase', resourceId: String(id), newValues: { id, quantity, unit_cost }, oldValues: mov });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Movement edit error:', error);
@@ -133,6 +138,7 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
     const denied = await enforce('inventory.write'); if (denied) return denied;
   try {
+    const userId = await getCurrentUserId();
     const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
     const singleId = searchParams.get('id');
@@ -194,6 +200,7 @@ export async function DELETE(request: NextRequest) {
 
     if (delError) throw delError;
 
+    await createAuditLog({ userId, action: 'delete', resourceType: 'daily_purchase', resourceId: singleId || date });
     return NextResponse.json({ success: true, deleted: ids.length });
   } catch (error) {
     console.error('Daily purchase delete error:', error);

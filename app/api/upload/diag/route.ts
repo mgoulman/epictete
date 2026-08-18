@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
+import { withErrorHandler } from '@/lib/api/handler';
 import { enforceAdmin } from '@/lib/auth/supabase-server';
 
 // Diagnostic endpoint to verify what the deployed function actually sees for
 // Vercel Blob env vars. Returns presence + length only — never the secret.
-export async function GET() {
+export const GET = withErrorHandler(async () => {
   const denied = await enforceAdmin(); if (denied) return denied;
   const blob = process.env.BLOB_READ_WRITE_TOKEN;
   const webhook = process.env.BLOB_WEBHOOK_PUBLIC_KEY;
@@ -18,4 +19,4 @@ export async function GET() {
     VERCEL_REGION: process.env.VERCEL_REGION || null,
     deployedAt: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || null,
   });
-}
+});

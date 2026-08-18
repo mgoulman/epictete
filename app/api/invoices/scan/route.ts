@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 import db from '@/lib/db';
-import { enforce } from '@/lib/auth/supabase-server';
+import { enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
 
@@ -43,6 +44,7 @@ interface InventoryMatch {
 export async function POST(request: NextRequest) {
     const denied = await enforce('finance.write'); if (denied) return denied;
   try {
+    const userId = await getCurrentUserId();
     if (!anthropicApiKey) {
       return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 });
     }
@@ -256,6 +258,7 @@ Important:
       };
     });
 
+    await createAuditLog({ userId, action: 'scan', resourceType: 'invoice', resourceId: vendorId ? String(vendorId) : null, newValues: { vendor_id: vendorId, invoice_url: invoiceUrl, item_count: itemsWithMatches.length } });
     return NextResponse.json({
       success: true,
       invoice_url: invoiceUrl,

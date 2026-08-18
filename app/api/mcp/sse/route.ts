@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { MCPHTTPHandler, MCPRequest } from '@/lib/mcp/http-handler';
 import { validateAuth } from '@/lib/mcp/auth';
 import { META_ADS_TOOLS, INSTAGRAM_TOOLS } from '@/lib/mcp/tools';
+import { createAuditLog } from '@/lib/auth/audit';
 
 // Store active SSE connections
 const connections = new Map<string, {
@@ -169,6 +170,18 @@ export async function POST(request: NextRequest) {
     }
   }
   
+  // Coarse audit: one entry per tool invocation only (skip chatty discovery/ping traffic)
+  if (body.method === 'tools/call') {
+    const toolName = (body.params as { name?: string } | undefined)?.name;
+    await createAuditLog({
+      userId: null,
+      action: 'mcp_request',
+      resourceType: 'mcp',
+      resourceId: null,
+      newValues: { method: toolName || body.method },
+    });
+  }
+
   // If no connectionId, handle as regular HTTP request (Streamable HTTP transport)
   if (!connectionId) {
     const handler = getHandler();

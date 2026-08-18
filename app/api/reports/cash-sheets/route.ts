@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 function parseCashNumber(value: unknown) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
@@ -38,6 +39,23 @@ function customColumnsDepense(columns: unknown): number {
       : 0), 0);
 }
 
+// Fixed columns whose totals may be added to TOTAL DÉPENSE, keyed like the client.
+// PAYÉ counts by default (historical behaviour); the others only when flagged.
+const FIXED_DEPENSE_KEYS = ['paid_items', 'unpaid_items', 'paid_outside_items'] as const;
+function fixedColumnsDepense(body: Record<string, unknown>): number {
+  const flags = (body.column_flags && typeof body.column_flags === 'object')
+    ? body.column_flags as Record<string, { count_as_depense?: unknown; hidden?: unknown }>
+    : {};
+  return FIXED_DEPENSE_KEYS.reduce((sum, key) => {
+    const f = flags[key] || {};
+    const counts = f.count_as_depense ?? (key === 'paid_items');
+    if (!counts || f.hidden) return sum;
+    const items = body[key];
+    if (!Array.isArray(items)) return sum;
+    return sum + items.reduce((s: number, i: { amount: unknown }) => s + parseCashNumber(i?.amount), 0);
+  }, 0);
+}
+
 function normalizeStoredCashSheet<T extends Record<string, unknown>>(sheet: T | null): T | null {
   if (!sheet) return sheet;
 
@@ -48,7 +66,7 @@ function normalizeStoredCashSheet<T extends Record<string, unknown>>(sheet: T | 
   const nonCashSources = nonCashSourcesTotal(sheet.payment_sources);
 
   const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline - nonCashSources);
-  const totalEspeces = caisseEspeces + glovoEspece;
+  const totalEspeces = Math.max(0, totalCA - totalCB - glovoOnline - nonCashSources);
 
   return { ...sheet, total_especes_caisse: caisseEspeces, total_especes: totalEspeces };
 }
@@ -92,14 +110,14 @@ export async function POST(request: NextRequest) {
     const customColumns = Array.isArray(body.custom_columns) ? body.custom_columns : [];
     const paymentSources = Array.isArray(body.payment_sources) ? body.payment_sources : [];
     const customDepense = customColumnsDepense(customColumns);
-    const totalDepense = paidItems.reduce((s: number, i: { amount: unknown }) => s + parseCashNumber(i.amount), 0) + customDepense;
+    const totalDepense = fixedColumnsDepense(body) + customDepense;
     const totalCA = parseCashNumber(body.total_ca);
     const totalCB = parseCashNumber(body.total_cb);
     const glovoEspece = parseCashNumber(body.glovo_ttc_espece);
     const glovoOnline = parseCashNumber(body.glovo_ttc_online);
     const nonCashSources = nonCashSourcesTotal(paymentSources);
     const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline - nonCashSources);
-    const totalEspeces = caisseEspeces + glovoEspece;
+    const totalEspeces = Math.max(0, totalCA - totalCB - glovoOnline - nonCashSources);
     const resteEspeces = totalEspeces - totalDepense;
 
     const sheet = {
@@ -115,6 +133,7 @@ export async function POST(request: NextRequest) {
       unpaid_items: body.unpaid_items || [],
       paid_outside_items: body.paid_outside_items || [],
       custom_columns: customColumns,
+      column_flags: (body.column_flags && typeof body.column_flags === 'object') ? body.column_flags : {},
       payment_sources: paymentSources,
       total_depense: Math.round(totalDepense * 100) / 100,
       reste_especes: Math.round(resteEspeces * 100) / 100,
@@ -147,7 +166,7 @@ export async function POST(request: NextRequest) {
     // yet: strip whichever column the error names and retry, so saving still works
     // (that field just won't persist until the migration runs). Bounded to the known
     // optional columns so we can't loop forever.
-    const OPTIONAL_COLUMNS = ['custom_columns', 'payment_sources'] as const;
+    const OPTIONAL_COLUMNS = ['custom_columns', 'payment_sources', 'column_flags'] as const;
     let attempts = 0;
     let payload: Record<string, unknown> = sheet;
     while (error && attempts < OPTIONAL_COLUMNS.length) {
@@ -161,6 +180,15 @@ export async function POST(request: NextRequest) {
     }
 
     if (error) throw error;
+
+    await createAuditLog({
+      userId: (user?.id as string) || null,
+      action: 'upsert',
+      resourceType: 'cash_sheet',
+      resourceId: String(data?.id ?? sheet.entry_date),
+      newValues: { entry_date: sheet.entry_date, total_ca: sheet.total_ca, total_depense: sheet.total_depense },
+    });
+
     return NextResponse.json({ success: true, sheet: data });
   } catch (error) {
     console.error('Cash sheet POST error:', error);

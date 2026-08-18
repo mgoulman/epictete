@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 interface OrderItem {
   id?: string;
@@ -210,6 +211,7 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', order_id);
 
+      await createAuditLog({ userId: user?.id ? String(user.id) : null, action: 'receive', resourceType: 'purchase_order', resourceId: String(order_id), newValues: { total_amount: Math.round(totalAmount * 100) / 100, paid_amount: paid_amount || 0 } });
       return NextResponse.json({ success: true });
     }
 
@@ -262,6 +264,7 @@ export async function POST(request: NextRequest) {
       .insert(orderItems);
     if (itemsErr) throw itemsErr;
 
+    await createAuditLog({ userId: user?.id ? String(user.id) : null, action: 'create', resourceType: 'purchase_order', resourceId: order?.id ? String(order.id) : null, newValues: order });
     return NextResponse.json({ success: true, order });
   } catch (error) {
     console.error('Purchase orders POST error:', error);
@@ -273,6 +276,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
     const denied = await enforce('inventory.write'); if (denied) return denied;
   try {
+    const userId = await getCurrentUserId();
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
 
@@ -288,6 +292,7 @@ export async function PATCH(request: NextRequest) {
         .update(cleaned)
         .eq('id', item_id);
       if (error) throw error;
+      await createAuditLog({ userId, action: 'update', resourceType: 'purchase_order', resourceId: String(item_id), newValues: cleaned });
       return NextResponse.json({ success: true });
     }
 
@@ -300,6 +305,7 @@ export async function PATCH(request: NextRequest) {
       .eq('id', id);
 
     if (error) throw error;
+    await createAuditLog({ userId, action: 'update', resourceType: 'purchase_order', resourceId: String(id), newValues: updates });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Purchase orders PATCH error:', error);
@@ -311,6 +317,7 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
     const denied = await enforce('inventory.write'); if (denied) return denied;
   try {
+    const userId = await getCurrentUserId();
     const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -323,6 +330,7 @@ export async function DELETE(request: NextRequest) {
       .eq('id', id);
 
     if (error) throw error;
+    await createAuditLog({ userId, action: 'cancel', resourceType: 'purchase_order', resourceId: String(id) });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Purchase orders DELETE error:', error);

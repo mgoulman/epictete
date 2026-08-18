@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce, getServerSession } from '@/lib/auth/supabase-server';
+import { createSupabaseServerClient, enforce, getServerSession, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { createAuditLog } from '@/lib/auth/audit';
 
 export async function GET(request: NextRequest) {
   const denied = await enforce('salle.read'); if (denied) return denied;
@@ -151,6 +152,7 @@ export async function POST(request: NextRequest) {
   const denied = await enforce('salle.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const body = await request.json();
     const { type } = body;
 
@@ -162,6 +164,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      await createAuditLog({ userId, action: 'create', resourceType: 'salle_zone', resourceId: data?.id ? String(data.id) : null, newValues: data });
       return NextResponse.json({ zone: data });
     }
 
@@ -183,6 +186,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      await createAuditLog({ userId, action: 'create', resourceType: 'salle_table', resourceId: data?.id ? String(data.id) : null, newValues: data });
       return NextResponse.json({ table: data });
     }
 
@@ -198,6 +202,7 @@ export async function POST(request: NextRequest) {
         .select('*, assigned_waiter:staff_members!tables_assigned_waiter_id_fkey(id, first_name, last_name)');
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      await createAuditLog({ userId, action: 'update', resourceType: 'salle_table', resourceId: null, newValues: { count: data?.length ?? 0, tables: data } });
       return NextResponse.json({ tables: data });
     }
 
@@ -212,6 +217,7 @@ export async function PATCH(request: NextRequest) {
   const denied = await enforce('salle.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const body = await request.json();
     const { type } = body;
 
@@ -226,6 +232,7 @@ export async function PATCH(request: NextRequest) {
         .single();
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      await createAuditLog({ userId, action: 'update', resourceType: 'salle_zone', resourceId: id ? String(id) : null, newValues: data });
       return NextResponse.json({ zone: data });
     }
 
@@ -240,6 +247,7 @@ export async function PATCH(request: NextRequest) {
         .single();
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      await createAuditLog({ userId, action: 'update', resourceType: 'salle_table', resourceId: id ? String(id) : null, newValues: data });
       return NextResponse.json({ table: data });
     }
 
@@ -266,6 +274,7 @@ export async function PATCH(request: NextRequest) {
       if (results.length > 0) {
         return NextResponse.json({ error: 'Some updates failed', details: results }, { status: 500 });
       }
+      await createAuditLog({ userId, action: 'update', resourceType: 'salle_table', resourceId: null, newValues: { count: positions.length, positions } });
       return NextResponse.json({ success: true });
     }
 
@@ -279,6 +288,7 @@ export async function PATCH(request: NextRequest) {
         .single();
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      await createAuditLog({ userId, action: 'update', resourceType: 'salle_table', resourceId: id ? String(id) : null, newValues: data });
       return NextResponse.json({ table: data });
     }
 
@@ -293,6 +303,7 @@ export async function DELETE(request: NextRequest) {
   const denied = await enforce('salle.write'); if (denied) return denied;
   try {
     const supabase = await createSupabaseServerClient();
+    const userId = await getCurrentUserId();
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
     const id = searchParams.get('id');
@@ -302,12 +313,14 @@ export async function DELETE(request: NextRequest) {
     if (type === 'zone') {
       const { error } = await supabase.from('floor_zones').delete().eq('id', id);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      await createAuditLog({ userId, action: 'delete', resourceType: 'salle_zone', resourceId: String(id) });
       return NextResponse.json({ success: true });
     }
 
     if (type === 'table') {
       const { error } = await supabase.from('tables').delete().eq('id', id);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      await createAuditLog({ userId, action: 'delete', resourceType: 'salle_table', resourceId: String(id) });
       return NextResponse.json({ success: true });
     }
 

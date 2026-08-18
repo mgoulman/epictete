@@ -13,6 +13,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@modelcontextprotocol/sdk": "^1.25.3",
+    "@sentry/nextjs": "^10.70.0",
     "@types/pg": "^8.20.0",
     "@vercel/blob": "^2.4.0",
     "date-fns": "^4.1.0",
