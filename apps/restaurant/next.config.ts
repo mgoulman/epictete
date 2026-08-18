@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
+  transpilePackages: ["@epictete/core"],
+  serverExternalPackages: ["pg"],
   images: {
     remotePatterns: [
       {

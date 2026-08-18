@@ -83,3 +83,21 @@
 - **Data foundation is complete.** Next: SaaS auth/login (Phase 2) to mint JWTs; point shared module code
   at TenantDb; lock /api/db/query + MCP; Blob prefixing; suspend gating; provisionTenant + lifecycle hooks;
   leak-test suite gate.
+
+## 2026-08-18 — Phase 1 (compat-layer tenant-awareness, in place) — localhost, live Neon untouched
+- Made the Supabase-compat db layer (apps/restaurant/lib/db.ts) tenant-aware: added a single
+  `executeQuery()` that ALL builder queries + the raw query() now funnel through. When a
+  @epictete/core tenant context is active it wraps in `BEGIN; SET LOCAL ROLE <rlsRole>;
+  set_config('app.tenant_id',$1,true); <query>; COMMIT` (RLS-scoped); with NO context it is a
+  plain pool.query — byte-identical to before, so the single-tenant restaurant is unaffected.
+  Added @epictete/core dep + transpilePackages/serverExternalPackages to the restaurant.
+- Restaurant BUILD passes (live app safe); tsc 0 errors.
+- Verification note: the compat-builder scoping could not be verified in the test harnesses tried —
+  (a) tsx duplicates @epictete/core across the symlink boundary → two AsyncLocalStorage instances
+  (harness artifact, NOT a code bug); (b) a temp restaurant route is blocked by the app's auth
+  middleware. The mechanism is identical to the packages/core TenantDb that already passed e2e in
+  the real Next SaaS runtime (where the bundler dedupes @epictete/core).
+- **Clear next step:** EXTRACT the compat builder into packages/core (@epictete/core/db) as a
+  createDb(pool, {rlsRole}) factory so BOTH apps share it — the SaaS then uses the tenant-aware
+  builder directly and it's verifiable via a SaaS route (no auth-middleware/dedup issues). The
+  in-place executeQuery logic moves there verbatim.

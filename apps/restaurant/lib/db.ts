@@ -1,4 +1,5 @@
 import { Pool, types as pgTypes, type QueryResult } from 'pg';
+import { getTenantContext } from '@epictete/core/db';
 
 // Parse DATE (1082) columns as plain strings YYYY-MM-DD instead of JS Date objects
 // This avoids timezone shifts that can change the date by one day on the client
@@ -31,6 +32,40 @@ const pool = process.env.DATABASE_URL
 pool.on('connect', (client) => {
   client.query('SET search_path TO public').catch(() => {});
 });
+
+// ─── Tenant-aware execution ──────────────────────────────────────────────────
+// Every builder query + the raw query() funnel through here. When a tenant
+// context is active (a multi-tenant SaaS request, set via @epictete/core
+// runWithTenant), the query runs inside a transaction that sets the
+// transaction-local `app.tenant_id` GUC (and an optional RLS role), so Postgres
+// RLS enforces isolation. With NO tenant context (the single-tenant restaurant
+// app, cron, scripts) it is a plain pool.query — identical to before.
+const RLS_ROLE_RE = /^[a-z_][a-z0-9_]*$/i;
+async function executeQuery(sql: string, params?: unknown[]): Promise<QueryResult> {
+  const ctx = getTenantContext();
+  if (!ctx?.tenantId) {
+    return pool.query(sql, params);
+  }
+  const rlsRole = process.env.DB_RLS_ROLE;
+  const client = await pool.connect();
+  try {
+    // Drain any in-flight setup query from the pool 'connect' handler (an unawaited
+    // `SET search_path`) so it can't run concurrently with — and clobber — our
+    // transaction-local SET LOCAL statements. This one awaited query serializes it.
+    await client.query('SET search_path TO public');
+    await client.query('BEGIN');
+    if (rlsRole && RLS_ROLE_RE.test(rlsRole)) await client.query(`SET LOCAL ROLE ${rlsRole}`);
+    await client.query("SELECT set_config('app.tenant_id', $1, true)", [ctx.tenantId]);
+    const res = await client.query(sql, params);
+    await client.query('COMMIT');
+    return res;
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch { /* ignore */ }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
 
 // ─── Audit logging ──────────────────────────────────────────────────────────
 // Auto-record every INSERT/UPDATE/DELETE made through the builders into
@@ -90,7 +125,7 @@ export async function query<T = Record<string, unknown>>(
   text: string,
   params?: unknown[]
 ): Promise<{ rows: T[]; rowCount: number }> {
-  const result: QueryResult = await pool.query(text, params);
+  const result: QueryResult = await executeQuery(text, params);
   return { rows: result.rows as T[], rowCount: result.rowCount || 0 };
 }
 
@@ -393,7 +428,7 @@ class QueryBuilder<T = Record<string, unknown>> {
       if (this._offsetVal !== null) sql += ` OFFSET ${this._offsetVal}`;
     }
 
-    const result = await pool.query(sql, params);
+    const result = await executeQuery(sql, params);
     const rows = result.rows as T[];
 
     if (this._single) {
@@ -506,7 +541,7 @@ class InsertBuilder<T = Record<string, unknown>> {
       }
 
       const sql = `INSERT INTO ${this._table} (${cols.map(c => `"${c}"`).join(', ')}) VALUES ${valueGroups.join(', ')}${conflictClause} ${returning}`;
-      const result = await pool.query(sql, allParams);
+      const result = await executeQuery(sql, allParams);
 
       for (const row of result.rows) {
         await recordAudit(this._table, 'create', (row.id as string) ?? null, row);
@@ -517,7 +552,7 @@ class InsertBuilder<T = Record<string, unknown>> {
         const ids = result.rows.map(r => r.id);
         if (ids.length > 0 && this._selectCols.includes('_rel')) {
           const selectSql = `SELECT ${this._selectCols} FROM ${this._table} inserted WHERE inserted.id = ANY($1)`;
-          const selectResult = await pool.query(selectSql, [ids]);
+          const selectResult = await executeQuery(selectSql, [ids]);
           const data = this._single ? selectResult.rows[0] || null : selectResult.rows;
           return resolve({ data: data as T[] | T | null, error: null });
         }
@@ -591,7 +626,7 @@ class UpdateBuilder<T = Record<string, unknown>> {
       }
 
       sql += ' RETURNING *';
-      const result = await pool.query(sql, params);
+      const result = await executeQuery(sql, params);
 
       for (const row of result.rows) {
         await recordAudit(this._table, 'update', (row.id as string) ?? null, this._data);
@@ -666,7 +701,7 @@ class DeleteBuilder<T = Record<string, unknown>> {
       }
 
       sql += ' RETURNING *';
-      const result = await pool.query(sql, params);
+      const result = await executeQuery(sql, params);
 
       for (const row of result.rows) {
         await recordAudit(this._table, 'delete', (row.id as string) ?? null, row);
