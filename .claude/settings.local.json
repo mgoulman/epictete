@@ -78,7 +78,8 @@
       "Bash(pnpm --filter @epictete/saas exec tsc --noEmit)",
       "Bash(../../node_modules/.bin/tsx _compat_tenant.mts)",
       "Bash(pnpm --filter @epictete/restaurant build)",
-      "Bash(curl -s -o /dev/null -w '%{http_code}' -m 40 http://localhost:4020/api/_tenant_probe?t=__TRACKED_VAR__)"
+      "Bash(curl -s -o /dev/null -w '%{http_code}' -m 40 http://localhost:4020/api/_tenant_probe?t=__TRACKED_VAR__)",
+      "Bash(pnpm --filter @epictete/restaurant exec tsc --noEmit)"
     ]
   },
   "enableAllProjectMcpServers": true,

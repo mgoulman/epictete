@@ -101,3 +101,21 @@
   createDb(pool, {rlsRole}) factory so BOTH apps share it — the SaaS then uses the tenant-aware
   builder directly and it's verifiable via a SaaS route (no auth-middleware/dedup issues). The
   in-place executeQuery logic moves there verbatim.
+
+## 2026-08-18 — Phase 1 (compat-layer EXTRACTED to packages/core) — localhost, live Neon untouched
+- Ported the ~700-line Supabase-compat query builder into packages/core/src/db/compat.ts as a
+  `createDb({ pool, rlsRole?, audit? })` factory. Builder classes take an injected DbContext
+  { execute, audit }; execute is the tenant-aware wrapper (getTenantContext -> BEGIN; SET LOCAL
+  ROLE; set_config('app.tenant_id'); ...; COMMIT). Exported via @epictete/core/db.
+- apps/restaurant/lib/db.ts is now a THIN wrapper: creates the env-based pool + its own audit
+  hook (cookie/JWT -> audit_logs) + createDb. API preserved (default db, named query, db.pool).
+  Restaurant BUILD passes, tsc 0 errors -> live app behavior unchanged (no tenant context -> plain
+  pool.query).
+- apps/saas/lib/db.ts uses the SAME createDb (pool -> epictete_saas_dev, rlsRole saas_app).
+- VERIFIED in the real SaaS Next runtime: GET /api/my-tenant now exercises db.from('menus').select();
+  each tenant's JWT returns menuCount=2 (its own), NOT 4 (total) -> the shared BUILDER is
+  tenant-scoped via RLS. Tenants isolated; no cookie -> 401. (tsx couldn't verify earlier due to
+  symlink module-dup; the bundled Next app dedupes @epictete/core, so it works.)
+- **Route/compat-layer migration foundation is DONE**: one shared tenant-aware builder for both apps.
+  Remaining: bring the actual restaurant route handlers + the auth/session/enforce layer into the SaaS
+  (tenant-aware), lock /api/db/query + MCP, Blob prefixing, suspend gating, provisionTenant, leak-test gate.

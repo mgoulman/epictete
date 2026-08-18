@@ -1,15 +1,20 @@
-import { TenantDb } from "@epictete/core/db";
+import { Pool } from "pg";
+import { createDb } from "@epictete/core/db";
 
-// Singleton across hot-reloads / reused lambda instances.
-const globalForDb = globalThis as unknown as { __saasDb?: TenantDb };
-
-export const db =
-  globalForDb.__saasDb ??
-  new TenantDb({
+// Singleton pool + db across hot-reloads / reused instances.
+const g = globalThis as unknown as { __saasPool?: Pool };
+const pool =
+  g.__saasPool ??
+  new Pool({
     connectionString: process.env.SAAS_DATABASE_URL,
-    // Dev: login role is a superuser -> drop to the non-superuser RLS role per txn.
-    // Prod: connect AS the non-superuser app role and leave this unset.
-    rlsRole: process.env.DB_RLS_ROLE || undefined,
+    max: process.env.SAAS_DATABASE_URL?.includes("neon.tech") ? 1 : 10,
   });
+if (process.env.NODE_ENV !== "production") g.__saasPool = pool;
+// (Local dev connects as a superuser whose search_path already includes public,
+// so no connect-time search_path handler is needed here. Neon prod would add one.)
 
-if (process.env.NODE_ENV !== "production") globalForDb.__saasDb = db;
+// Shared tenant-aware compat builder. In dev the login is a superuser, so drop to
+// the non-superuser RLS role per tenant txn; in prod connect AS saas_app directly.
+export const db = createDb({ pool, rlsRole: process.env.DB_RLS_ROLE || undefined });
+
+export default db;
