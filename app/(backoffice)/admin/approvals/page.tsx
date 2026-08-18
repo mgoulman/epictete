@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ClipboardCheck, Check, X, Loader2, Clock, User, ChevronDown } from 'lucide-react';
+import { useToast } from '@/components/backoffice/ToastProvider';
 
 interface DetailLine { label: string; quantity: number; unit: string; unit_cost: number; total: number; }
 interface DetailField { key: string; value: string; }
@@ -45,6 +46,7 @@ export default function ApprovalsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const toast = useToast();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -70,8 +72,11 @@ export default function ApprovalsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Échec');
       await load();
+      toast.success(decision === 'approved' ? 'Approuvé' : 'Rejeté');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Échec');
+      const msg = e instanceof Error ? e.message : 'Échec';
+      setError(msg);
+      toast.error(msg);
     } finally { setBusy(null); }
   };
 

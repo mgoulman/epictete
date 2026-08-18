@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth, usePermissions } from '@/lib/auth/hooks';
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import { useToast } from '@/components/backoffice/ToastProvider';
 import type {
   FloorZone, Table, TableSession, TableOrder, TableStatus, TableShape,
   SessionStatus, OrderItemStatus
@@ -114,6 +115,7 @@ export default function ServicePage() {
   const { isAdmin } = usePermissions();
   const { t } = useTranslation();
   const sv = t.backoffice.servicePage;
+  const toast = useToast();
   const [zones, setZones] = useState<FloorZone[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
   const [activeZoneId, setActiveZoneId] = useState<string>('');
@@ -252,6 +254,7 @@ export default function ServicePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'table-status', id: table.id, status: 'free' }),
       });
+      toast.success('Table libérée');
       fetchTables(activeZoneId);
       return;
     }
@@ -288,6 +291,9 @@ export default function ServicePage() {
       setOrders([]);
       setPanelOpen(true);
       fetchTables(activeZoneId);
+      toast.success('Clients installés');
+    } else {
+      toast.error(data.error || 'Une erreur est survenue');
     }
   };
 
@@ -305,6 +311,9 @@ export default function ServicePage() {
     const data = await res.json();
     if (data.order) {
       setOrders(prev => [...prev, data.order]);
+      toast.success('Ajouté');
+    } else {
+      toast.error(data.error || 'Une erreur est survenue');
     }
     setShowMenuPicker(false);
   };
@@ -326,11 +335,13 @@ export default function ServicePage() {
       body: JSON.stringify({ id: orderId, quantity }),
     });
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, quantity } : o));
+    toast.success('Mis à jour');
   };
 
   const handleDeleteOrder = async (orderId: string) => {
     await fetch(`/api/salle/orders?id=${orderId}`, { method: 'DELETE' });
     setOrders(prev => prev.filter(o => o.id !== orderId));
+    toast.success('Supprimé');
   };
 
   const handleMarkAllServed = async () => {
@@ -346,6 +357,7 @@ export default function ServicePage() {
       });
       setActiveSession(prev => prev ? { ...prev, status: 'served' } : null);
     }
+    toast.success('Tout servi');
   };
 
   const handleGenerateBill = async () => {
@@ -359,6 +371,7 @@ export default function ServicePage() {
     const data = await res.json();
     if (data.session) setActiveSession(data.session);
     setShowBill(true);
+    toast.success('Addition générée');
   };
 
   const handleCloseTable = async () => {
@@ -374,6 +387,7 @@ export default function ServicePage() {
     setActiveSession(null);
     setOrders([]);
     fetchTables(activeZoneId);
+    toast.success('Table fermée');
   };
 
   const closePanel = () => {

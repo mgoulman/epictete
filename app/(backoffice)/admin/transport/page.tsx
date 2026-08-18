@@ -11,6 +11,7 @@ import {
 } from '@/lib/types/transport';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import DraggableScheduleGrid from '@/components/backoffice/transport/DraggableScheduleGrid';
+import { useToast } from '@/components/backoffice/ToastProvider';
 
 // Types for schedule computation
 interface Shift {
@@ -101,6 +102,7 @@ type TabType = 'cuisine' | 'salle' | 'resources' | 'settings' | 'schedule';
 export default function TransportPage() {
   const { t } = useTranslation();
   const tp = t.backoffice.transportPage;
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<TabType>('cuisine');
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -304,9 +306,13 @@ export default function TransportPage() {
       const data = await res.json();
       if (data.success) {
         fetchTrips();
+        toast.success('Trajets générés');
+      } else {
+        toast.error(data.error || 'Une erreur est survenue');
       }
     } catch (error) {
       console.error('Error generating trips:', error);
+      toast.error('Une erreur est survenue');
     } finally {
       setGenerating(false);
     }
@@ -317,12 +323,14 @@ export default function TransportPage() {
     if (!confirm(tp.deleteDriver)) return;
     await fetch(`/api/transport?type=driver&id=${id}`, { method: 'DELETE' });
     fetchDriversAndVehicles();
+    toast.success('Supprimé');
   };
 
   const handleDeleteVehicle = async (id: string) => {
     if (!confirm(tp.deleteVehicle)) return;
     await fetch(`/api/transport?type=vehicle&id=${id}`, { method: 'DELETE' });
     fetchDriversAndVehicles();
+    toast.success('Supprimé');
   };
 
   // Update staff transport settings
@@ -342,6 +350,7 @@ export default function TransportPage() {
       })
     });
     fetchStaff();
+    toast.success('Mis à jour');
   };
 
   const handleUpdateDepartment = async (staffId: string, department: Department | null) => {
@@ -360,6 +369,7 @@ export default function TransportPage() {
       })
     });
     fetchStaff();
+    toast.success('Mis à jour');
   };
 
   // Update trip driver/vehicle
@@ -375,6 +385,7 @@ export default function TransportPage() {
       })
     });
     fetchTrips();
+    toast.success('Mis à jour');
   };
 
   // Update trip date/time via drag
@@ -847,6 +858,7 @@ function DriverModal({
 }) {
   const { t } = useTranslation();
   const tp = t.backoffice.transportPage;
+  const toast = useToast();
   const [formData, setFormData] = useState({
     first_name: editingDriver?.first_name || '',
     last_name: editingDriver?.last_name || '',
@@ -873,6 +885,7 @@ function DriverModal({
     });
 
     setSaving(false);
+    toast.success(editingDriver ? 'Mis à jour' : 'Créé');
     onSave();
   };
 
@@ -974,6 +987,7 @@ function VehicleModal({
 }) {
   const { t } = useTranslation();
   const tp = t.backoffice.transportPage;
+  const toast = useToast();
   const [formData, setFormData] = useState({
     name: editingVehicle?.name || '',
     plate_number: editingVehicle?.plate_number || '',
@@ -999,6 +1013,7 @@ function VehicleModal({
     });
 
     setSaving(false);
+    toast.success(editingVehicle ? 'Mis à jour' : 'Créé');
     onSave();
   };
 

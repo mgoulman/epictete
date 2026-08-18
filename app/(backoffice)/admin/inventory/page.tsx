@@ -8,6 +8,7 @@ import {
   History, Download, Check, TrendingDown, Wallet, ClipboardList, Eye, X, ChevronDown, ClipboardCheck
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import { useToast } from '@/components/backoffice/ToastProvider';
 import ExcelJS from 'exceljs';
 import StockCountSheet from '@/components/backoffice/inventory/StockCountSheet';
 
@@ -336,11 +337,12 @@ export default function InventoryPage() {
   }, [inv]);
 
   // ─── Toast ───────────────────────────────────────────────────────────────
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  // Unified platform toasts. `showToast` is a thin adapter kept so the existing
+  // call sites (and the StockCountSheet prop) work unchanged.
+  const toast = useToast();
   const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  }, []);
+    if (type === 'error') toast.error(message); else toast.success(message);
+  }, [toast]);
 
   // ─── State ──────────────────────────────────────────────────────────────
   const [tab, setTab] = useState<TabKey>('history');
@@ -723,8 +725,12 @@ export default function InventoryPage() {
         setLines([{ inventory_item_id: '', quantity: 0, unit_cost: 0, notes: '', pack_mode: false, pack_count: 1, pack_size: 1, pack_price: 0, new_product_name: '', new_product_unit: 'kg', new_product_category_id: '', new_product_vendor_id: '', new_vendor_name: '' }]);
         setVendorPayments({});
         setPurchaseTvaAmount(0);
+      } else if (data.error) {
+        showToast(data.error, 'error');
       }
-    } catch { /* silent */ } finally {
+    } catch {
+      showToast(tt('saveError', "Échec de l'enregistrement"), 'error');
+    } finally {
       setSaving(false);
     }
   };
@@ -745,8 +751,14 @@ export default function InventoryPage() {
         fetchItems();
         fetchAllHistory();
         setTab('history');
+      } else if (data.pending) {
+        showToast(tt('pendingApproval', 'Soumis pour approbation'));
+      } else if (data.error) {
+        showToast(data.error, 'error');
       }
-    } catch { /* silent */ } finally {
+    } catch {
+      showToast(tt('saveError', "Échec de l'enregistrement"), 'error');
+    } finally {
       setUsageSaving(false);
     }
   };
@@ -814,6 +826,7 @@ export default function InventoryPage() {
       }
     } catch (e) {
       console.error('Edit movement error:', e);
+      showToast(tt('saveError', "Échec de l'enregistrement"), 'error');
     }
   };
 
@@ -882,8 +895,12 @@ export default function InventoryPage() {
         showToast(tt('orderCreated', 'Commande créée'));
         resetOrderForm();
         fetchOrders();
+      } else if (data.error) {
+        showToast(data.error, 'error');
       }
-    } catch { /* silent */ } finally {
+    } catch {
+      showToast(tt('saveError', "Échec de l'enregistrement"), 'error');
+    } finally {
       setOrderSaving(false);
     }
   };
@@ -914,8 +931,12 @@ export default function InventoryPage() {
         setReceivePaidAmount(0);
         fetchOrders();
         fetchItems();
+      } else if (data.error) {
+        showToast(data.error, 'error');
       }
-    } catch { /* silent */ } finally {
+    } catch {
+      showToast(tt('saveError', "Échec de l'enregistrement"), 'error');
+    } finally {
       setOrderSaving(false);
     }
   };
@@ -1556,16 +1577,6 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast notification */}
-      {toast && (
-        <div className={`fixed top-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium animate-in fade-in slide-in-from-top-2 duration-300 ${
-          toast.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
-        }`}>
-          <Check className="w-4 h-4" />
-          {toast.message}
-        </div>
-      )}
-
       {/* Tab navigation — Achat / Sortie are quick-action buttons (below) instead of tabs */}
       <div className="flex items-center gap-1 border-b border-border pb-0 overflow-x-auto">
         {([

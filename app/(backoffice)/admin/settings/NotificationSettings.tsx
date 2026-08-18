@@ -8,6 +8,7 @@ import {
 import { usePermissions } from '@/lib/auth/hooks';
 import { NOTIFICATION_TYPE_MAP, NOTIFICATION_TYPES, type NotifParam } from '@/lib/notification-types';
 import { subscribeToPush } from '@/lib/push-client';
+import { useToast } from '@/components/backoffice/ToastProvider';
 
 interface Setting { type: string; enabled: boolean; config: Record<string, unknown>; }
 interface Role { name: string; display_name: string; }
@@ -21,6 +22,7 @@ const REGISTRY_ORDER = NOTIFICATION_TYPES.reduce<Record<string, number>>((m, t, 
 const arr = (v: unknown): string[] => (Array.isArray(v) ? (v as string[]) : []);
 
 export function NotificationSettings() {
+  const toast = useToast();
   const { hasPermission } = usePermissions();
   const canConfigure = hasPermission('settings.write');
 
@@ -78,10 +80,13 @@ export function NotificationSettings() {
     setSavingType(type);
     setSettings(prev => prev.map(s => s.type === type ? { ...s, enabled } : s));
     try {
-      await fetch('/api/notifications/settings', {
+      const res = await fetch('/api/notifications/settings', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type, enabled }),
       });
+      if (!res.ok) throw new Error();
+    } catch {
+      toast.error('Une erreur est survenue');
     } finally { setSavingType(null); }
   };
 
@@ -112,10 +117,14 @@ export function NotificationSettings() {
   const saveConfig = async (s: Setting) => {
     setSavingType(s.type);
     try {
-      await fetch('/api/notifications/settings', {
+      const res = await fetch('/api/notifications/settings', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: s.type, config: s.config }),
       });
+      if (!res.ok) throw new Error();
+      toast.success('Enregistré');
+    } catch {
+      toast.error('Une erreur est survenue');
     } finally { setSavingType(null); }
   };
 

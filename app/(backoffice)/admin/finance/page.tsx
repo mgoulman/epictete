@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared/SortHeader';
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import { useToast } from '@/components/backoffice/ToastProvider';
 
 interface SalesItem {
   id: string;
@@ -144,6 +145,7 @@ export default function FinancePage() {
   const router = useRouter();
   const { t } = useTranslation();
   const fn = t.backoffice.financePage;
+  const toast = useToast();
 
   // Get tab from URL or default to 'overview'
   const tabParam = searchParams.get('tab') as TabType | null;
@@ -544,9 +546,11 @@ export default function FinancePage() {
         await fetchInventory(false);
         setShowQuickAddProduct(false);
         setQuickProduct({ name: '', category: viewingVendorDetail.category || '', quantity: 0, unit: 'pieces', cost_per_unit: 0 });
+        toast.success('Ajouté');
       }
     } catch (err) {
       console.error('Quick add product error:', err);
+      toast.error(err instanceof Error ? err.message : "Une erreur est survenue");
     }
   };
 
@@ -576,9 +580,11 @@ export default function FinancePage() {
         setShowMoveProducts(false);
         setMoveTargetVendorId('');
         setMoveNewVendorName('');
+        toast.success('Déplacé');
       }
     } catch (err) {
       console.error('Move products error:', err);
+      toast.error(err instanceof Error ? err.message : "Une erreur est survenue");
     }
     setMoveSaving(false);
   };
@@ -691,7 +697,7 @@ export default function FinancePage() {
 
   const handleAddSale = async () => {
     if (!newSale.product_name || !newSale.selling_price) {
-      alert(fn.fillRequired);
+      toast.error(fn.fillRequired);
       return;
     }
 
@@ -712,13 +718,14 @@ export default function FinancePage() {
           sale_date: new Date().toISOString().split('T')[0]
         });
         fetchSales();
+        toast.success('Ajouté');
       } else {
         const err = await res.json();
-        alert(err.error || fn.failedAddSale);
+        toast.error(err.error || fn.failedAddSale);
       }
     } catch (err) {
       console.error('Add sale error:', err);
-      alert(fn.failedAddSale);
+      toast.error(fn.failedAddSale);
     }
   };
 
@@ -729,15 +736,17 @@ export default function FinancePage() {
       const res = await fetch(`/api/finance/sales?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
         fetchSales();
+        toast.success('Supprimé');
       }
     } catch (err) {
       console.error('Delete error:', err);
+      toast.error(err instanceof Error ? err.message : "Une erreur est survenue");
     }
   };
 
   const handleAddInventory = async () => {
     if (!newInventory.name) {
-      alert(fn.enterItemName);
+      toast.error(fn.enterItemName);
       return;
     }
 
@@ -761,13 +770,14 @@ export default function FinancePage() {
           notes: ''
         });
         fetchInventory(false);
+        toast.success('Ajouté');
       } else {
         const err = await res.json();
-        alert(err.error || fn.failedAddItem);
+        toast.error(err.error || fn.failedAddItem);
       }
     } catch (err) {
       console.error('Add inventory error:', err);
-      alert(fn.failedAddItem);
+      toast.error(fn.failedAddItem);
     }
   };
 
@@ -785,13 +795,14 @@ export default function FinancePage() {
       if (res.ok) {
         setEditingInventory(null);
         fetchInventory(false);
+        toast.success('Mis à jour');
       } else {
         const err = await res.json();
-        alert(err.error || fn.failedUpdateItem);
+        toast.error(err.error || fn.failedUpdateItem);
       }
     } catch (err) {
       console.error('Update inventory error:', err);
-      alert(fn.failedUpdateItem);
+      toast.error(fn.failedUpdateItem);
     }
   };
 
@@ -802,9 +813,11 @@ export default function FinancePage() {
       const res = await fetch(`/api/inventory?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
         fetchInventory(false);
+        toast.success('Supprimé');
       }
     } catch (err) {
       console.error('Delete inventory error:', err);
+      toast.error(err instanceof Error ? err.message : "Une erreur est survenue");
     }
   };
 
@@ -838,12 +851,13 @@ export default function FinancePage() {
       console.error('Quick update error:', err);
       // Revert on failure
       setInventoryItems(prev => prev.map(i => i.id === item.id ? { ...i, quantity: item.quantity } : i));
+      toast.error(err instanceof Error ? err.message : "Une erreur est survenue");
     }
   };
 
   const handleAddVendor = async () => {
     if (!newVendor.name) {
-      alert(fn.enterVendorName);
+      toast.error(fn.enterVendorName);
       return;
     }
 
@@ -880,13 +894,14 @@ export default function FinancePage() {
           invoice_template_path: ''
         });
         fetchVendors(false);
+        toast.success('Créé');
       } else {
         const err = await res.json();
-        alert(err.error || fn.failedAddVendor);
+        toast.error(err.error || fn.failedAddVendor);
       }
     } catch (err) {
       console.error('Add vendor error:', err);
-      alert(fn.failedAddVendor);
+      toast.error(fn.failedAddVendor);
     }
   };
 
@@ -916,13 +931,14 @@ export default function FinancePage() {
       if (res.ok) {
         setEditingVendor(null);
         fetchVendors(false);
+        toast.success('Mis à jour');
       } else {
         const err = await res.json();
-        alert(err.error || fn.failedUpdateVendor);
+        toast.error(err.error || fn.failedUpdateVendor);
       }
     } catch (err) {
       console.error('Update vendor error:', err);
-      alert(fn.failedUpdateVendor);
+      toast.error(fn.failedUpdateVendor);
     }
   };
 
@@ -933,15 +949,17 @@ export default function FinancePage() {
       const res = await fetch(`/api/vendors?type=vendor&id=${id}`, { method: 'DELETE' });
       if (res.ok) {
         fetchVendors(false);
+        toast.success('Supprimé');
       }
     } catch (err) {
       console.error('Delete vendor error:', err);
+      toast.error(err instanceof Error ? err.message : "Une erreur est survenue");
     }
   };
 
   const handleAddTransaction = async () => {
     if (!selectedVendorForTransaction || !newTransaction.amount) {
-      alert(fn.enterAmount);
+      toast.error(fn.enterAmount);
       return;
     }
 
@@ -974,13 +992,14 @@ export default function FinancePage() {
         if (viewingVendorTransactions) {
           fetchVendorTransactions(viewingVendorTransactions.id);
         }
+        toast.success('Ajouté');
       } else {
         const err = await res.json();
-        alert(err.error || fn.failedAddTransaction);
+        toast.error(err.error || fn.failedAddTransaction);
       }
     } catch (err) {
       console.error('Add transaction error:', err);
-      alert(fn.failedAddTransaction);
+      toast.error(fn.failedAddTransaction);
     }
   };
 
@@ -994,9 +1013,11 @@ export default function FinancePage() {
         if (viewingVendorTransactions) {
           fetchVendorTransactions(viewingVendorTransactions.id);
         }
+        toast.success('Supprimé');
       }
     } catch (err) {
       console.error('Delete transaction error:', err);
+      toast.error(err instanceof Error ? err.message : "Une erreur est survenue");
     }
   };
 
@@ -1014,8 +1035,9 @@ export default function FinancePage() {
       } else if (editingVendor) {
         setEditingVendor({ ...editingVendor, invoice_template_url: data.url, invoice_template_path: data.path });
       }
+      toast.success('Modèle téléversé');
     } catch (err) {
-      alert(err instanceof Error ? err.message : fn.failedUploadTemplate);
+      toast.error(err instanceof Error ? err.message : fn.failedUploadTemplate);
     }
     setUploadingTemplate(false);
   };
@@ -1032,12 +1054,13 @@ export default function FinancePage() {
     } else if (editingVendor) {
       setEditingVendor({ ...editingVendor, invoice_template_url: null, invoice_template_path: null });
     }
+    toast.success('Modèle supprimé');
   };
 
   // Invoice scanner handlers
   const handleScanInvoice = async () => {
     if (!scannerFile || !scannerVendorId) {
-      alert(fn.selectVendorAndInvoice);
+      toast.error(fn.selectVendorAndInvoice);
       return;
     }
 
@@ -1060,10 +1083,10 @@ export default function FinancePage() {
         setScannerInventoryItems(data.inventory_items || []);
         setScannerStage('review');
       } else {
-        alert(data.error || fn.scanFailed);
+        toast.error(data.error || fn.scanFailed);
       }
     } catch {
-      alert(fn.scanFailed);
+      toast.error(fn.scanFailed);
     }
     setScanning(false);
   };
@@ -1095,10 +1118,10 @@ export default function FinancePage() {
         setScannerStage('success');
         fetchVendors(false);
       } else {
-        alert(data.error || fn.confirmFailed);
+        toast.error(data.error || fn.confirmFailed);
       }
     } catch {
-      alert(fn.confirmFailed);
+      toast.error(fn.confirmFailed);
     }
     setConfirming(false);
   };

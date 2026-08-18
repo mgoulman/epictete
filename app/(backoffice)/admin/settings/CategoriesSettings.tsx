@@ -5,6 +5,7 @@ import { Plus, Trash2, X, Pencil, UtensilsCrossed, Package } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/lib/auth/supabase-browser';
 import type { MenuCategory } from '@/lib/supabase';
 import { PermissionGate } from '@/components/backoffice/auth/PermissionGate';
+import { useToast } from '@/components/backoffice/ToastProvider';
 
 const slugify = (s: string) => s
   .toLowerCase()
@@ -57,6 +58,7 @@ interface CategoryForm {
 const emptyForm: CategoryForm = { name_fr: '', name: '', icon: '🍽️', description: '' };
 
 function MenuCategoriesSection() {
+  const toast = useToast();
   const [supabase] = useState(() => createSupabaseBrowserClient());
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
@@ -118,17 +120,17 @@ function MenuCategoriesSection() {
           description: form.description || null,
         }).eq('id', editingId);
         if (error) {
-          alert(`Erreur: ${error.message}`);
+          toast.error(`Erreur: ${error.message}`);
           return;
         }
       } else {
         const id = slugify(form.name_fr);
         if (!id) {
-          alert('Le nom est invalide.');
+          toast.error('Le nom est invalide.');
           return;
         }
         if (categories.some(c => c.id === id)) {
-          alert(`Une catégorie avec l'identifiant "${id}" existe déjà.`);
+          toast.error(`Une catégorie avec l'identifiant "${id}" existe déjà.`);
           return;
         }
         const nextSort = Math.max(0, ...categories.map(c => c.sort_order || 0)) + 1;
@@ -142,12 +144,13 @@ function MenuCategoriesSection() {
           availability_type: 'always',
         });
         if (error) {
-          alert(`Erreur: ${error.message}`);
+          toast.error(`Erreur: ${error.message}`);
           return;
         }
       }
       await refresh();
       setShowModal(false);
+      toast.success(editingId ? 'Mis à jour' : 'Créé');
     } finally {
       setSaving(false);
     }
@@ -156,7 +159,7 @@ function MenuCategoriesSection() {
   const handleDelete = async (cat: MenuCategory) => {
     const count = itemCounts[cat.id] || 0;
     if (count > 0) {
-      alert(`Impossible de supprimer "${cat.name_fr}" : ${count} article(s) sont rattaché(s) à cette catégorie.`);
+      toast.error(`Impossible de supprimer "${cat.name_fr}" : ${count} article(s) sont rattaché(s) à cette catégorie.`);
       return;
     }
     if (!confirm(`Supprimer la catégorie "${cat.name_fr}" ?`)) return;
@@ -164,10 +167,11 @@ function MenuCategoriesSection() {
     try {
       const { error } = await supabase.from('menu_categories').delete().eq('id', cat.id);
       if (error) {
-        alert(`Erreur: ${error.message}`);
+        toast.error(`Erreur: ${error.message}`);
         return;
       }
       await refresh();
+      toast.success('Supprimé');
     } finally {
       setDeleting(null);
     }
@@ -308,6 +312,7 @@ interface InventoryCategory {
 }
 
 function InventoryCategoriesSection() {
+  const toast = useToast();
   const [supabase] = useState(() => createSupabaseBrowserClient());
   const [categories, setCategories] = useState<InventoryCategory[]>([]);
   const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
@@ -349,17 +354,18 @@ function InventoryCategoriesSection() {
     try {
       if (editingId) {
         const { error } = await supabase.from('inventory_categories').update({ name: name.trim() }).eq('id', editingId);
-        if (error) { alert(`Erreur: ${error.message}`); return; }
+        if (error) { toast.error(`Erreur: ${error.message}`); return; }
       } else {
         if (categories.some(c => c.name.toLowerCase() === name.trim().toLowerCase())) {
-          alert(`La catégorie "${name.trim()}" existe déjà.`);
+          toast.error(`La catégorie "${name.trim()}" existe déjà.`);
           return;
         }
         const { error } = await supabase.from('inventory_categories').insert({ name: name.trim() });
-        if (error) { alert(`Erreur: ${error.message}`); return; }
+        if (error) { toast.error(`Erreur: ${error.message}`); return; }
       }
       await refresh();
       setShowModal(false);
+      toast.success(editingId ? 'Mis à jour' : 'Créé');
     } finally {
       setSaving(false);
     }
@@ -368,7 +374,7 @@ function InventoryCategoriesSection() {
   const handleDelete = async (cat: InventoryCategory) => {
     const count = itemCounts[cat.id] || 0;
     if (count > 0) {
-      alert(`Impossible de supprimer "${cat.name}" : ${count} produit(s) sont rattaché(s) à cette catégorie.`);
+      toast.error(`Impossible de supprimer "${cat.name}" : ${count} produit(s) sont rattaché(s) à cette catégorie.`);
       return;
     }
     if (!confirm(`Supprimer la catégorie "${cat.name}" ?`)) return;
@@ -376,10 +382,11 @@ function InventoryCategoriesSection() {
     try {
       const { error } = await supabase.from('inventory_categories').delete().eq('id', cat.id);
       if (error) {
-        alert(`Impossible de supprimer cette catégorie : elle est peut-être utilisée par un fournisseur ou un produit.`);
+        toast.error(`Impossible de supprimer cette catégorie : elle est peut-être utilisée par un fournisseur ou un produit.`);
         return;
       }
       await refresh();
+      toast.success('Supprimé');
     } finally {
       setDeleting(null);
     }

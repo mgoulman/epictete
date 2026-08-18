@@ -1,6 +1,7 @@
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { SplashScreen } from "@/components/splash-screen";
+import { GlobalErrorNet } from "@/components/GlobalErrorNet";
 import Script from "next/script";
 
 export default function MarketingLayout({
@@ -24,6 +25,7 @@ export default function MarketingLayout({
           });
         }
       `}</Script>
+      <GlobalErrorNet />
       <SplashScreen />
       <Header hideThemeToggle />
       <main>{children}</main>

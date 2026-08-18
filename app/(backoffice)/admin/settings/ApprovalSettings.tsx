@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ShieldCheck, Loader2, Save } from 'lucide-react';
+import { useToast } from '@/components/backoffice/ToastProvider';
 
 interface Rule {
   module: string;
@@ -16,6 +17,7 @@ const MODULE_LABEL: Record<string, string> = {
 };
 
 export function ApprovalSettings() {
+  const toast = useToast();
   const [rules, setRules] = useState<Rule[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,8 +65,11 @@ export function ApprovalSettings() {
         body: JSON.stringify(rule),
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Échec'); }
+      toast.success('Enregistré');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Échec');
+      const msg = e instanceof Error ? e.message : 'Échec';
+      setError(msg);
+      toast.error(msg);
     } finally { setSaving(null); }
   };
 

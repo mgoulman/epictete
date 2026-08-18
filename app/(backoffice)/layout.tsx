@@ -3,6 +3,8 @@ import { BackofficeShell } from '@/components/backoffice/layout/BackofficeShell'
 import { ThemeProvider } from '@/components/theme-provider';
 import { LanguageProvider } from '@/lib/i18n/context';
 import { PWAProvider } from '@/components/backoffice/PWAProvider';
+import { ToastProvider } from '@/components/backoffice/ToastProvider';
+import { BackofficeErrorNet } from '@/components/GlobalErrorNet';
 import type { Metadata, Viewport } from 'next';
 
 export const metadata: Metadata = {
@@ -53,7 +55,10 @@ export default function BackofficeLayout({
       <LanguageProvider>
         <AuthProvider>
           <PWAProvider>
-            <BackofficeShell>{children}</BackofficeShell>
+            <ToastProvider>
+              <BackofficeErrorNet />
+              <BackofficeShell>{children}</BackofficeShell>
+            </ToastProvider>
           </PWAProvider>
         </AuthProvider>
       </LanguageProvider>

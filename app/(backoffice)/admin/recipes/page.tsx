@@ -9,6 +9,7 @@ import {
   Clock, Timer, Gauge
 } from 'lucide-react';
 import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared/SortHeader';
+import { useToast } from '@/components/backoffice/ToastProvider';
 
 interface Recipe {
   id: string;
@@ -60,6 +61,7 @@ export default function RecipesPage() {
   const canWrite = hasPermission('menu.write');
   const { t } = useTranslation();
   const rc = t.backoffice.recipesPage;
+  const toast = useToast();
 
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
@@ -145,7 +147,7 @@ export default function RecipesPage() {
 
   const handleCreateRecipe = async () => {
     if (!newRecipe.name) {
-      alert(rc.nameRequired);
+      toast.error(rc.nameRequired);
       return;
     }
 
@@ -170,9 +172,11 @@ export default function RecipesPage() {
           preparation_time: '', cooking_time: '', difficulty: '', instructions: '', notes: ''
         });
         fetchRecipes();
+        toast.success('Créé');
       }
     } catch (err) {
       console.error('Create recipe error:', err);
+      toast.error('Une erreur est survenue');
     }
   };
 
@@ -202,9 +206,11 @@ export default function RecipesPage() {
       if (res.ok) {
         setEditingRecipe(null);
         fetchRecipes();
+        toast.success('Mis à jour');
       }
     } catch (err) {
       console.error('Update recipe error:', err);
+      toast.error('Une erreur est survenue');
     }
   };
 
@@ -214,14 +220,16 @@ export default function RecipesPage() {
     try {
       await fetch(`/api/recipes?type=recipe&id=${id}`, { method: 'DELETE' });
       fetchRecipes();
+      toast.success('Supprimé');
     } catch (err) {
       console.error('Delete recipe error:', err);
+      toast.error('Une erreur est survenue');
     }
   };
 
   const handleAddIngredient = async () => {
     if (!selectedRecipe || !newIngredient.ingredient_name) {
-      alert(rc.ingredientNameRequired);
+      toast.error(rc.ingredientNameRequired);
       return;
     }
 
@@ -242,9 +250,11 @@ export default function RecipesPage() {
         setNewIngredient({ ingredient_name: '', inventory_item_id: '', quantity: 0, unit: 'kg', unit_cost: 0 });
         fetchRecipeDetail(selectedRecipe.id);
         fetchRecipes();
+        toast.success('Ajouté');
       }
     } catch (err) {
       console.error('Add ingredient error:', err);
+      toast.error('Une erreur est survenue');
     }
   };
 
@@ -272,9 +282,11 @@ export default function RecipesPage() {
           fetchRecipeDetail(selectedRecipe.id);
         }
         fetchRecipes();
+        toast.success('Mis à jour');
       }
     } catch (err) {
       console.error('Update ingredient error:', err);
+      toast.error('Une erreur est survenue');
     }
   };
 
@@ -287,8 +299,10 @@ export default function RecipesPage() {
         fetchRecipeDetail(selectedRecipe.id);
       }
       fetchRecipes();
+      toast.success('Supprimé');
     } catch (err) {
       console.error('Delete ingredient error:', err);
+      toast.error('Une erreur est survenue');
     }
   };
 

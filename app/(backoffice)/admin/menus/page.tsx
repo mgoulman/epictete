@@ -7,6 +7,7 @@ import {
   BookOpen, Plus, Search, Edit2, Trash2, X, Eye,
   GripVertical, Check, Calendar, Tag, ToggleLeft, ToggleRight
 } from 'lucide-react';
+import { useToast } from '@/components/backoffice/ToastProvider';
 
 interface Menu {
   id: string;
@@ -52,6 +53,7 @@ export default function MenusPage() {
   const canWrite = hasPermission('menu.write');
   const { t } = useTranslation();
   const mn = t.backoffice.menusPage;
+  const toast = useToast();
 
   const MENU_TYPES = [
     { value: 'standard', label: mn.menuTypes.standard },
@@ -133,7 +135,7 @@ export default function MenusPage() {
 
   const handleCreateMenu = async () => {
     if (!newMenu.name) {
-      alert(mn.nameRequired);
+      toast.error(mn.nameRequired);
       return;
     }
 
@@ -161,9 +163,11 @@ export default function MenusPage() {
           is_active: true, display_order: 0, valid_from: '', valid_until: ''
         });
         fetchMenus();
+        toast.success('Créé');
       }
     } catch (err) {
       console.error('Create menu error:', err);
+      toast.error('Une erreur est survenue');
     }
   };
 
@@ -191,9 +195,11 @@ export default function MenusPage() {
       if (res.ok) {
         setEditingMenu(null);
         fetchMenus();
+        toast.success('Mis à jour');
       }
     } catch (err) {
       console.error('Update menu error:', err);
+      toast.error('Une erreur est survenue');
     }
   };
 
@@ -203,8 +209,10 @@ export default function MenusPage() {
     try {
       await fetch(`/api/menus?type=menu&id=${id}`, { method: 'DELETE' });
       fetchMenus();
+      toast.success('Supprimé');
     } catch (err) {
       console.error('Delete menu error:', err);
+      toast.error('Une erreur est survenue');
     }
   };
 
@@ -222,8 +230,10 @@ export default function MenusPage() {
         })
       });
       fetchMenus();
+      toast.success('Mis à jour');
     } catch (err) {
       console.error('Toggle active error:', err);
+      toast.error('Une erreur est survenue');
     }
   };
 
@@ -247,9 +257,11 @@ export default function MenusPage() {
         setItemSearchTerm('');
         fetchMenuDetail(selectedMenu.id);
         fetchMenus();
+        toast.success('Ajouté');
       }
     } catch (err) {
       console.error('Add items error:', err);
+      toast.error('Une erreur est survenue');
     }
   };
 
@@ -262,8 +274,10 @@ export default function MenusPage() {
         fetchMenuDetail(selectedMenu.id);
       }
       fetchMenus();
+      toast.success('Supprimé');
     } catch (err) {
       console.error('Remove item error:', err);
+      toast.error('Une erreur est survenue');
     }
   };
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Armchair, Loader2, X, CalendarPlus, Plus, Minus, Receipt, Check } from 'lucide-react';
 import { PermissionGate } from '@/components/backoffice/auth/PermissionGate';
+import { useToast } from '@/components/backoffice/ToastProvider';
 
 interface Table {
   id: string;
@@ -33,6 +34,7 @@ export default function MesTablesPage() {
 }
 
 function MesTablesView() {
+  const toast = useToast();
   const [tables, setTables] = useState<Table[]>([]);
   const [staffId, setStaffId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,6 +55,7 @@ function MesTablesView() {
 
   const release = async (t: Table) => {
     await fetch(`/api/salle/reserve?id=${t.id}`, { method: 'DELETE' });
+    toast.success('Table libérée');
     load();
   };
 
@@ -114,6 +117,7 @@ function MesTablesView() {
 }
 
 function ReserveModal({ table, onClose, onSaved }: { table: Table; onClose: () => void; onSaved: () => void }) {
+  const toast = useToast();
   const [name, setName] = useState('');
   const [time, setTime] = useState('');
   const [guests, setGuests] = useState('');
@@ -126,6 +130,7 @@ function ReserveModal({ table, onClose, onSaved }: { table: Table; onClose: () =
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ table_id: table.id, reserved_name: name, reserved_time: time, reserved_guests: guests ? Number(guests) : null }),
       });
+      toast.success('Réservé');
       onSaved();
     } finally { setSaving(false); }
   };
@@ -154,6 +159,7 @@ function ReserveModal({ table, onClose, onSaved }: { table: Table; onClose: () =
 }
 
 function OrderModal({ table, staffId, onClose, onChanged }: { table: Table; staffId: string | null; onClose: () => void; onChanged: () => void }) {
+  const toast = useToast();
   const [session, setSession] = useState<Session | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [menu, setMenu] = useState<MenuItem[]>([]);
@@ -195,7 +201,8 @@ function OrderModal({ table, staffId, onClose, onChanged }: { table: Table; staf
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Échec'); }
       await refresh(); onChanged();
-    } catch (e) { setError(e instanceof Error ? e.message : 'Échec'); } finally { setBusy(false); }
+      toast.success('Table ouverte');
+    } catch (e) { const msg = e instanceof Error ? e.message : 'Échec'; setError(msg); toast.error(msg); } finally { setBusy(false); }
   };
 
   const addItem = async (m: MenuItem) => {
@@ -207,6 +214,7 @@ function OrderModal({ table, staffId, onClose, onChanged }: { table: Table; staf
         body: JSON.stringify({ session_id: session.id, menu_item_id: m.id, quantity: 1 }),
       });
       await refresh();
+      toast.success('Ajouté');
     } finally { setBusy(false); }
   };
 
@@ -214,9 +222,8 @@ function OrderModal({ table, staffId, onClose, onChanged }: { table: Table; staf
     const q = o.quantity + delta;
     setBusy(true);
     try {
-      if (q <= 0) await fetch(`/api/salle/orders?id=${o.id}`, { method: 'DELETE' });
-      else await fetch('/api/salle/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: o.id, quantity: q }) });
-      await refresh();
+      if (q <= 0) { await fetch(`/api/salle/orders?id=${o.id}`, { method: 'DELETE' }); await refresh(); toast.success('Supprimé'); }
+      else { await fetch('/api/salle/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: o.id, quantity: q }) }); await refresh(); toast.success('Mis à jour'); }
     } finally { setBusy(false); }
   };
 
@@ -225,6 +232,7 @@ function OrderModal({ table, staffId, onClose, onChanged }: { table: Table; staf
     setBusy(true);
     try {
       await fetch('/api/salle/sessions', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: session.id, status: 'closed' }) });
+      toast.success('Table clôturée');
       onChanged(); onClose();
     } finally { setBusy(false); }
   };

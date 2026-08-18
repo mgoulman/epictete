@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { PermissionGate } from '@/components/backoffice/auth/PermissionGate';
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import { useToast } from '@/components/backoffice/ToastProvider';
 import {
   Calendar, Table, BarChart3, Receipt, ArrowUpDown, Plus, Download,
   ChevronLeft, ChevronRight, X, Trash2, Save, Check, AlertTriangle,
@@ -58,6 +59,28 @@ interface CashSheetColumn {
   count_as_depense?: boolean;
 }
 
+// The three built-in columns of the Feuille de Caisse.
+type FixedColumnKey = 'paid_items' | 'unpaid_items' | 'paid_outside_items';
+const FIXED_COLUMNS: { key: FixedColumnKey; title: string; dot: string }[] = [
+  { key: 'paid_items', title: 'PAYÉ', dot: 'bg-emerald-500' },
+  { key: 'unpaid_items', title: 'NON PAYÉ', dot: 'bg-amber-500' },
+  { key: 'paid_outside_items', title: 'PAYÉ HORS CAISSE', dot: 'bg-sky-500' },
+];
+// Per-fixed-column flags: same options the custom columns already have.
+// hidden → column is removed from the editor + print + totals (restorable).
+// count_as_depense → the column total is added to TOTAL DÉPENSE.
+interface CashSheetColumnFlag { count_as_depense?: boolean; hidden?: boolean }
+type CashSheetColumnFlags = Partial<Record<FixedColumnKey, CashSheetColumnFlag>>;
+// Backward-compat default: PAYÉ has always counted as dépense, the others never did.
+const defaultCountAsDepense = (key: FixedColumnKey) => key === 'paid_items';
+const fixedFlag = (flags: CashSheetColumnFlags | undefined, key: FixedColumnKey): CashSheetColumnFlag => {
+  const f = flags?.[key];
+  return {
+    count_as_depense: f?.count_as_depense ?? defaultCountAsDepense(key),
+    hidden: f?.hidden ?? false,
+  };
+};
+
 // A user-defined non-cash payment source on the Feuille de Caisse (e.g. Virement, Chèque).
 // counts_as_cash = false → subtracted from CA like CB when isolating cash-in-drawer.
 // counts_as_cash = true  → left inside the espèces bucket (treated as cash).
@@ -89,6 +112,7 @@ interface CashSheet {
   unpaid_items: CashSheetItem[];
   paid_outside_items: CashSheetItem[];
   custom_columns: CashSheetColumn[];
+  column_flags?: CashSheetColumnFlags;
   payment_sources: CashPaymentSource[];
   total_depense: number;
   reste_especes: number;
@@ -248,9 +272,18 @@ const cashSheetTotals = (sheet: CashSheet) => {
     .filter(c => c.count_as_depense)
     .reduce((s, c) => s + columnItemsTotal(c), 0);
 
-  const totalDepense = (sheet.paid_items || []).reduce((s, i) => s + parseCashNumber(i.amount), 0) + customDepense;
+  // Fixed columns flagged "compter dans la dépense" (PAYÉ by default) add to TOTAL DÉPENSE.
+  // Hidden fixed columns are excluded entirely.
+  const fixedDepense = FIXED_COLUMNS.reduce((sum, { key }) => {
+    const flag = fixedFlag(sheet.column_flags, key);
+    if (flag.hidden || !flag.count_as_depense) return sum;
+    return sum + (sheet[key] || []).reduce((s, i) => s + parseCashNumber(i.amount), 0);
+  }, 0);
+  const totalDepense = fixedDepense + customDepense;
+  // Espèce caisse (cash physically in the drawer) = CA − CB − les deux Glovo (− encaissements non-espèces).
   const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline - nonCashSources);
-  const totalEspeces = caisseEspeces + glovoEspece;
+  // Total espèces = CA − CB − Glovo online only (Glovo espèce stays counted as cash).
+  const totalEspeces = Math.max(0, totalCA - totalCB - glovoOnline - nonCashSources);
 
   return {
     caisseEspeces,
@@ -284,6 +317,11 @@ const serializeCashSheet = (s: CashSheet) => JSON.stringify({
   unpaid_items: cleanCashItems(s.unpaid_items),
   paid_outside_items: cleanCashItems(s.paid_outside_items),
   custom_columns: (s.custom_columns || []).map(c => ({ title: (c.title || '').trim(), items: cleanCashItems(c.items), count_as_depense: !!c.count_as_depense })),
+  column_flags: FIXED_COLUMNS.reduce((acc, { key }) => {
+    const f = fixedFlag(s.column_flags, key);
+    acc[key] = { count_as_depense: !!f.count_as_depense, hidden: !!f.hidden };
+    return acc;
+  }, {} as Record<FixedColumnKey, CashSheetColumnFlag>),
   payment_sources: (s.payment_sources || [])
     .filter(p => (p.name || '').trim() !== '' || parseCashNumber(p.amount) !== 0)
     .map(p => ({ name: (p.name || '').trim(), amount: parseCashNumber(p.amount), counts_as_cash: !!p.counts_as_cash })),
@@ -332,6 +370,7 @@ export default function ReportsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { t } = useTranslation();
+  const toast = useToast();
   const rp = t.backoffice.reportsPage;
 
   const tabParam = searchParams.get('tab') as TabType | null;
@@ -369,6 +408,7 @@ export default function ReportsPage() {
     unpaid_items: [{ label: '', amount: 0 }],
     paid_outside_items: [{ label: '', amount: 0 }],
     custom_columns: [],
+    column_flags: {},
     payment_sources: [],
     total_depense: 0,
     reste_especes: 0,
@@ -477,6 +517,7 @@ export default function ReportsPage() {
           unpaid_items: (data.sheet.unpaid_items?.length ? data.sheet.unpaid_items : [{ label: '', amount: 0 }]),
           paid_outside_items: (data.sheet.paid_outside_items?.length ? data.sheet.paid_outside_items : [{ label: '', amount: 0 }]),
           custom_columns: Array.isArray(data.sheet.custom_columns) ? data.sheet.custom_columns : [],
+          column_flags: (data.sheet.column_flags && typeof data.sheet.column_flags === 'object') ? data.sheet.column_flags : {},
           payment_sources: Array.isArray(data.sheet.payment_sources) ? data.sheet.payment_sources : [],
           attachments: Array.isArray(data.sheet.attachments) ? data.sheet.attachments : [],
         };
@@ -492,6 +533,7 @@ export default function ReportsPage() {
           unpaid_items: [{ label: '', amount: 0 }],
           paid_outside_items: [{ label: '', amount: 0 }],
           custom_columns: [],
+          column_flags: {},
           payment_sources: [],
           total_depense: 0, reste_especes: 0,
           manager_name: '', visa_caisse: '',
@@ -522,6 +564,10 @@ export default function ReportsPage() {
         body: JSON.stringify(cashSheetToSave),
       });
       const data = await res.json();
+      const approvalGated = data.pending === true || (typeof data.message === 'string' && data.message.toLowerCase().includes('approbation'));
+      if (approvalGated) {
+        toast.info('Soumis pour approbation');
+      }
       if (data.success) {
         // Auto-fill the suivi form with values from cash sheet
         setForm(f => ({
@@ -583,8 +629,16 @@ export default function ReportsPage() {
           console.error('Failed to sync daily entry:', dailyEntryError);
           // Don't fail the entire save if daily entry sync fails
         }
+        if (!approvalGated) toast.success('Feuille de caisse enregistrée');
+      } else if (!approvalGated) {
+        // Save failed server-side (e.g. 500 with { error }). Without this the
+        // handler was silent — no toast at all — because the catch only fires
+        // on network/parse errors, not on a parsed error response.
+        toast.error(data.error || "Échec de l'enregistrement");
       }
-    } catch { /* silent */ } finally {
+    } catch {
+      toast.error('Une erreur est survenue');
+    } finally {
       setCashSheetSaving(false);
     }
   };
@@ -643,56 +697,71 @@ export default function ReportsPage() {
     if (!win) return;
     const totals = cashSheetTotals(cashSheet);
     const date = new Date(cashSheet.entry_date + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
-    const fmt = (n: number) => (n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmt = (n: number | string) => (Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch] || ch));
     const renderItems = (items: CashSheetItem[]) => items.filter(i => i.label).map(i => `<div>${esc(i.label)} : ${fmt(Number(i.amount))}</div>`).join('') || '<div>&nbsp;</div>';
 
     // All columns to print: the 3 fixed ones + any non-empty custom columns,
     // chunked into rows of 3 so the printed table stays A4-friendly.
     const printCols = [
-      { title: 'PAYÉ', items: cashSheet.paid_items },
-      { title: 'NON PAYÉ', items: cashSheet.unpaid_items },
-      { title: 'PAYÉ HORS CAISSE', items: cashSheet.paid_outside_items },
+      // Fixed columns, excluding any the user removed (hidden); flagged ones get a (dépense) tag.
+      ...FIXED_COLUMNS
+        .filter(col => !fixedFlag(cashSheet.column_flags, col.key).hidden)
+        .map(col => ({
+          title: col.title + (fixedFlag(cashSheet.column_flags, col.key).count_as_depense ? ' (dépense)' : ''),
+          items: cashSheet[col.key],
+        })),
       ...cashSheet.custom_columns
         .filter(c => (c.title || '').trim() !== '' || c.items.some(i => i.label))
         .map(c => ({ title: ((c.title || '').trim() || '—') + (c.count_as_depense ? ' (dépense)' : ''), items: c.items })),
     ];
-    const colChunks: { title: string; items: CashSheetItem[] }[][] = [];
-    for (let i = 0; i < printCols.length; i += 3) colChunks.push(printCols.slice(i, i + 3));
+    const colChunks: ({ title: string; items: CashSheetItem[] } | null)[][] = [];
+    for (let i = 0; i < printCols.length; i += 3) {
+      const row = printCols.slice(i, i + 3) as ({ title: string; items: CashSheetItem[] } | null)[];
+      while (row.length < 3) row.push(null); // pad so every column stays 1/3 wide
+      colChunks.push(row);
+    }
     const columnsHtml = colChunks.map(row => `
-      <table style="margin-top:0">
-        <tr>${row.map(c => `<th class="col-header">${esc(c.title)}</th>`).join('')}</tr>
-        <tr>${row.map(c => `<td class="col-section">${renderItems(c.items)}</td>`).join('')}</tr>
+      <table class="cols-table">
+        <colgroup><col style="width:33.33%"><col style="width:33.33%"><col style="width:33.34%"></colgroup>
+        <tr>${row.map(c => c ? `<th class="col-header">${esc(c.title)}</th>` : '<th class="col-empty"></th>').join('')}</tr>
+        <tr>${row.map(c => c ? `<td class="col-section">${renderItems(c.items)}</td>` : '<td class="col-empty"></td>').join('')}</tr>
       </table>`).join('');
 
     const logoUrl = `${window.location.origin}/logos/Logo-full-no-bg.png`;
     win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Feuille de Caisse — ${date}</title>
       <style>
-        @page { size: A4 portrait; margin: 10mm 12mm; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+        @page { size: A4 portrait; margin: 12mm 14mm; }
         * { box-sizing: border-box; }
-        body { font-family: Georgia, serif; width: 100%; max-width: 185mm; margin: 0 auto; padding: 0; color: #000; font-size: 14px; }
-        .logo { text-align: center; padding: 0; margin: 0 0 6mm 0; line-height: 0; }
-        .logo img { width: 38mm; max-height: 18mm; height: auto; object-fit: contain; display: block; margin: 0 auto; }
-        .header { background: #e8e9d8; text-align: center; padding: 6px; border: 1px solid #999; margin-bottom: 5mm; font-weight: bold; font-size: 16px; letter-spacing: 1px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #999; padding: 6px 8px; text-align: left; vertical-align: top; line-height: 1.25; }
-        .label { font-weight: bold; width: 55%; }
-        .amount { text-align: right; width: 45%; font-family: monospace; white-space: nowrap; }
-        .col-section { height: 26mm; vertical-align: top; }
-        .col-header { background: #f5f5f0; font-weight: bold; text-align: center; }
-        .summary-table .label { width: 55%; }
-        .signature-table { margin-top: 8mm; }
-        .signature-table .label { width: 30%; }
-        .signature { padding: 12px 10px; height: 16mm; vertical-align: middle; }
-        @media print {
-          body { max-width: none; }
-          .no-print { display: none; }
-        }
+        :root { --olive:#606338; --olive-dark:#4d4f2e; --tint:#f2f3ea; --tint2:#e7e9d7; --line:#c7c8ba; --ink:#2b2b28; --muted:#6b6c60; }
+        body { font-family:'Inter','Helvetica Neue',Arial,sans-serif; width:100%; max-width:186mm; margin:0 auto; padding:0; color:var(--ink); font-size:12.5px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        .logo { text-align:center; margin:0 0 5mm 0; line-height:0; }
+        .logo img { width:85mm; max-height:34mm; height:auto; object-fit:contain; display:block; margin:0 auto; }
+        .header { background:var(--olive); color:#fff; text-align:center; padding:9px 6px; border-radius:5px; margin-bottom:5mm; font-family:'Playfair Display',Georgia,serif; font-weight:700; font-size:19px; letter-spacing:3px; }
+        table { width:100%; border-collapse:collapse; table-layout:fixed; }
+        th, td { border:1px solid var(--line); padding:6px 9px; text-align:left; vertical-align:top; line-height:1.3; word-wrap:break-word; }
+        .label { font-weight:600; width:55%; }
+        .amount { text-align:right; width:45%; font-variant-numeric:tabular-nums; white-space:nowrap; font-weight:500; }
+        .date-row td { background:var(--tint2); font-weight:700; letter-spacing:.5px; border-color:var(--line); }
+        .total-row td { background:var(--tint); font-weight:700; color:var(--olive-dark); }
+        .grand td { background:var(--olive); color:#fff; font-weight:700; border-color:var(--olive-dark); }
+        .cols-table { margin-top:-1px; }
+        .col-header { background:var(--tint2); color:var(--olive-dark); font-weight:700; text-align:center; text-transform:uppercase; letter-spacing:.6px; font-size:11px; }
+        .col-section { height:26mm; vertical-align:top; color:var(--ink); }
+        .col-section div { padding:1px 0; }
+        .col-empty { border:none; background:transparent; }
+        .section-title td { background:var(--tint); text-align:center; font-weight:700; color:var(--olive-dark); letter-spacing:.4px; }
+        .signature-table { margin-top:8mm; }
+        .signature-table .label { width:30%; background:var(--tint); text-transform:uppercase; letter-spacing:.5px; font-size:11px; }
+        .signature { padding:12px 10px; height:16mm; vertical-align:middle; }
+        @media print { body { max-width:none; } .no-print { display:none; } }
       </style></head><body>
       <div class="logo"><img src="${logoUrl}" alt="Epictète"></div>
       <div class="header">FEUILLE DE CAISSE</div>
-      <table>
-        <tr><td colspan="2" class="amount">DATE : ${date}</td></tr>
+      <table class="summary">
+        <colgroup><col style="width:55%"><col style="width:45%"></colgroup>
+        <tr class="date-row"><td colspan="2" class="amount">DATE : ${date}</td></tr>
         <tr><td class="label">TOTAL CB :</td><td class="amount">${fmt(cashSheet.total_cb)}</td></tr>
         ${(cashSheet.payment_sources || [])
           .filter(s => (s.name || '').trim() !== '' || Number(s.amount))
@@ -701,16 +770,18 @@ export default function ReportsPage() {
         <tr><td class="label">Glovo TTC Espèce :</td><td class="amount">${fmt(cashSheet.glovo_ttc_espece || 0)}</td></tr>
         <tr><td class="label">Glovo TTC Online :</td><td class="amount">${fmt(cashSheet.glovo_ttc_online || 0)}</td></tr>
         <tr><td class="label">Total Espèce Caisse :</td><td class="amount">${fmt(totals.caisseEspeces)}</td></tr>
-        <tr><td class="label">TOTAL ESPÈCES :</td><td class="amount">${fmt(totals.totalEspeces)}</td></tr>
-        <tr><td class="label">TOTAL CA :</td><td class="amount">${fmt(totals.totalCA)}</td></tr>
+        <tr class="total-row"><td class="label">TOTAL ESPÈCES :</td><td class="amount">${fmt(totals.totalEspeces)}</td></tr>
+        <tr class="total-row"><td class="label">TOTAL CA :</td><td class="amount">${fmt(totals.totalCA)}</td></tr>
       </table>
       ${cashSheet.especes_note ? `<table style="margin-top:8px"><tr><td class="label" style="font-weight:normal">Note espèces :</td><td class="amount" style="font-weight:normal;font-size:12px">${esc(cashSheet.especes_note)}</td></tr></table>` : ''}
       ${columnsHtml}
-      <table class="summary-table" style="margin-top:0">
-        <tr><td class="label">TOTAL DÉPENSE :</td><td class="amount">${fmt(totals.totalDepense)}</td></tr>
-        <tr><td class="label">RESTE EN ESPÈCES :</td><td class="amount">${fmt(totals.resteEspeces)}</td></tr>
+      <table class="summary-table" style="margin-top:4mm">
+        <colgroup><col style="width:55%"><col style="width:45%"></colgroup>
+        <tr class="total-row"><td class="label">TOTAL DÉPENSE :</td><td class="amount">${fmt(totals.totalDepense)}</td></tr>
+        <tr class="grand"><td class="label">RESTE EN ESPÈCES :</td><td class="amount">${fmt(totals.resteEspeces)}</td></tr>
       </table>
       <table class="signature-table">
+        <colgroup><col style="width:30%"><col style="width:70%"></colgroup>
         <tr><td class="label">MANAGER</td><td class="signature">${esc(cashSheet.manager_name || '')}</td></tr>
         <tr><td class="label">VISA CAISSE</td><td class="signature">${esc(cashSheet.visa_caisse || '')}</td></tr>
       </table>
@@ -1061,8 +1132,10 @@ export default function ReportsPage() {
       }
       setShowMiscModal(false);
       fetchMiscExpenses();
+      toast.success('Enregistré');
     } catch (err) {
       console.error('Save misc expense error:', err);
+      toast.error('Une erreur est survenue');
     }
   };
 
@@ -1071,8 +1144,10 @@ export default function ReportsPage() {
     try {
       await fetch(`/api/reports/misc-expenses?id=${id}`, { method: 'DELETE' });
       fetchMiscExpenses();
+      toast.success('Supprimé');
     } catch (err) {
       console.error('Delete misc expense error:', err);
+      toast.error('Échec de la suppression');
     }
   };
 
@@ -1201,8 +1276,10 @@ export default function ReportsPage() {
       }
       setShowPayrollModal(false);
       fetchPayroll();
+      toast.success('Enregistré');
     } catch (err) {
       console.error('Save payroll error:', err);
+      toast.error('Une erreur est survenue');
     }
   };
 
@@ -1211,8 +1288,10 @@ export default function ReportsPage() {
     try {
       await fetch(`/api/reports/payroll?id=${id}`, { method: 'DELETE' });
       fetchPayroll();
+      toast.success('Supprimé');
     } catch (err) {
       console.error('Delete payroll error:', err);
+      toast.error('Échec de la suppression');
     }
   };
 
@@ -1328,7 +1407,7 @@ export default function ReportsPage() {
         setEntry(data.entry);
       } else {
         const err = await res.json();
-        alert(err.error || 'Failed to save');
+        toast.error(err.error || 'Échec de l\'enregistrement');
       }
     } catch (err) {
       console.error('Save entry error:', err);
@@ -1347,9 +1426,14 @@ export default function ReportsPage() {
         setShowExpenseModal(false);
         setNewExpense({ expense_date: today, amount: 0, payment_method: 'cash', category: 'market_purchase', description: '', vendor_id: '' });
         fetchExpenses();
+        toast.success('Enregistré');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || 'Une erreur est survenue');
       }
     } catch (err) {
       console.error('Add expense error:', err);
+      toast.error('Une erreur est survenue');
     }
   };
 
@@ -1358,8 +1442,10 @@ export default function ReportsPage() {
     try {
       await fetch(`/api/reports/expenses?id=${id}`, { method: 'DELETE' });
       fetchExpenses();
+      toast.success('Supprimé');
     } catch (err) {
       console.error('Delete expense error:', err);
+      toast.error('Échec de la suppression');
     }
   };
 
@@ -1426,6 +1512,13 @@ export default function ReportsPage() {
   const currentCashSheetTotals = cashSheetTotals(cashSheet);
   // Printable only when the sheet has been saved and has no unsaved edits.
   const cashSheetPrintable = cashSheetSavedSnapshot !== null && serializeCashSheet(cashSheet) === cashSheetSavedSnapshot;
+
+  // ── Fixed cash-sheet column flags (count-as-dépense / hide) ──
+  const updateFixedFlag = (key: FixedColumnKey, patch: Partial<CashSheetColumnFlag>) =>
+    setCashSheet(cs => ({
+      ...cs,
+      column_flags: { ...cs.column_flags, [key]: { ...fixedFlag(cs.column_flags, key), ...patch } },
+    }));
 
   // ── Custom cash-sheet column helpers ──
   const addCustomColumn = () =>
@@ -1642,15 +1735,30 @@ export default function ReportsPage() {
 
                   {/* Columns: 3 fixed (Payé / Non payé / Payé hors caisse) + user-defined custom columns */}
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                    {([
-                      { key: 'paid_items' as const, title: 'PAYÉ', dot: 'bg-emerald-500' },
-                      { key: 'unpaid_items' as const, title: 'NON PAYÉ', dot: 'bg-amber-500' },
-                      { key: 'paid_outside_items' as const, title: 'PAYÉ HORS CAISSE', dot: 'bg-sky-500' },
-                    ]).map(col => (
+                    {FIXED_COLUMNS.filter(col => !fixedFlag(cashSheet.column_flags, col.key).hidden).map(col => {
+                      const flag = fixedFlag(cashSheet.column_flags, col.key);
+                      const colTotal = (cashSheet[col.key] || []).reduce((s, i) => s + (Number(i.amount) || 0), 0);
+                      return (
                       <div key={col.key} className="bg-secondary/40 border border-border rounded-xl p-3">
                         <div className="flex items-center gap-1.5 mb-2.5">
-                          <span className={`w-1.5 h-1.5 rounded-full ${col.dot}`} />
-                          <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">{col.title}</span>
+                          <span className={`w-1.5 h-1.5 rounded-full ${col.dot} shrink-0`} />
+                          <span className="flex-1 min-w-0 text-xs font-semibold uppercase tracking-wide text-foreground/80 truncate">{col.title}</span>
+                          <button
+                            onClick={() => updateFixedFlag(col.key, { hidden: true })}
+                            title="Retirer cette colonne"
+                            className="p-1 text-muted-foreground/60 hover:text-red-500 hover:bg-red-500/10 rounded shrink-0 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="mb-2">
+                          <ToggleSwitch
+                            checked={!!flag.count_as_depense}
+                            onChange={v => updateFixedFlag(col.key, { count_as_depense: v })}
+                            label="Compter dans la dépense"
+                            variant="orange"
+                            title="Ajouter le total de cette colonne à la dépense (et le déduire du reste)"
+                          />
                         </div>
                         <div className="space-y-1.5">
                           {cashSheet[col.key].map((item, idx) => (
@@ -1698,14 +1806,15 @@ export default function ReportsPage() {
                             <Plus className="w-3 h-3" /> Ajouter
                           </button>
                         </div>
-                        {col.key === 'paid_items' && cashSheet.paid_items.some(i => i.amount > 0) && (
-                          <div className="mt-2 pt-2 border-t border-border text-xs flex justify-between font-medium">
-                            <span>Total:</span>
-                            <span>{fmtMAD(currentCashSheetTotals.totalDepense)}</span>
+                        {flag.count_as_depense && (
+                          <div className="mt-2 pt-2 border-t border-border text-xs flex justify-between font-medium text-orange-600">
+                            <span>Dépense :</span>
+                            <span>{fmtMAD(colTotal)}</span>
                           </div>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
 
                     {/* User-defined custom columns (editable title, print with the sheet) */}
                     {cashSheet.custom_columns.map((col, colIdx) => (
@@ -1788,6 +1897,23 @@ export default function ReportsPage() {
                   >
                     <Plus className="w-4 h-4" /> Ajouter une colonne
                   </button>
+
+                  {/* Restore any fixed column that was removed (hidden) */}
+                  {FIXED_COLUMNS.some(col => fixedFlag(cashSheet.column_flags, col.key).hidden) && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] text-muted-foreground">Colonnes masquées :</span>
+                      {FIXED_COLUMNS.filter(col => fixedFlag(cashSheet.column_flags, col.key).hidden).map(col => (
+                        <button
+                          key={col.key}
+                          onClick={() => updateFixedFlag(col.key, { hidden: false })}
+                          title="Réafficher cette colonne"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-dashed border-border text-[11px] text-muted-foreground hover:text-foreground hover:border-[#606338]/40 transition-colors"
+                        >
+                          <Plus className="w-3 h-3" /> {col.title}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Bottom totals */}
                   <div className="grid grid-cols-2 gap-3">

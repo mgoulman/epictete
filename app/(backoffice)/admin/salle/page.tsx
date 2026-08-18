@@ -8,6 +8,7 @@ import {
 import type { FloorZone, Table, TableShape, TableStatus } from '@/lib/types/salle';
 import { TABLE_STATUS_CONFIG, SHAPE_DEFAULTS } from '@/lib/types/salle';
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import { useToast } from '@/components/backoffice/ToastProvider';
 
 interface StaffOption {
   id: string;
@@ -102,6 +103,7 @@ function SeatDots({ seats, shape, width, height }: { seats: number; shape: Table
 export default function SallePlanPage() {
   const { t } = useTranslation();
   const sl = t.backoffice.sallePage;
+  const toast = useToast();
 
   const [zones, setZones] = useState<FloorZone[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
@@ -185,6 +187,9 @@ export default function SallePlanPage() {
     if (data.zone) {
       setZones(prev => [...prev, data.zone]);
       setActiveZoneId(data.zone.id);
+      toast.success('Créé');
+    } else {
+      toast.error(data.error || 'Une erreur est survenue');
     }
     setNewZoneName('');
     setShowZoneModal(false);
@@ -197,6 +202,7 @@ export default function SallePlanPage() {
     if (activeZoneId === zoneId) {
       setActiveZoneId(zones.find(z => z.id !== zoneId)?.id || '');
     }
+    toast.success('Supprimé');
   };
 
   // ─── Table CRUD ───────────────────────────────────────────────────────────
@@ -228,6 +234,9 @@ export default function SallePlanPage() {
     if (data.table) {
       setTables(prev => [...prev, data.table]);
       setSelectedTableId(data.table.id);
+      toast.success('Créé');
+    } else {
+      toast.error(data.error || 'Une erreur est survenue');
     }
   };
 
@@ -236,6 +245,7 @@ export default function SallePlanPage() {
     await fetch(`/api/salle?type=table&id=${tableId}`, { method: 'DELETE' });
     setTables(prev => prev.filter(t => t.id !== tableId));
     if (selectedTableId === tableId) setSelectedTableId(null);
+    toast.success('Supprimé');
   };
 
   const handleSaveLayout = async () => {
@@ -255,6 +265,7 @@ export default function SallePlanPage() {
     });
     setHasUnsavedChanges(false);
     setSaving(false);
+    toast.success('Enregistré');
   };
 
   const handleUpdateTable = async (tableId: string, updates: Partial<Table>) => {
@@ -266,6 +277,9 @@ export default function SallePlanPage() {
     const data = await res.json();
     if (data.table) {
       setTables(prev => prev.map(t => t.id === tableId ? data.table : t));
+      toast.success('Mis à jour');
+    } else {
+      toast.error(data.error || 'Une erreur est survenue');
     }
   };
 

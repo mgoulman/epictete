@@ -6,6 +6,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp, UserPlus, Briefcase, Bus, Phone, Mail, MapPin, Download, XCircle, CalendarCheck
 } from 'lucide-react';
 import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared/SortHeader';
+import { useToast } from '@/components/backoffice/ToastProvider';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import ScheduleTable from '@/components/backoffice/personnel/ScheduleTable';
 import { plannedShiftFor } from '@/lib/schedule';
@@ -156,6 +157,7 @@ type TabType = 'staff' | 'schedule' | 'presence' | 'time-off' | 'salary';
 
 export default function PersonnelPage() {
   useFocusRow();
+  const toast = useToast();
   const { t } = useTranslation();
   const pn = t.backoffice.personnelPage;
   const [activeTab, setActiveTab] = useState<TabType>('staff');
@@ -267,52 +269,106 @@ export default function PersonnelPage() {
   const handleDeleteStaff = async (id: string) => {
     if (!confirm(pn.deleteStaffConfirm)) return;
 
-    await fetch(`/api/personnel?type=staff&id=${id}`, { method: 'DELETE' });
-    fetchData();
+    try {
+      const res = await fetch(`/api/personnel?type=staff&id=${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Une erreur est survenue');
+      }
+      toast.success('Supprimé');
+      fetchData();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Une erreur est survenue');
+    }
   };
 
   const handleDeleteTimeOff = async (id: string) => {
     if (!confirm(pn.deleteTimeOff)) return;
 
-    await fetch(`/api/personnel?type=time-off&id=${id}`, { method: 'DELETE' });
-    fetchTimeOff();
+    try {
+      const res = await fetch(`/api/personnel?type=time-off&id=${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Une erreur est survenue');
+      }
+      toast.success('Supprimé');
+      fetchTimeOff();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Une erreur est survenue');
+    }
   };
 
   const handleDeleteSalary = async (id: string) => {
     if (!confirm(pn.deleteSalaryRecord)) return;
 
-    await fetch(`/api/personnel?type=salary&id=${id}`, { method: 'DELETE' });
-    fetchSalary();
+    try {
+      const res = await fetch(`/api/personnel?type=salary&id=${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Une erreur est survenue');
+      }
+      toast.success('Supprimé');
+      fetchSalary();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Une erreur est survenue');
+    }
   };
 
   const handleUpdateTimeOffStatus = async (id: string, status: string) => {
-    await fetch('/api/personnel', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'time-off', id, status })
-    });
-    fetchTimeOff();
+    try {
+      const res = await fetch('/api/personnel', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'time-off', id, status })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Une erreur est survenue');
+      }
+      toast.success('Mis à jour');
+      fetchTimeOff();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Une erreur est survenue');
+    }
   };
 
   const handleMarkDayOff = async (staffId: string, date: string) => {
-    await fetch('/api/personnel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'time-off',
-        staff_id: staffId,
-        start_date: date,
-        end_date: date,
-        time_off_type: 'day_off',
-        status: 'approved',
-      })
-    });
-    fetchApprovedTimeOff();
+    try {
+      const res = await fetch('/api/personnel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'time-off',
+          staff_id: staffId,
+          start_date: date,
+          end_date: date,
+          time_off_type: 'day_off',
+          status: 'approved',
+        })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Une erreur est survenue');
+      }
+      toast.success('Enregistré');
+      fetchApprovedTimeOff();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Une erreur est survenue');
+    }
   };
 
   const handleRemoveDayOff = async (timeOffId: string) => {
-    await fetch(`/api/personnel?type=time-off&id=${timeOffId}`, { method: 'DELETE' });
-    fetchApprovedTimeOff();
+    try {
+      const res = await fetch(`/api/personnel?type=time-off&id=${timeOffId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Une erreur est survenue');
+      }
+      toast.success('Supprimé');
+      fetchApprovedTimeOff();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Une erreur est survenue');
+    }
   };
 
   // Update staff schedule config from ScheduleBoard (DnD)
@@ -324,12 +380,21 @@ export default function PersonnelPage() {
         : s
     ));
     // Persist
-    await fetch('/api/personnel', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'staff', id: staffId, schedule_type: 'weekly', schedule_config: newConfig }),
-    });
-  }, []);
+    try {
+      const res = await fetch('/api/personnel', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'staff', id: staffId, schedule_type: 'weekly', schedule_config: newConfig }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Une erreur est survenue');
+      }
+      toast.success('Enregistré');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Une erreur est survenue');
+    }
+  }, [toast]);
 
   const handleSalarySort = (field: string) => {
     if (salarySort === field) {
@@ -695,7 +760,7 @@ export default function PersonnelPage() {
       pdf.save(fileName);
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert(pn.failedPdf);
+      toast.error(pn.failedPdf);
     } finally {
       setIsExporting(false);
     }
@@ -1320,6 +1385,7 @@ function StaffModal({
   onClose: () => void;
   onSave: () => void;
 }) {
+  const toast = useToast();
   const { t } = useTranslation();
   const pn = t.backoffice.personnelPage;
   const [formData, setFormData] = useState({
@@ -1360,7 +1426,7 @@ function StaffModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (makeUser && (!formData.email || !accountPassword)) {
-      alert('Email et mot de passe requis pour créer un compte.');
+      toast.error('Email et mot de passe requis pour créer un compte.');
       return;
     }
     setSaving(true);
@@ -1377,16 +1443,26 @@ function StaffModal({
       ...(makeUser && { account: { create: true, password: accountPassword, role_id: accountRoleId || null } }),
     };
 
-    const res = await fetch('/api/personnel', {
-      method: editingStaff ? 'PATCH' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (data.accountError) alert(data.accountError);
-
-    setSaving(false);
-    onSave();
+    try {
+      const res = await fetch('/api/personnel', {
+        method: editingStaff ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || 'Une erreur est survenue');
+        setSaving(false);
+        return;
+      }
+      if (data.accountError) toast.error(data.accountError);
+      else toast.success(editingStaff ? 'Mis à jour' : 'Créé');
+      setSaving(false);
+      onSave();
+    } catch {
+      toast.error('Une erreur est survenue');
+      setSaving(false);
+    }
   };
 
   return (
@@ -1696,6 +1772,7 @@ function TimeOffModal({
   onClose: () => void;
   onSave: () => void;
 }) {
+  const toast = useToast();
   const { t } = useTranslation();
   const pn = t.backoffice.personnelPage;
   const [formData, setFormData] = useState({
@@ -1711,14 +1788,25 @@ function TimeOffModal({
     e.preventDefault();
     setSaving(true);
 
-    await fetch('/api/personnel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'time-off', staff_id: formData.staff_id, start_date: formData.start_date, end_date: formData.end_date, time_off_type: formData.type, reason: formData.reason, status: 'pending' })
-    });
-
-    setSaving(false);
-    onSave();
+    try {
+      const res = await fetch('/api/personnel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'time-off', staff_id: formData.staff_id, start_date: formData.start_date, end_date: formData.end_date, time_off_type: formData.type, reason: formData.reason, status: 'pending' })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || 'Une erreur est survenue');
+        setSaving(false);
+        return;
+      }
+      toast.success('Créé');
+      setSaving(false);
+      onSave();
+    } catch {
+      toast.error('Une erreur est survenue');
+      setSaving(false);
+    }
   };
 
   return (
@@ -1834,6 +1922,7 @@ function SalaryModal({
   onClose: () => void;
   onSave: () => void;
 }) {
+  const toast = useToast();
   const { t } = useTranslation();
   const pn = t.backoffice.personnelPage;
   const [formData, setFormData] = useState({
@@ -1872,14 +1961,25 @@ function SalaryModal({
       ...(editingRecord && { id: editingRecord.id })
     };
 
-    await fetch('/api/personnel', {
-      method: editingRecord ? 'PATCH' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    setSaving(false);
-    onSave();
+    try {
+      const res = await fetch('/api/personnel', {
+        method: editingRecord ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || 'Une erreur est survenue');
+        setSaving(false);
+        return;
+      }
+      toast.success(editingRecord ? 'Mis à jour' : 'Créé');
+      setSaving(false);
+      onSave();
+    } catch {
+      toast.error('Une erreur est survenue');
+      setSaving(false);
+    }
   };
 
   const total = Number(formData.base_salary || 0) + Number(formData.bonuses || 0) - Number(formData.deductions || 0);

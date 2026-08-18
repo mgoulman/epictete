@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ChefHat, Search, AlertTriangle, Loader2, Minus, X, Package } from 'lucide-react';
 import { PermissionGate } from '@/components/backoffice/auth/PermissionGate';
 import { usePermissions } from '@/lib/auth/hooks';
+import { useToast } from '@/components/backoffice/ToastProvider';
 
 interface Item {
   id: string;
@@ -151,6 +152,7 @@ function UsageModal({ items, onClose, onSaved }: { items: Item[]; onClose: () =>
   const [reason, setReason] = useState('usage');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const save = async () => {
     if (!itemId || !qty || Number(qty) <= 0) { setError('Choisissez un produit et une quantité.'); return; }
@@ -161,9 +163,12 @@ function UsageModal({ items, onClose, onSaved }: { items: Item[]; onClose: () =>
         body: JSON.stringify({ date: todayISO(), items: [{ inventory_item_id: itemId, quantity: Number(qty), reason }] }),
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Échec'); }
+      toast.success('Sortie enregistrée');
       onSaved();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Échec');
+      const msg = e instanceof Error ? e.message : 'Échec';
+      setError(msg);
+      toast.error(msg);
     } finally { setSaving(false); }
   };
 

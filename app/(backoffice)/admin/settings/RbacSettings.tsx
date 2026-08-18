@@ -5,6 +5,7 @@ import {
   Shield, Plus, Trash2, Save, Loader2, X, Check, AlertTriangle,
   Users, ChevronDown, Lock,
 } from 'lucide-react';
+import { useToast } from '@/components/backoffice/ToastProvider';
 
 interface Role {
   id: string;
@@ -40,6 +41,7 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 export function RbacSettings() {
+  const toast = useToast();
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [edited, setEdited] = useState<Record<string, Set<string>>>({});
@@ -118,8 +120,11 @@ export function RbacSettings() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Save failed');
       await load();
+      toast.success('Enregistré');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Save failed');
+      const msg = e instanceof Error ? e.message : 'Save failed';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSavingRole(null);
     }
@@ -140,8 +145,11 @@ export function RbacSettings() {
       setNewRole({ name: '', display_name: '', description: '' });
       setShowCreate(false);
       await load();
+      toast.success('Créé');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Create failed');
+      const msg = e instanceof Error ? e.message : 'Create failed';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setCreating(false);
     }
@@ -155,8 +163,11 @@ export function RbacSettings() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Delete failed');
       await load();
+      toast.success('Supprimé');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Delete failed');
+      const msg = e instanceof Error ? e.message : 'Delete failed';
+      setError(msg);
+      toast.error(msg);
     }
   };
 

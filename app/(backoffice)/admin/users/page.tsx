@@ -10,6 +10,7 @@ import type { Role, ProfileWithRole } from '@/lib/types/auth';
 import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared/SortHeader';
 import { RowMenu } from '@/components/backoffice/shared/RowMenu';
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import { useToast } from '@/components/backoffice/ToastProvider';
 
 interface UserFormData {
   email: string;
@@ -30,6 +31,7 @@ const emptyForm: UserFormData = {
 export default function UsersPage() {
   const { t } = useTranslation();
   const u = t.backoffice.users;
+  const toast = useToast();
 
   const [users, setUsers] = useState<ProfileWithRole[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -155,6 +157,7 @@ export default function UsersPage() {
       }
       await fetchUsers();
       handleCloseModal();
+      toast.success(editingUser ? 'Mis à jour' : 'Créé');
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'An error occurred');
     }
@@ -171,8 +174,9 @@ export default function UsersPage() {
         throw new Error(data.error || 'Failed to delete user');
       }
       await fetchUsers();
+      toast.success('Supprimé');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete user');
+      toast.error(err instanceof Error ? err.message : 'Une erreur est survenue');
     }
     setConfirming(false);
     setConfirmDialog(null);
@@ -192,8 +196,9 @@ export default function UsersPage() {
         throw new Error(data.error || 'Failed to update user');
       }
       await fetchUsers();
+      toast.success('Mis à jour');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update user');
+      toast.error(err instanceof Error ? err.message : 'Une erreur est survenue');
     }
     setConfirming(false);
     setConfirmDialog(null);

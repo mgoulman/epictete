@@ -15,6 +15,7 @@ import { SortHeader, SortDir, sortCompare } from '@/components/backoffice/shared
 import { RowMenu } from '@/components/backoffice/shared/RowMenu';
 import Link from 'next/link';
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import { useToast } from '@/components/backoffice/ToastProvider';
 
 interface MenuItemForm {
   name: string;
@@ -82,7 +83,6 @@ export default function MenuPage() {
   const [showRecipeSection, setShowRecipeSection] = useState(false);
   const [showRecipeMatch, setShowRecipeMatch] = useState(false);
   const [recipeMatchSaving, setRecipeMatchSaving] = useState(false);
-  const [recipeMatchSuccess, setRecipeMatchSuccess] = useState<string | null>(null);
   const [recipeMatchSkipped, setRecipeMatchSkipped] = useState<Set<string>>(new Set());
   const [recipeMatchCount, setRecipeMatchCount] = useState(0);
   const [recipeSearchQuery, setRecipeSearchQuery] = useState('');
@@ -91,6 +91,7 @@ export default function MenuPage() {
   const canEdit = hasPermission('menu.write');
   const { t } = useTranslation();
   const mp = t.backoffice.menuPage;
+  const toast = useToast();
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -150,7 +151,7 @@ export default function MenuPage() {
       setFormData(prev => ({ ...prev, image_url: result.url }));
     } catch (err) {
       console.error('Image upload error:', err);
-      alert(err instanceof Error ? err.message : mp.failedUpload);
+      toast.error(err instanceof Error ? err.message : mp.failedUpload);
     }
     setUploadingImage(false);
   };
@@ -200,7 +201,7 @@ export default function MenuPage() {
 
   const handleSave = async () => {
     if (!formData.name || !formData.name_fr || !formData.price) {
-      alert(mp.fillRequired);
+      toast.error(mp.fillRequired);
       return;
     }
     setSaving(true);
@@ -275,13 +276,14 @@ export default function MenuPage() {
         if (error) throw error;
         setMenuItems(prev => [...prev, { ...itemData, id: newId } as MenuItem]);
       }
+      toast.success('Enregistré');
       handleCloseModal();
     } catch (err: unknown) {
       console.error('Save error:', err);
       const message = err && typeof err === 'object' && 'message' in err
         ? (err as { message: string }).message
         : mp.saving;
-      alert(message);
+      toast.error(message);
     }
     setSaving(false);
   };
@@ -295,7 +297,7 @@ export default function MenuPage() {
       setMenuItems(prev => prev.filter(item => item.id !== itemId));
     } catch (err) {
       console.error('Delete error:', err);
-      alert(mp.errorDeleting);
+      toast.error(mp.errorDeleting);
     }
     setDeleting(null);
   };
@@ -394,7 +396,7 @@ export default function MenuPage() {
   const [stableMatchDish, setStableMatchDish] = useState<MenuItem | null>(null);
 
   useEffect(() => {
-    if (showRecipeMatch && !recipeMatchSuccess) {
+    if (showRecipeMatch) {
       if (unlinkedItems.length > 0) {
         setStableMatchDish(unlinkedItems[Math.floor(Math.random() * unlinkedItems.length)]);
       } else {
@@ -402,7 +404,7 @@ export default function MenuPage() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showRecipeMatch, recipeMatchSuccess, totalUnlinked, recipeMatchSkipped.size]);
+  }, [showRecipeMatch, totalUnlinked, recipeMatchSkipped.size]);
 
   const skipDish = () => {
     if (stableMatchDish) {
@@ -424,14 +426,11 @@ export default function MenuPage() {
       setMenuItems(prev => prev.map(i => i.id === stableMatchDish.id ? { ...i, recipe_id: recipeId } : i));
       setRecipeMatchSaving(false);
       setRecipeMatchCount(c => c + 1);
-      setRecipeMatchSuccess(`${stableMatchDish.name_fr} → ${recipeName}`);
-
-      setTimeout(() => {
-        setRecipeMatchSuccess(null);
-      }, 1500);
+      toast.success(`${stableMatchDish.name_fr} → ${recipeName}`);
     } catch (err) {
       console.error('Recipe assign error:', err);
       setRecipeMatchSaving(false);
+      toast.error('Une erreur est survenue');
     }
   };
 
@@ -1269,7 +1268,7 @@ export default function MenuPage() {
       )}
       {/* Recipe Match Modal */}
       {showRecipeMatch && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => { setShowRecipeMatch(false); setRecipeMatchSuccess(null); setRecipeMatchSkipped(new Set()); setRecipeMatchCount(0); setRecipeSearchQuery(''); }}>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => { setShowRecipeMatch(false); setRecipeMatchSkipped(new Set()); setRecipeMatchCount(0); setRecipeSearchQuery(''); }}>
           <div className="bg-secondary border border-border rounded-2xl w-full max-w-lg max-h-[85vh] overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
@@ -1279,7 +1278,7 @@ export default function MenuPage() {
                   {totalUnlinked} {mp.dishesWithoutRecipe}{recipeMatchCount > 0 && <> &middot; {recipeMatchCount} matched</>}{recipeMatchSkipped.size > 0 && <> &middot; {recipeMatchSkipped.size} skipped</>}
                 </p>
               </div>
-              <button onClick={() => { setShowRecipeMatch(false); setRecipeMatchSuccess(null); setRecipeMatchSkipped(new Set()); setRecipeMatchCount(0); setRecipeSearchQuery(''); }} className="p-2 bg-transparent border-none rounded-md cursor-pointer text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+              <button onClick={() => { setShowRecipeMatch(false); setRecipeMatchSkipped(new Set()); setRecipeMatchCount(0); setRecipeSearchQuery(''); }} className="p-2 bg-transparent border-none rounded-md cursor-pointer text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
             </div>
 
             {/* Progress */}
@@ -1290,16 +1289,6 @@ export default function MenuPage() {
             )}
 
             <div className="p-5 overflow-y-auto max-h-[calc(85vh-100px)]">
-              {/* Success toast */}
-              {recipeMatchSuccess && (
-                <div className="flex items-center gap-3 p-3 mb-4 bg-green-500/10 border border-green-500/20 rounded-xl animate-in fade-in duration-300">
-                  <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
-                    <Check className="w-4 h-4 text-green-500" />
-                  </div>
-                  <p className="text-sm text-green-600 font-medium">{recipeMatchSuccess}</p>
-                </div>
-              )}
-
               {!stableMatchDish || totalUnlinked === 0 ? (
                 /* All done */
                 <div className="flex flex-col items-center justify-center py-12 gap-3">

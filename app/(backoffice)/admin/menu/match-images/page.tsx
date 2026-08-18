@@ -7,6 +7,7 @@ import { PermissionGate } from '@/components/backoffice/auth/PermissionGate';
 import { Upload, Loader2, ArrowLeft, Check, Search, X, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import { useToast } from '@/components/backoffice/ToastProvider';
 
 const MAX_SIZE = 1600;
 const QUALITY = 0.85;
@@ -49,6 +50,7 @@ function compressImage(file: File): Promise<File> {
 export default function MatchImagesPage() {
   const { t } = useTranslation();
   const mi = t.backoffice.matchImagesPage;
+  const toast = useToast();
   const [supabase] = useState(() => createSupabaseBrowserClient());
   const [items, setItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
@@ -136,6 +138,7 @@ export default function MatchImagesPage() {
       setSaving(false);
       setMatchedCount(c => c + 1);
       setSuccessDish(dishName);
+      toast.success(mi.imageSaved);
 
       // 4. After 1.5s, clear and reload
       setTimeout(async () => {
@@ -147,7 +150,9 @@ export default function MatchImagesPage() {
         await loadData();
       }, 1500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
+      const msg = err instanceof Error ? err.message : 'Une erreur est survenue';
+      setError(msg);
+      toast.error(msg);
       setSaving(false);
     }
   };

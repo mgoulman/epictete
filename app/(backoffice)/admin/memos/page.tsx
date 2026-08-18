@@ -9,6 +9,7 @@ import {
   ShoppingCart, UtensilsCrossed, UserCog,
 } from 'lucide-react';
 import { usePermissions } from '@/lib/auth/hooks';
+import { useToast } from '@/components/backoffice/ToastProvider';
 
 interface InboxMemo { id: string; title: string; priority: string; author_name: string | null; created_at: string; read: boolean }
 interface SentMemo { id: string; title: string; priority: string; created_at: string; recipients_count: number; read_count: number }
@@ -180,6 +181,7 @@ function MemoViewer({ id, onClose }: { id: string; onClose: () => void }) {
   const [data, setData] = useState<{ memo: FullMemo; isAuthor: boolean; readTrack: ReadEntry[] | null; attachments: Attachment[]; links: MemoLink[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const [reminded, setReminded] = useState<number | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     fetch(`/api/memos?id=${id}`).then(r => r.json()).then(setData);
@@ -196,6 +198,7 @@ function MemoViewer({ id, onClose }: { id: string; onClose: () => void }) {
     if (!confirm('Supprimer ce rapport ?')) return;
     setBusy(true);
     await fetch(`/api/memos?id=${id}`, { method: 'DELETE' });
+    toast.success('Supprimé');
     onClose();
   };
 
@@ -315,6 +318,7 @@ function ComposeModal({ onClose, onSent }: { onClose: () => void; onSent: () => 
   const [links, setLinks] = useState<MemoLink[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     fetch('/api/memos?meta=1').then(r => r.json()).then(d => { setUsers(d.users || []); setRoles(d.roles || []); });
@@ -357,6 +361,7 @@ function ComposeModal({ onClose, onSent }: { onClose: () => void; onSent: () => 
       }),
     });
     if (!r.ok) { setError((await r.json()).error || 'Échec de la publication.'); setBusy(false); return; }
+    toast.success('Envoyé');
     onSent();
   };
 
