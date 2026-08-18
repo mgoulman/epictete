@@ -74,7 +74,8 @@
       "Bash(pnpm exec *)",
       "Bash(xargs -I{} echo \"type errors: {}\")",
       "Bash(pnpm build *)",
-      "Bash(pnpm --filter @epictete/core exec tsc --noEmit)"
+      "Bash(pnpm --filter @epictete/core exec tsc --noEmit)",
+      "Bash(pnpm --filter @epictete/saas exec tsc --noEmit)"
     ]
   },
   "enableAllProjectMcpServers": true,

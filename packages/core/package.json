@@ -4,9 +4,11 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./db": "./src/db/index.ts"
+    "./db": "./src/db/index.ts",
+    "./auth": "./src/auth/index.ts"
   },
   "dependencies": {
+    "jose": "^6.2.2",
     "pg": "^8.20.0"
   },
   "devDependencies": {

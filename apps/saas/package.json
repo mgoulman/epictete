@@ -9,7 +9,10 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@epictete/core": "workspace:*",
+    "jose": "^6.2.2",
     "next": "16.0.10",
+    "pg": "^8.20.0",
     "react": "19.2.1",
     "react-dom": "19.2.1"
   },

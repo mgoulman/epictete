@@ -1,8 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // The multi-tenant SaaS shell. Shared modules will come from packages/core
-  // as they are extracted (per the kickoff brief, Phase 1).
+  // Transpile the shared workspace package (TS source), keep pg as a server-only
+  // external (native module — must not be bundled).
+  transpilePackages: ["@epictete/core"],
+  serverExternalPackages: ["pg"],
 };
 
 export default nextConfig;
