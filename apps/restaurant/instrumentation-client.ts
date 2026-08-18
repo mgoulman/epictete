@@ -2,7 +2,7 @@
 // automatically. Baseline = error monitoring + tracing. Session Replay is
 // intentionally deferred (records user sessions — opt in explicitly).
 import * as Sentry from '@sentry/nextjs';
-import { isBenignNetworkError, BENIGN_IGNORE_ERRORS } from '@/lib/observability/sentry-ignore';
+import { isBenignNetworkError, BENIGN_IGNORE_ERRORS, scrubEventPII } from '@/lib/observability/sentry-ignore';
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -18,7 +18,7 @@ Sentry.init({
   ignoreErrors: [...BENIGN_IGNORE_ERRORS, 'AbortError'],
   beforeSend(event, hint) {
     if (isBenignNetworkError(hint?.originalException)) return null;
-    return event;
+    return scrubEventPII(event);
   },
 
   // Session Replay (opt-in later):

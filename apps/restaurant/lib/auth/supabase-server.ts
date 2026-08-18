@@ -7,7 +7,17 @@ import { SignJWT, jwtVerify } from 'jose';
 import db from '@/lib/db';
 import type { AuthUser, PermissionName, RoleName, ProfileWithRole } from '@/lib/types/auth';
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'epictete-secret-key-change-in-production-2026');
+// JWT signing/verification secret. Required — no insecure fallback. Resolved
+// lazily so a missing var fails at first auth use (with a clear error) rather
+// than silently signing tokens with a well-known default secret.
+let _jwtSecret: Uint8Array | null = null;
+function getJwtSecret(): Uint8Array {
+  if (_jwtSecret) return _jwtSecret;
+  const value = process.env.JWT_SECRET;
+  if (!value) throw new Error('JWT_SECRET environment variable is required (no default fallback).');
+  _jwtSecret = new TextEncoder().encode(value);
+  return _jwtSecret;
+}
 
 // ─── JWT helpers ────────────────────────────────────────────────────────────
 
@@ -20,12 +30,12 @@ export async function createJWT(userId: string, role?: RoleName, perms?: string[
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('7d')
-    .sign(JWT_SECRET);
+    .sign(getJwtSecret());
 }
 
 export async function verifyJWT(token: string): Promise<{ sub: string; role?: RoleName; perms?: string[] } | null> {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
+    const { payload } = await jwtVerify(token, getJwtSecret());
     return payload as { sub: string; role?: RoleName; perms?: string[] };
   } catch {
     return null;

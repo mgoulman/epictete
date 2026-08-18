@@ -1,7 +1,7 @@
 // Sentry initialisation for the Node.js server runtime.
 // Loaded by instrumentation.ts when NEXT_RUNTIME === 'nodejs'.
 import * as Sentry from '@sentry/nextjs';
-import { isBenignNetworkError, BENIGN_IGNORE_ERRORS } from '@/lib/observability/sentry-ignore';
+import { isBenignNetworkError, BENIGN_IGNORE_ERRORS, scrubEventPII } from '@/lib/observability/sentry-ignore';
 
 Sentry.init({
   dsn: process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -9,8 +9,9 @@ Sentry.init({
   // 100% traces in dev, 10% in production.
   tracesSampleRate: process.env.NODE_ENV === 'development' ? 1.0 : 0.1,
 
-  // Attach local variable values to stack frames for richer server traces.
-  includeLocalVariables: true,
+  // OFF: attaching local variables ships PII (salaries, phone numbers, tokens,
+  // and — in the multi-tenant SaaS — cross-tenant data) to a US processor.
+  includeLocalVariables: false,
 
   enableLogs: true,
 
@@ -20,6 +21,6 @@ Sentry.init({
   ignoreErrors: BENIGN_IGNORE_ERRORS,
   beforeSend(event, hint) {
     if (isBenignNetworkError(hint?.originalException)) return null;
-    return event;
+    return scrubEventPII(event);
   },
 });

@@ -56,10 +56,8 @@ async function recordAudit(
     ]);
     const cookieStore = await cookies();
     const token = cookieStore.get('auth_token')?.value;
-    if (token) {
-      const secret = new TextEncoder().encode(
-        process.env.JWT_SECRET || 'epictete-secret-key-change-in-production-2026'
-      );
+    if (token && process.env.JWT_SECRET) {
+      const secret = new TextEncoder().encode(process.env.JWT_SECRET);
       const { payload } = await jwtVerify(token, secret);
       userId = (payload.sub as string) || null;
       if (userId) {
