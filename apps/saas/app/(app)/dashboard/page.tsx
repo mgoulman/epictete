@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Sparkline } from "@/components/ui/Sparkline";
 import { money, dateFR, todayISO } from "@/lib/format";
 import { FirstRun } from "./FirstRun";
+import { ConsentGate } from "./ConsentGate";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,10 @@ interface DashData {
   presentToday: number;
   vendorDue: number;
   trend: number[];
+  citySet: boolean;
+  memberCount: number;
+  hasInvite: boolean;
+  hasConsent: boolean;
 }
 
 async function load(tenantId: string, userId?: string, role?: string): Promise<DashData> {
@@ -83,7 +88,18 @@ async function load(tenantId: string, userId?: string, role?: string): Promise<D
     } catch {
       /* ignore */
     }
-    return { cashCount, latest, lowStock, staffTotal, presentToday, vendorDue, trend };
+    // onboarding signals
+    const citySet =
+      (await db.query<{ n: number }>("SELECT count(*)::int n FROM tenants WHERE city IS NOT NULL AND city <> ''")).rows[0]?.n ?? 0;
+    const memberCount = await n("SELECT count(*)::int n FROM memberships");
+    const inviteCount = await n("SELECT count(*)::int n FROM invitations");
+    const consentCount = userId
+      ? await n("SELECT count(*)::int n FROM analytics_events WHERE event = 'consent.accepted' AND user_id = $1", [userId])
+      : 1;
+    return {
+      cashCount, latest, lowStock, staffTotal, presentToday, vendorDue, trend,
+      citySet: citySet > 0, memberCount, hasInvite: inviteCount > 0, hasConsent: consentCount > 0,
+    };
   });
 }
 
@@ -92,9 +108,19 @@ export default async function DashboardPage() {
   if (!session || !ctx) redirect("/login");
   const data = await load(ctx.tenantId, ctx.userId, ctx.role);
 
+  // One-time pilot consent for the owner before anything else.
+  if ((session.role === "owner" || session.role === "admin") && !data.hasConsent) {
+    return <ConsentGate />;
+  }
+
   const firstName = session.user.name.split(/\s+/)[0];
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Bonjour" : hour < 18 ? "Bon après-midi" : "Bonsoir";
+  const steps = {
+    profile: data.citySet,
+    team: data.memberCount > 1 || data.hasInvite,
+    caisse: data.cashCount > 0,
+  };
 
   return (
     <div>
@@ -109,7 +135,7 @@ export default async function DashboardPage() {
       </div>
 
       {data.cashCount === 0 ? (
-        <FirstRun />
+        <FirstRun steps={steps} />
       ) : (
         <>
           {/* Hero KPI row — cash first & largest */}

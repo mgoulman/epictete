@@ -86,8 +86,18 @@
       "Bash(xargs kill -9)",
       "Bash(PORT=3020 pnpm --filter @epictete/saas dev)",
       "Bash(echo \"started, pid $!\")",
-      "Bash(curl -s -b /tmp/saas.cookies __TRACKED_VAR__/stock -o /tmp/stock.html -w 'status=%{http_code}\\\\n')"
-    ]
+      "Bash(curl -s -b /tmp/saas.cookies __TRACKED_VAR__/stock -o /tmp/stock.html -w 'status=%{http_code}\\\\n')",
+      "Bash(git stash *)",
+      "Bash(git push *)",
+      "Bash(curl -s -o /dev/null http://localhost:3020/login)",
+      "Bash(curl -s -c /tmp/c.txt -X POST __TRACKED_VAR__/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"owner@demo.ma\",\"password\":\"demo1234\"}' -o /dev/null -w 'login=%{http_code}\\\\n')",
+      "Bash(curl -s -b /tmp/c.txt -X POST __TRACKED_VAR__/api/caisse -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\)['sheet']; print\\('ca',d['total_ca'],'sources',d['payment_sources'],'depenses',d['depenses']\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\)['sheet']; print\\('reloaded: ca',d['total_ca'],'| sources',len\\(d['payment_sources']\\),'| depenses',len\\(d['depenses']\\),'| espece_source_type',d['payment_sources'][0]['counts_as_cash']\\)\")",
+      "Bash(echo \"build pid $!\")",
+      "Bash(bash /private/tmp/claude-501/-Users-macbook-Desktop-epictelerestaurant/bd9a7544-5de8-4de9-b971-d0123d9710b9/scratchpad/invite_e2e.sh)"
+    ],
+    "ask": []
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [

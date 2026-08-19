@@ -157,3 +157,45 @@ Dû fournisseurs 4 250 DH, Espèces 3 448 DH, Présence 3/4, Stock bas 2); /stoc
 logout clears cookie -> dashboard 307 -> /login. All data RLS-scoped to the logged-in tenant.
 
 **Remaining:** Feuille de Caisse extraction to /caisse (the hero, task #45); then Phase-2 modules.
+
+## 2026-08-18 — Phase 9 cont.: Feuille de Caisse hero (/caisse) — MVP scope COMPLETE
+- lib/caisse.ts: shared model + computeTotals (Espèce encaissements ADD to Total Espèces only,
+  Déduit ignored — same corrected formula as the live restaurant fix). num() tolerant parse.
+- /api/caisse: GET (load by date) + POST (upsert on (tenant_id,entry_date), totals RECOMPUTED
+  server-side, source='saas') via withTenant; emits analytics_events 'cash_sheet.saved' (activation).
+- (app)/caisse: server page loads the sheet for ?date= (or today) via runWithTenant; CaisseForm
+  (client) = two-pane Recettes/Sorties + sticky totals rail (CA, Dépense, Espèce Caisse, Total
+  Espèces, Solde théorique colored) + Autres encaissements w/ Espèce|Déduit toggle + date picker
+  + Save (activation) + Print (print-window).
+- VERIFIED e2e (real dev runtime, owner login): POST returns correct totals (caisse 500, espèces
+  2500, dépense 500, solde 2000, especeSources 1000); GET reloads persisted sources+depenses with
+  Espèce type; analytics_events row scoped to Le Gourmet; sheet RLS-scoped (source='saas'); page 200.
+- All 6 MVP migration tasks done: shell, primitives, nav, auth/session, dashboard, inventaire, caisse.
+  Remaining = Phase-2 modules (currently ComingSoon placeholders) + onboarding/invite + super-admin.
+
+## 2026-08-19 — Phase 2: Onboarding + team-invite flow (localhost; live Neon untouched)
+Re-consulted product-ux for the invite/onboarding UX (owner-only admin, single-use 7d link-share
+tokens rotate-on-resend, /dashboard landing, existing-email adds membership, MAD fixed, skippable
+team step, light pilot consent). Built + VERIFIED e2e (11/11):
+- DB: 0009_invitations.sql (invitations table + RLS + partial-unique 1-pending-per-email; tenants.city)
+  and 0010_invitations_resend.sql (updated_at, sent_count). Applied to dev.
+- Invite API /api/team: GET members+pending invites, POST create (enforce users.manage, manager|cashier
+  only, dupe/member guards, emits invite.created), PATCH resend (rotate token+reset expiry), DELETE revoke.
+- Accept: /api/invite/accept (public; platform-level unsafeQuery by token; branch existing-user (verify
+  password)/new-user (create user+profile); attach membership; mark accepted; emit invite.accepted +
+  consent.accepted; mint saas_token). Public /invite/[token] page + AcceptForm with valid/expired/revoked/
+  used states.
+- Restaurant profile: /api/tenant GET+PUT (enforce settings.manage) + /reglages/restaurant form
+  (name/city/ICE/RC/billing_email + branch name; MAD fixed, slug read-only). Replaced ComingSoon.
+- Team page /reglages/utilisateurs: members table + pending invites + invite panel (copy link) +
+  resend/revoke. Replaced ComingSoon. Both Réglages nav items un-"soon"ed.
+- Onboarding: /api/consent + ConsentGate (one-time owner pilot-terms checkbox before dashboard);
+  FirstRun upgraded to real per-step completion (profile=city set, team=member>1 or invite, caisse=
+  cashCount>0) + "X sur 3" progress bar + done/current/future states. Legal placeholder pages
+  /legal/cgu + /legal/confidentialite.
+- E2E (curl, real runtime): owner login → consent gate → accept → KPIs → invite cashier (43-char token)
+  → accept page → accept as new user → cashier dashboard 200 → cashier invite BLOCKED 403 → token
+  single-use 410 on reuse → cashier login works → profile PUT saves. DB: cashier user+membership+accepted
+  invite; consent/invite events recorded.
+- NOTE: demo tenant "Le Gourmet" is now in a used/onboarded state; re-run db/seed/demo.sql to reset to a
+  fresh onboarding demo.

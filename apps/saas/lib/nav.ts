@@ -63,8 +63,8 @@ export const NAV: NavSection[] = [
   {
     title: "Réglages",
     items: [
-      { label: "Utilisateurs", href: "/reglages/utilisateurs", icon: UserCog, permission: "users.manage", soon: true },
-      { label: "Restaurant", href: "/reglages/restaurant", icon: Store, permission: "settings.manage", soon: true },
+      { label: "Utilisateurs", href: "/reglages/utilisateurs", icon: UserCog, permission: "users.manage" },
+      { label: "Restaurant", href: "/reglages/restaurant", icon: Store, permission: "settings.manage" },
     ],
   },
 ];
