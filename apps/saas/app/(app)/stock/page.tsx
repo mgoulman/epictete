@@ -2,19 +2,23 @@ import { redirect } from "next/navigation";
 import { runWithTenant } from "@epictete/core/db";
 import { db } from "@/lib/db";
 import { resolveTenant } from "@/lib/tenant";
+import { getSaasSession } from "@/lib/auth";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { StockList, type Item } from "./StockList";
+import { InventoryManager, type Item } from "./InventoryManager";
 
 export const dynamic = "force-dynamic";
 
 export default async function StockPage() {
-  const ctx = await resolveTenant();
+  const [ctx, session] = await Promise.all([resolveTenant(), getSaasSession()]);
   if (!ctx) redirect("/login");
+
+  const canWrite =
+    session?.role === "owner" || session?.role === "admin" || (session?.perms.includes("inventory.write") ?? false);
 
   const items = await runWithTenant({ tenantId: ctx.tenantId, userId: ctx.userId, role: ctx.role }, async () =>
     (
       await db.query<Item>(
-        `SELECT id, name, category, quantity, unit, minimum_stock, last_purchase_price
+        `SELECT id, name, category, quantity, unit, minimum_stock, cost_per_unit, last_purchase_price
            FROM inventory_items ORDER BY name`,
       )
     ).rows,
@@ -28,7 +32,7 @@ export default async function StockPage() {
         title="Inventaire"
         subtitle={`${items.length} produit${items.length > 1 ? "s" : ""}${low > 0 ? ` · ${low} à réapprovisionner` : ""}`}
       />
-      <StockList items={items} />
+      <InventoryManager items={items} canWrite={canWrite} />
     </>
   );
 }

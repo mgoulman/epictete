@@ -114,6 +114,24 @@ export function TeamManager({
     }
   }
 
+  async function memberAction(fn: () => Promise<unknown>, okMsg: string) {
+    try {
+      await fn();
+      toast.success(okMsg);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Action impossible.");
+    }
+  }
+  const changeRole = (userId: string, role: string) =>
+    memberAction(() => fetchJson(`/api/members?userId=${userId}`, { method: "PATCH", json: { role } }), "Rôle mis à jour");
+  const toggleActive = (userId: string, is_active: boolean) =>
+    memberAction(() => fetchJson(`/api/members?userId=${userId}`, { method: "PATCH", json: { is_active } }), is_active ? "Accès réactivé" : "Accès désactivé");
+  async function removeMember(userId: string, name: string) {
+    if (!(await confirm({ title: "Retirer le membre", message: `« ${name} » perdra l’accès à cet espace. Continuer ?`, confirmLabel: "Retirer", danger: true }))) return;
+    memberAction(() => fetchJson(`/api/members?userId=${userId}`, { method: "DELETE" }), "Membre retiré");
+  }
+
   const memberCols: DataColumn<Member>[] = [
     {
       key: "name",
@@ -130,13 +148,48 @@ export function TeamManager({
       ),
     },
     { key: "email", header: "Email", render: (m) => <span className="text-[var(--color-muted-foreground)]">{m.email}</span> },
-    { key: "role", header: "Rôle", render: (m) => <Badge tone={roleTone(m.role)}>{ROLE_LABEL_FR[m.role ?? ""] ?? m.role}</Badge> },
+    {
+      key: "role",
+      header: "Rôle",
+      render: (m) => {
+        const editable = canManage && m.role !== "owner" && m.user_id !== currentUserId;
+        if (!editable) return <Badge tone={roleTone(m.role)}>{ROLE_LABEL_FR[m.role ?? ""] ?? m.role}</Badge>;
+        return (
+          <select
+            value={m.role ?? "cashier"}
+            onChange={(e) => changeRole(m.user_id, e.target.value)}
+            className="h-8 px-2 rounded-[var(--radius-sm)] bg-[var(--color-background)] border border-[var(--color-border)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
+          >
+            <option value="manager">Manager</option>
+            <option value="cashier">Caissier</option>
+          </select>
+        );
+      },
+    },
     {
       key: "status",
       header: "Statut",
       align: "center",
       render: (m) => (m.is_active ? <Badge tone="positive">Actif</Badge> : <Badge tone="neutral">Désactivé</Badge>),
     },
+    ...(canManage
+      ? [{
+          key: "m-actions", header: "", align: "right" as const,
+          render: (m: Member) => {
+            if (m.role === "owner" || m.user_id === currentUserId) return null;
+            return (
+              <div className="flex items-center justify-end gap-2">
+                <button onClick={() => toggleActive(m.user_id, !m.is_active)} className="text-xs font-medium text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]">
+                  {m.is_active ? "Désactiver" : "Réactiver"}
+                </button>
+                <button onClick={() => removeMember(m.user_id, m.name)} title="Retirer" className="h-8 w-8 inline-flex items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-muted-foreground)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger-bg)]">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            );
+          },
+        }]
+      : []),
   ];
 
   const inviteCols: DataColumn<Invite>[] = [

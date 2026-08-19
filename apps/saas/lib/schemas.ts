@@ -61,3 +61,13 @@ export const acceptSchema = z.object({
   name: z.string().trim().max(120).optional(),
   password: z.string().max(200).optional(),
 });
+
+export const inventoryItemSchema = z.object({
+  name: z.string().trim().min(1, "Le nom est requis.").max(160),
+  category: z.string().trim().max(120).optional().default(""),
+  quantity: z.coerce.number().min(0, "Quantité invalide.").default(0),
+  unit: z.string().trim().max(40).default("pièces"),
+  minimum_stock: z.coerce.number().min(0, "Seuil invalide.").default(0),
+  cost_per_unit: z.coerce.number().min(0, "Coût invalide.").default(0),
+});
+export type InventoryItemInput = z.infer<typeof inventoryItemSchema>;
