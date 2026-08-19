@@ -62,6 +62,39 @@ export const acceptSchema = z.object({
   password: z.string().max(200).optional(),
 });
 
+export const EXPENSE_CATEGORIES = ["vendor_order", "market_purchase", "utilities", "equipment", "cleaning", "transport", "maintenance", "salary_advance", "other"] as const;
+export const PAYMENT_METHODS = ["cash", "card_pro", "tpe"] as const;
+
+export const expenseSchema = z.object({
+  expense_date: isoDate,
+  amount: z.coerce.number().positive("Montant requis."),
+  payment_method: z.enum(PAYMENT_METHODS, { message: "Mode de paiement requis." }),
+  category: z.enum(EXPENSE_CATEGORIES).default("other"),
+  description: z.string().trim().max(300).optional().default(""),
+});
+
+export const vendorSchema = z.object({
+  name: z.string().trim().min(1, "Nom requis.").max(160),
+  contact_name: z.string().trim().max(120).optional().default(""),
+  phone: z.string().trim().max(40).optional().default(""),
+  category: z.string().trim().max(120).optional().default(""),
+});
+
+export const vendorTxnSchema = z.object({
+  vendor_id: z.string().uuid("Fournisseur requis."),
+  type: z.enum(["debt", "payment"], { message: "Type requis." }),
+  amount: z.coerce.number().positive("Montant requis."),
+  date: isoDate,
+  description: z.string().trim().max(200).optional().default(""),
+});
+
+export const staffSchema = z.object({
+  first_name: z.string().trim().min(1, "Prénom requis.").max(80),
+  last_name: z.string().trim().min(1, "Nom requis.").max(80),
+  position: z.string().trim().max(80).optional().default(""),
+  phone: z.string().trim().max(40).optional().default(""),
+});
+
 export const inventoryItemSchema = z.object({
   name: z.string().trim().min(1, "Le nom est requis.").max(160),
   category: z.string().trim().max(120).optional().default(""),

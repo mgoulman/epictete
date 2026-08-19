@@ -263,3 +263,18 @@ reset, account page, verification, impersonation, offboarding, help).
 - Invite accept: added password-confirm field + inline min-length/mismatch validation + submit gating
   (login/invite are outside the ToastProvider so they correctly use inline errors, not toasts).
 - Verified: build green; Stock/Admin/Users search boxes render; invite confirm field renders.
+
+## 2026-08-19 — Phase 2: modules via the recipe (localhost)
+Using the InventoryManager recipe (route + Manager client + page; enforce + zod + audit trigger):
+- Dépenses: /api/expenses CRUD + ExpensesManager (category/method selects, total). 
+- Fournisseurs: /api/vendors CRUD + /api/vendor-transactions (dette/paiement) + VendorsManager with
+  per-vendor solde (SUMIFS in SQL) + total dû + record-mouvement modal.
+- Personnel: /api/staff CRUD (soft-delete) + StaffManager.
+- Présence: /api/attendance upsert (ON CONFLICT tenant/staff/date) + PresenceManager (optimistic
+  present/late/absent toggles, X/N présents).
+- Rapports: read-only month summary (CA/dépenses/solde/dû fournisseurs KPIs + last 10 sheets +
+  expenses-by-category).
+- Un-sooned 5 nav items; only "Achats du jour" remains ComingSoon (it overlaps Dépenses[market_purchase]
+  + Inventory restock — deferred rather than build a redundant module).
+- E2E verified: expense/vendor+dette/staff+presence create → 200; all module pages 200; vendor in list.
+Remaining: Phase 3 lifecycle (password reset, account page, verification, impersonation, offboarding, help).

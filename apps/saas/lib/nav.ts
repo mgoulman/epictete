@@ -36,14 +36,14 @@ export const NAV: NavSection[] = [
     items: [
       { label: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
       { label: "Feuille de Caisse", href: "/caisse", icon: Wallet, permission: "finance.read" },
-      { label: "Rapports", href: "/rapports", icon: LineChart, permission: "finance.read", soon: true },
+      { label: "Rapports", href: "/rapports", icon: LineChart, permission: "finance.read" },
     ],
   },
   {
     title: "Argent",
     items: [
-      { label: "Dépenses", href: "/depenses", icon: Receipt, permission: "finance.read", soon: true },
-      { label: "Fournisseurs", href: "/fournisseurs", icon: Truck, permission: "inventory.read", soon: true },
+      { label: "Dépenses", href: "/depenses", icon: Receipt, permission: "finance.read" },
+      { label: "Fournisseurs", href: "/fournisseurs", icon: Truck, permission: "inventory.read" },
     ],
   },
   {
@@ -56,8 +56,8 @@ export const NAV: NavSection[] = [
   {
     title: "Équipe",
     items: [
-      { label: "Personnel", href: "/equipe", icon: Users, permission: "personnel.read", soon: true },
-      { label: "Présence", href: "/equipe/presence", icon: CalendarClock, permission: "personnel.read", soon: true },
+      { label: "Personnel", href: "/equipe", icon: Users, permission: "personnel.read" },
+      { label: "Présence", href: "/equipe/presence", icon: CalendarClock, permission: "personnel.read" },
     ],
   },
   {
