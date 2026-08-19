@@ -5,7 +5,7 @@
 export interface PaymentSource {
   name: string;
   amount: number;
-  counts_as_cash: boolean; // true = "Espèce" (adds to Total Espèces), false = "Déduit" (ignored)
+  counts_as_cash: boolean; // true = "Espèce" (adds to Total Espèces); false = "Déduit" (subtracts from Total Espèces + Espèce Caisse)
 }
 
 export interface DepenseItem {
@@ -27,6 +27,7 @@ export interface CaisseData {
 
 export interface CaisseTotals {
   especeSources: number;
+  deduitSources: number;
   caisseEspeces: number;
   totalEspeces: number;
   totalDepense: number;
@@ -54,12 +55,16 @@ export function computeTotals(d: {
   const especeSources = (d.payment_sources || [])
     .filter((s) => s.counts_as_cash)
     .reduce((s, x) => s + num(x.amount), 0);
+  const deduitSources = (d.payment_sources || [])
+    .filter((s) => !s.counts_as_cash)
+    .reduce((s, x) => s + num(x.amount), 0);
   const totalDepense = (d.depenses || []).reduce((s, x) => s + num(x.amount), 0);
 
-  const caisseEspeces = Math.max(0, ca - cb - gEsp - gOnline);
-  const totalEspeces = Math.max(0, ca - cb - gOnline) + especeSources;
+  // Espèce ADDS to Total Espèces only; Déduit SUBTRACTS from BOTH Total Espèces and Espèce Caisse.
+  const caisseEspeces = Math.max(0, ca - cb - gEsp - gOnline - deduitSources);
+  const totalEspeces = Math.max(0, ca - cb - gOnline - deduitSources) + especeSources;
   const resteEspeces = totalEspeces - totalDepense;
-  return { especeSources, caisseEspeces, totalEspeces, totalDepense, resteEspeces };
+  return { especeSources, deduitSources, caisseEspeces, totalEspeces, totalDepense, resteEspeces };
 }
 
 export function emptyCaisse(entry_date: string): CaisseData {

@@ -316,7 +316,13 @@ export function CaisseForm({
             {totals.especeSources > 0 && (
               <div className="mt-2 pt-2 border-t border-[var(--color-border)] flex justify-between text-[11px] text-[var(--color-muted-foreground)]">
                 <span>Ajouté aux espèces :</span>
-                <span className="font-medium tnum">+{money2(totals.especeSources)}</span>
+                <span className="font-medium tnum text-[var(--color-positive)]">+{money2(totals.especeSources)}</span>
+              </div>
+            )}
+            {totals.deduitSources > 0 && (
+              <div className="mt-1 flex justify-between text-[11px] text-[var(--color-muted-foreground)]">
+                <span>Déduit des espèces (total + caisse) :</span>
+                <span className="font-medium tnum text-[var(--color-danger)]">−{money2(totals.deduitSources)}</span>
               </div>
             )}
           </div>
