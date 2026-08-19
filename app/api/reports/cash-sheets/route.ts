@@ -21,15 +21,17 @@ function parseCashNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-// "Espèce" encaissements (counts_as_cash = true) ADD to Total Espèces only; the drawer
-// total is untouched. "Déduit" sources (counts_as_cash = false) are not counted at all.
-function especeSourcesTotal(sources: unknown): number {
+// "Espèce" encaissements (counts_as_cash = true) ADD to Total Espèces only (drawer untouched).
+// "Déduit" (counts_as_cash = false) SUBTRACT from BOTH Total Espèces and Espèce Caisse.
+function sourcesTotal(sources: unknown, wantCash: boolean): number {
   if (!Array.isArray(sources)) return 0;
   return sources
     .filter((s): s is { amount: unknown; counts_as_cash?: unknown } => !!s && typeof s === 'object')
-    .filter(s => s.counts_as_cash)
+    .filter(s => !!s.counts_as_cash === wantCash)
     .reduce((sum, s) => sum + parseCashNumber(s.amount), 0);
 }
+const especeSourcesTotal = (s: unknown) => sourcesTotal(s, true);
+const deduitSourcesTotal = (s: unknown) => sourcesTotal(s, false);
 
 function customColumnsDepense(columns: unknown): number {
   if (!Array.isArray(columns)) return 0;
@@ -66,9 +68,10 @@ function normalizeStoredCashSheet<T extends Record<string, unknown>>(sheet: T | 
   const glovoEspece = parseCashNumber(sheet.glovo_ttc_espece);
   const glovoOnline = parseCashNumber(sheet.glovo_ttc_online);
   const especeSources = especeSourcesTotal(sheet.payment_sources);
+  const deduitSources = deduitSourcesTotal(sheet.payment_sources);
 
-  const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline);
-  const totalEspeces = Math.max(0, totalCA - totalCB - glovoOnline) + especeSources;
+  const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline - deduitSources);
+  const totalEspeces = Math.max(0, totalCA - totalCB - glovoOnline - deduitSources) + especeSources;
 
   return { ...sheet, total_especes_caisse: caisseEspeces, total_especes: totalEspeces };
 }
@@ -118,8 +121,9 @@ export async function POST(request: NextRequest) {
     const glovoEspece = parseCashNumber(body.glovo_ttc_espece);
     const glovoOnline = parseCashNumber(body.glovo_ttc_online);
     const especeSources = especeSourcesTotal(paymentSources);
-    const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline);
-    const totalEspeces = Math.max(0, totalCA - totalCB - glovoOnline) + especeSources;
+    const deduitSources = deduitSourcesTotal(paymentSources);
+    const caisseEspeces = Math.max(0, totalCA - totalCB - glovoEspece - glovoOnline - deduitSources);
+    const totalEspeces = Math.max(0, totalCA - totalCB - glovoOnline - deduitSources) + especeSources;
     const resteEspeces = totalEspeces - totalDepense;
 
     const sheet = {
