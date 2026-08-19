@@ -18,8 +18,8 @@ export async function getSessionView(): Promise<SessionView | null> {
         WHERE u.id = $1`,
       [s.userId],
     ),
-    db.unsafeQuery<{ name: string; slug: string }>(
-      `SELECT name, slug FROM tenants WHERE id = $1`,
+    db.unsafeQuery<{ name: string; slug: string; status: string }>(
+      `SELECT name, slug, status FROM tenants WHERE id = $1`,
       [s.tenantId],
     ),
     db.unsafeQuery<{ name: string }>(
@@ -32,7 +32,7 @@ export async function getSessionView(): Promise<SessionView | null> {
 
   return {
     user: { id: s.userId, name: u.rows[0].name, email: u.rows[0].email },
-    tenant: { name: t.rows[0].name, slug: t.rows[0].slug },
+    tenant: { name: t.rows[0].name, slug: t.rows[0].slug, status: t.rows[0].status },
     branch: b.rows[0] ? { name: b.rows[0].name } : null,
     role: s.role,
     perms: s.perms,

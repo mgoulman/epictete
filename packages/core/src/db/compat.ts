@@ -370,6 +370,8 @@ export function createDb(config: CreateDbConfig): CompatDb {
       await client.query("BEGIN");
       if (rlsRole) await client.query(`SET LOCAL ROLE ${rlsRole}`);
       await client.query("SELECT set_config('app.tenant_id', $1, true)", [tctx.tenantId]);
+      // Stamp the acting user so DB-level audit triggers can attribute the change.
+      if (tctx.userId) await client.query("SELECT set_config('app.user_id', $1, true)", [tctx.userId]);
       const res = await client.query(sql, params);
       await client.query("COMMIT");
       return res;

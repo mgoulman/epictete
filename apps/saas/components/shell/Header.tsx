@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Menu, Store, Bell, ChevronDown, LogOut } from "lucide-react";
+import { Menu, Store, ChevronDown, LogOut } from "lucide-react";
 import type { SessionView } from "@/lib/session-view";
 import { cn } from "@/components/ui/cn";
 
@@ -24,7 +24,6 @@ const ROLE_LABEL: Record<string, string> = {
 export function Header({ session, onMenu }: { session: SessionView; onMenu: () => void }) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [lang, setLang] = useState<"FR" | "EN">("FR");
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -68,22 +67,6 @@ export function Header({ session, onMenu }: { session: SessionView; onMenu: () =
       </div>
 
       <div className="flex-1" />
-
-      {/* Language toggle */}
-      <button
-        onClick={() => setLang((l) => (l === "FR" ? "EN" : "FR"))}
-        className="h-9 px-2.5 rounded-[var(--radius-sm)] text-sm font-medium text-[var(--color-muted-foreground)] hover:bg-[var(--color-secondary)]"
-      >
-        {lang}
-      </button>
-
-      {/* Notifications */}
-      <button
-        className="relative inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] hover:bg-[var(--color-secondary)]"
-        aria-label="Notifications"
-      >
-        <Bell className="h-5 w-5 text-[var(--color-muted-foreground)]" />
-      </button>
 
       {/* Profile */}
       <div className="relative" ref={ref}>

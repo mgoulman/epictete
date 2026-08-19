@@ -103,7 +103,10 @@
       "Bash(cat)",
       "Bash(python3 /tmp/gen_fournisseurs.py)",
       "Read(//Users/macbook/Desktop/**)",
-      "Bash(bash /private/tmp/claude-501/-Users-macbook-Desktop-epictelerestaurant/bd9a7544-5de8-4de9-b971-d0123d9710b9/scratchpad/admin_e2e.sh)"
+      "Bash(bash /private/tmp/claude-501/-Users-macbook-Desktop-epictelerestaurant/bd9a7544-5de8-4de9-b971-d0123d9710b9/scratchpad/admin_e2e.sh)",
+      "Bash(echo \"build started pid $!\")",
+      "Bash(pkill -f \"next build\")",
+      "Bash(rm -rf .next/lock .next/dev)"
     ],
     "ask": []
   },

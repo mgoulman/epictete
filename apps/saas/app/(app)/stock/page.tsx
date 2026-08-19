@@ -1,10 +1,9 @@
 import { redirect } from "next/navigation";
-import { Package, Plus } from "lucide-react";
+import { Package } from "lucide-react";
 import { runWithTenant } from "@epictete/core/db";
 import { db } from "@/lib/db";
 import { resolveTenant } from "@/lib/tenant";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Table, type Column } from "@/components/ui/Table";
 import { money } from "@/lib/format";
@@ -70,11 +69,6 @@ export default async function StockPage() {
       <PageHeader
         title="Inventaire"
         subtitle={`${items.length} produit${items.length > 1 ? "s" : ""}${low > 0 ? ` · ${low} à réapprovisionner` : ""}`}
-        action={
-          <Button>
-            <Plus className="h-4 w-4" /> Ajouter un produit
-          </Button>
-        }
       />
       <Table
         columns={columns}

@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Table, type Column } from "@/components/ui/Table";
+import { useToast } from "@/components/ui/ToastProvider";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { fetchJson, ApiError } from "@/lib/api/fetch-json";
 import { ROLE_LABEL_FR } from "@/lib/invite";
 
 export interface Member {
@@ -43,6 +46,8 @@ export function TeamManager({
   currentUserId: string;
 }) {
   const router = useRouter();
+  const toast = useToast();
+  const { confirm, dialog } = useConfirm();
   const [showInvite, setShowInvite] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("cashier");
@@ -50,6 +55,7 @@ export function TeamManager({
   const [error, setError] = useState<string | null>(null);
   const [createdLink, setCreatedLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [pendingId, setPendingId] = useState<string | null>(null);
 
   async function copy(url: string) {
     try {
@@ -67,38 +73,45 @@ export function TeamManager({
     setError(null);
     setCreatedLink(null);
     try {
-      const res = await fetch("/api/team", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, role }),
-      });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok) setError(d.error ?? "Échec de l’invitation.");
-      else {
-        setCreatedLink(d.url);
-        setEmail("");
-        router.refresh();
-      }
-    } catch {
-      setError("Erreur réseau.");
+      const d = await fetchJson<{ url: string }>("/api/team", { method: "POST", json: { email, role } });
+      setCreatedLink(d.url);
+      setEmail("");
+      toast.success("Invitation créée");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Erreur réseau.");
     } finally {
       setBusy(false);
     }
   }
 
   async function resend(id: string) {
-    const res = await fetch(`/api/team?id=${id}`, { method: "PATCH" });
-    const d = await res.json().catch(() => ({}));
-    if (res.ok && d.url) {
+    setPendingId(id);
+    try {
+      const d = await fetchJson<{ url: string }>(`/api/team?id=${id}`, { method: "PATCH" });
       setCreatedLink(d.url);
       await copy(d.url);
+      toast.success("Nouveau lien généré et copié");
       router.refresh();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Échec du renvoi.");
+    } finally {
+      setPendingId(null);
     }
   }
 
   async function revoke(id: string) {
-    await fetch(`/api/team?id=${id}`, { method: "DELETE" });
-    router.refresh();
+    if (!(await confirm({ title: "Révoquer l’invitation", message: "Le lien d’invitation ne fonctionnera plus. Continuer ?", confirmLabel: "Révoquer", danger: true }))) return;
+    setPendingId(id);
+    try {
+      await fetchJson(`/api/team?id=${id}`, { method: "DELETE" });
+      toast.success("Invitation révoquée");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Échec de la révocation.");
+    } finally {
+      setPendingId(null);
+    }
   }
 
   const memberCols: Column<Member>[] = [
@@ -245,6 +258,7 @@ export function TeamManager({
           Seul le propriétaire peut inviter ou gérer les membres.
         </p>
       )}
+      {dialog}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus,
@@ -15,6 +15,9 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/components/ui/cn";
+import { useToast } from "@/components/ui/ToastProvider";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { fetchJson, ApiError } from "@/lib/api/fetch-json";
 import { computeTotals, num, type CaisseData } from "@/lib/caisse";
 import { money2, dateFR } from "@/lib/format";
 
@@ -89,15 +92,27 @@ export function CaisseForm({
   branchName: string;
 }) {
   const router = useRouter();
+  const toast = useToast();
+  const { confirm, dialog } = useConfirm();
   const [form, setForm] = useState<State>(() => fromData(initial));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(isExisting);
-  const [error, setError] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
 
   const set = <K extends keyof State>(k: K, v: State[K]) => {
     setForm((f) => ({ ...f, [k]: v }));
     setSaved(false);
+    setDirty(true);
   };
+
+  // Warn before leaving/reloading with unsaved edits.
+  useEffect(() => {
+    const h = (e: BeforeUnloadEvent) => {
+      if (dirty) { e.preventDefault(); e.returnValue = ""; }
+    };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, [dirty]);
 
   const totals = useMemo(
     () =>
@@ -112,19 +127,28 @@ export function CaisseForm({
     [form],
   );
 
-  function changeDate(date: string) {
-    if (!date) return;
+  async function changeDate(date: string) {
+    if (!date || date === form.entry_date) return;
+    if (
+      dirty &&
+      !(await confirm({
+        title: "Modifications non enregistrées",
+        message: "Changer de date effacera les modifications non enregistrées de cette feuille. Continuer ?",
+        confirmLabel: "Changer de date",
+        danger: true,
+      }))
+    ) {
+      return;
+    }
     router.push(`/caisse?date=${date}`);
   }
 
   async function save() {
     setSaving(true);
-    setError(null);
     try {
-      const res = await fetch("/api/caisse", {
+      await fetchJson("/api/caisse", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        json: {
           entry_date: form.entry_date,
           total_ca: num(form.total_ca),
           total_cb: num(form.total_cb),
@@ -134,17 +158,14 @@ export function CaisseForm({
           depenses: form.depenses.map((d) => ({ label: d.label, amount: num(d.amount) })),
           manager_name: form.manager_name,
           especes_note: form.especes_note,
-        }),
+        },
       });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        setError(d.error ?? "Échec de l’enregistrement.");
-      } else {
-        setSaved(true);
-        router.refresh();
-      }
-    } catch {
-      setError("Erreur réseau.");
+      setSaved(true);
+      setDirty(false);
+      toast.success("Feuille de caisse enregistrée");
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Échec de l’enregistrement.");
     } finally {
       setSaving(false);
     }
@@ -154,7 +175,10 @@ export function CaisseForm({
     const rows = (label: string, val: string) =>
       `<tr><td>${label}</td><td style="text-align:right">${val}</td></tr>`;
     const w = window.open("", "_blank", "width=420,height=640");
-    if (!w) return;
+    if (!w) {
+      toast.error("Autorisez les pop-ups pour imprimer la feuille.");
+      return;
+    }
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Feuille de Caisse</title>
       <style>body{font-family:Inter,Arial,sans-serif;color:#1a1a18;padding:24px;font-size:13px}
       h1{font-size:16px;margin:0 0 2px}.muted{color:#6b6b5f;font-size:12px;margin-bottom:14px}
@@ -210,18 +234,13 @@ export function CaisseForm({
           <Button variant="secondary" onClick={print}>
             <Printer className="h-4 w-4" /> Imprimer
           </Button>
-          <Button onClick={save} disabled={saving}>
+          <Button onClick={save} disabled={saving || (!dirty && saved)}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {saved ? "Enregistré" : "Enregistrer"}
+            {saved && !dirty ? "Enregistré" : "Enregistrer"}
           </Button>
         </div>
       </div>
-
-      {error && (
-        <div className="mb-4 rounded-[var(--radius-sm)] bg-[var(--color-danger-bg)] text-[var(--color-danger)] text-sm px-3 py-2">
-          {error}
-        </div>
-      )}
+      {dialog}
 
       <div className="grid gap-5 lg:grid-cols-[1fr_1fr_300px]">
         {/* ── Recettes ── */}
@@ -378,7 +397,7 @@ export function CaisseForm({
               </span>
             </div>
           </div>
-          <Button onClick={save} disabled={saving} className="w-full mt-1">
+          <Button onClick={save} disabled={saving || (!dirty && saved)} className="w-full mt-1">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Enregistrer la feuille
           </Button>

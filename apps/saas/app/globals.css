@@ -118,6 +118,16 @@ h1, h2, h3, h4, h5, h6 {
 /* Money is always tabular + right-aligned */
 .tnum { font-variant-numeric: tabular-nums; }
 
+/* Toast enter animation (self-contained, no plugin) */
+@keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.toast-enter { animation: toast-in 220ms var(--ease-smooth); }
+
+/* Modal / overlay animations */
+@keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+.overlay-in { animation: overlay-in 150ms var(--ease-smooth); }
+.dialog-in { animation: dialog-in 180ms var(--ease-smooth); }
+
 /* Thin, unobtrusive scrollbars in the app chrome */
 .scroll-thin { scrollbar-width: thin; scrollbar-color: var(--color-border-strong) transparent; }
 .scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }

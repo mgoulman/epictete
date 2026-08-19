@@ -18,7 +18,15 @@ export async function withTenant(
 ): Promise<Response> {
   const ctx = await resolveTenant();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  return runWithTenant(ctx, () => handler(ctx));
+  return runWithTenant(ctx, async () => {
+    // Per-request suspension enforcement — a suspended/offboarding tenant's still-valid
+    // token must not reach any tenant route (not just be blocked at login).
+    const status = (await db.query<{ status: string }>("SELECT status FROM tenants LIMIT 1")).rows[0]?.status;
+    if (status && status !== "active") {
+      return NextResponse.json({ error: "Accès suspendu." }, { status: 403 });
+    }
+    return handler(ctx);
+  });
 }
 
 export interface SaasSession {

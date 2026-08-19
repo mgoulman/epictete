@@ -32,7 +32,8 @@ export function dateFR(d: Date | string): string {
   return DATE_FR.format(date);
 }
 
-/** Local YYYY-MM-DD (server may be UTC; good enough for the pilot). */
+/** Local YYYY-MM-DD (NOT UTC — avoids the off-by-one near midnight in Morocco). */
 export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }

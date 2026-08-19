@@ -32,27 +32,19 @@ interface DashData {
 async function load(tenantId: string, userId?: string, role?: string): Promise<DashData> {
   return runWithTenant({ tenantId, userId, role }, async () => {
     const today = todayISO();
-    const n = async (sql: string, params?: unknown[]) => {
-      try {
-        return (await db.query<{ n: number }>(sql, params)).rows[0]?.n ?? 0;
-      } catch {
-        return 0;
-      }
-    };
+    // No error-swallowing: a failed finance query must surface via the error boundary,
+    // never masquerade as "0 DH". These tables all exist (0006/0007), so a throw is a real fault.
+    const n = async (sql: string, params?: unknown[]) =>
+      (await db.query<{ n: number }>(sql, params)).rows[0]?.n ?? 0;
 
     const cashCount = await n("SELECT count(*)::int n FROM cash_sheets");
-    let latest: DashData["latest"] = null;
-    try {
-      latest =
-        (
-          await db.query<DashData["latest"] & object>(
-            `SELECT entry_date, total_ca, total_especes_caisse, total_depense
-               FROM cash_sheets ORDER BY entry_date DESC LIMIT 1`,
-          )
-        ).rows[0] ?? null;
-    } catch {
-      /* ignore */
-    }
+    const latest =
+      (
+        await db.query<DashData["latest"] & object>(
+          `SELECT entry_date, total_ca, total_especes_caisse, total_depense
+             FROM cash_sheets ORDER BY entry_date DESC LIMIT 1`,
+        )
+      ).rows[0] ?? null;
     const lowStock = await n(
       "SELECT count(*)::int n FROM inventory_items WHERE minimum_stock > 0 AND quantity <= minimum_stock",
     );
@@ -61,33 +53,17 @@ async function load(tenantId: string, userId?: string, role?: string): Promise<D
       "SELECT count(*)::int n FROM attendance WHERE date = $1 AND status = 'present'",
       [today],
     );
-    let vendorDue = 0;
-    try {
-      vendorDue = Number(
-        (
-          await db.query<{ bal: number }>(
-            `SELECT COALESCE(SUM(CASE
-                WHEN type IN ('purchase','invoice','debt','achat','facture') THEN amount
-                WHEN type IN ('payment','paiement','reglement','règlement') THEN -amount
-                ELSE 0 END), 0)::numeric bal
-              FROM vendor_transactions`,
-          )
-        ).rows[0]?.bal ?? 0,
-      );
-    } catch {
-      /* ignore */
-    }
-    let trend: number[] = [];
-    try {
-      const rows = (
-        await db.query<{ total_ca: number }>(
-          "SELECT total_ca FROM cash_sheets ORDER BY entry_date DESC LIMIT 7",
+    const vendorDue = Number(
+      (
+        await db.query<{ bal: number }>(
+          `SELECT COALESCE(SUM(CASE WHEN type = 'debt' THEN amount WHEN type = 'payment' THEN -amount ELSE 0 END), 0)::numeric bal
+             FROM vendor_transactions`,
         )
-      ).rows;
-      trend = rows.map((r) => Number(r.total_ca)).reverse();
-    } catch {
-      /* ignore */
-    }
+      ).rows[0]?.bal ?? 0,
+    );
+    const trend = (
+      await db.query<{ total_ca: number }>("SELECT total_ca FROM cash_sheets ORDER BY entry_date DESC LIMIT 7")
+    ).rows.map((r) => Number(r.total_ca)).reverse();
     // onboarding signals
     const citySet =
       (await db.query<{ n: number }>("SELECT count(*)::int n FROM tenants WHERE city IS NOT NULL AND city <> ''")).rows[0]?.n ?? 0;

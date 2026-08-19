@@ -222,3 +222,32 @@ The missing structural piece — how real pilot restaurants get created (was see
   tenant + owner2 membership role=owner.
 - Full lifecycle now works: provision → owner invite → accept → onboard (consent/profile/team/1st caisse) →
   suspend/reactivate. Platform-admin login: super@epictete.ma / super1234.
+
+## 2026-08-19 — Phase 0 completeness foundation (per completeness-plan.md; localhost; live Neon untouched)
+Decisions: foundations-first, pilot-ready bar. Built the shared layer the SaaS was missing + fixed
+the critical trust/safety bugs. All VERIFIED at runtime.
+- Shared UI infra: ToastProvider (retokened, mounted in (app)+admin layouts) + toast animations;
+  Modal (overlay/focus-trap/escape/scroll-lock) + ConfirmDialog with useConfirm() hook; ErrorState +
+  (app)/error.tsx, admin/error.tsx, global-error.tsx, not-found.tsx.
+- Error/validation infra: lib/api/handler.ts (withErrorHandler/apiError/ApiRouteError, ZodError→400) +
+  lib/api/fetch-json.ts (fetchJson/ApiError) + lib/observability/report.ts (Sentry-ready shim); zod +
+  lib/schemas.ts (caisse/tenantProfile/invite/provision/accept).
+- Audit trail: migration 0012 audit_logs (tenant-scoped RLS, read-only) + SECURITY DEFINER audit_trigger
+  on 12 tenantized tables; compat.ts execute() now also SET app.user_id so triggers attribute the actor.
+  Verified: insert/delete captured with correct user+tenant.
+- Permissions: db/seed/permissions.sql — real matrix (owner all / manager ops / cashier finance+inventory
+  read + finance.write) so enforce() is meaningful. Verified cashier can save caisse.
+- Platform admin already existed (0011); this phase adds the enforcement + standards around it.
+- Critical fixes: per-request suspension gating (in (app) layout Suspended screen + withTenant 403 —
+  my-tenant migrated onto withTenant so ALL tenant routes covered); caisse hardened (enforce finance.write,
+  toast, dirty-disable, unsaved-changes guard on date-change + beforeunload, print popup-block fallback,
+  zod server validation); dashboard no longer swallows DB errors to 0 (surfaces via error boundary);
+  todayISO() local-time; provision idempotency (409 on double-submit) + zod; tenant PUT on standard w/
+  explicit tenant predicate; RestaurantForm + TeamManager + AdminConsole retrofit to fetchJson+toast+
+  confirm; removed dead Header controls (Bell, FR/EN toggle) + Stock "Ajouter" decoy.
+- E2E verified: owner caisse save→audit row w/ user; cashier save allowed (finance.write); zod bad-date→400;
+  provision double→409; suspend→my-tenant 403 + caisse 403 + dashboard Suspended; reactivate→200.
+  saas builds; restaurant builds (shared compat change is additive/safe).
+Remaining: Phase 1 (DoD sweep on remaining screens: login/invite toast, form primitives, DataTable,
+skeletons), Phase 2 (module recipe → inventory CRUD + the 6 modules + membership mgmt), Phase 3 (password
+reset, account page, verification, impersonation, offboarding, help).

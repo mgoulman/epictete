@@ -7,6 +7,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
+import { useToast } from "@/components/ui/ToastProvider";
+import { fetchJson, ApiError } from "@/lib/api/fetch-json";
 
 export interface RestaurantProfile {
   name: string;
@@ -20,14 +22,17 @@ export interface RestaurantProfile {
 
 export function RestaurantForm({ initial, canEdit }: { initial: RestaurantProfile; canEdit: boolean }) {
   const router = useRouter();
+  const toast = useToast();
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const set = (k: keyof RestaurantProfile, v: string) => {
     setForm((f) => ({ ...f, [k]: v }));
     setSaved(false);
+    setDirty(true);
   };
 
   async function save(e: React.FormEvent) {
@@ -35,19 +40,15 @@ export function RestaurantForm({ initial, canEdit }: { initial: RestaurantProfil
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/tenant", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok) setError(d.error ?? "Échec de l’enregistrement.");
-      else {
-        setSaved(true);
-        router.refresh();
-      }
-    } catch {
-      setError("Erreur réseau.");
+      await fetchJson("/api/tenant", { method: "PUT", json: form });
+      setSaved(true);
+      setDirty(false);
+      toast.success("Profil enregistré");
+      router.refresh();
+    } catch (err) {
+      const m = err instanceof ApiError ? err.message : "Erreur réseau.";
+      setError(m);
+      toast.error(m);
     } finally {
       setSaving(false);
     }
@@ -115,9 +116,9 @@ export function RestaurantForm({ initial, canEdit }: { initial: RestaurantProfil
 
         {canEdit ? (
           <div className="flex items-center gap-3">
-            <Button type="submit" disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <Check className="h-4 w-4" /> : null}
-              {saved ? "Enregistré" : "Enregistrer"}
+            <Button type="submit" disabled={saving || (!dirty && saved)}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved && !dirty ? <Check className="h-4 w-4" /> : null}
+              {saved && !dirty ? "Enregistré" : "Enregistrer"}
             </Button>
           </div>
         ) : (

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { withTenant } from "@/lib/auth";
+import { withTenant, enforce } from "@/lib/auth";
+import { withErrorHandler } from "@/lib/api/handler";
+import { caisseSchema } from "@/lib/schemas";
 import {
   computeTotals,
   num,
@@ -55,29 +57,19 @@ export async function GET(req: Request) {
 }
 
 // POST /api/caisse → upsert the sheet for its date, recomputing totals server-side.
-export async function POST(req: Request) {
+export const POST = withErrorHandler(async (req: Request) => {
+  const denied = await enforce("finance.write");
+  if (denied) return denied;
   return withTenant(async (ctx) => {
-    let body: CaisseData;
-    try {
-      body = await req.json();
-    } catch {
-      return NextResponse.json({ error: "corps invalide" }, { status: 400 });
-    }
-    const date = String(body.entry_date ?? "").slice(0, 10);
-    if (!ISO_DATE.test(date)) {
-      return NextResponse.json({ error: "date invalide" }, { status: 400 });
-    }
+    const body = caisseSchema.parse(await req.json()); // ZodError → 400 via withErrorHandler
+    const date = body.entry_date;
 
-    const paymentSources: PaymentSource[] = Array.isArray(body.payment_sources)
-      ? body.payment_sources
-          .filter((s) => (s?.name ?? "").trim() !== "" || num(s?.amount) !== 0)
-          .map((s) => ({ name: String(s.name ?? "").trim(), amount: num(s.amount), counts_as_cash: !!s.counts_as_cash }))
-      : [];
-    const depenses: DepenseItem[] = Array.isArray(body.depenses)
-      ? body.depenses
-          .filter((d) => (d?.label ?? "").trim() !== "" || num(d?.amount) !== 0)
-          .map((d) => ({ label: String(d.label ?? "").trim(), amount: num(d.amount) }))
-      : [];
+    const paymentSources: PaymentSource[] = body.payment_sources
+      .filter((s) => s.name.trim() !== "" || num(s.amount) !== 0)
+      .map((s) => ({ name: s.name.trim(), amount: num(s.amount), counts_as_cash: !!s.counts_as_cash }));
+    const depenses: DepenseItem[] = body.depenses
+      .filter((d) => d.label.trim() !== "" || num(d.amount) !== 0)
+      .map((d) => ({ label: d.label.trim(), amount: num(d.amount) }));
 
     const t = computeTotals({
       total_ca: body.total_ca,
@@ -141,4 +133,4 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ sheet: rowToCaisse(rows[0]), totals: t });
   });
-}
+});

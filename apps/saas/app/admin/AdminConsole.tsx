@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Table, type Column } from "@/components/ui/Table";
+import { useToast } from "@/components/ui/ToastProvider";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { fetchJson, ApiError } from "@/lib/api/fetch-json";
 
 export interface TenantRow {
   id: string;
@@ -30,6 +33,8 @@ const STATUS: Record<string, { tone: "positive" | "danger" | "warning" | "neutra
 
 export function AdminConsole({ initialTenants }: { initialTenants: TenantRow[] }) {
   const router = useRouter();
+  const toast = useToast();
+  const { confirm, dialog } = useConfirm();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [city, setCity] = useState("");
@@ -59,30 +64,41 @@ export function AdminConsole({ initialTenants }: { initialTenants: TenantRow[] }
     setError(null);
     setLink(null);
     try {
-      const res = await fetch("/api/admin/provision", {
+      const d = await fetchJson<{ url: string }>("/api/admin/provision", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ restaurantName: name, city, ownerEmail }),
+        json: { restaurantName: name, city, ownerEmail },
       });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok) setError(d.error ?? "Échec du provisionnement.");
-      else {
-        setLink(d.url);
-        setName("");
-        setCity("");
-        setOwnerEmail("");
-        router.refresh();
-      }
-    } catch {
-      setError("Erreur réseau.");
+      setLink(d.url);
+      setName("");
+      setCity("");
+      setOwnerEmail("");
+      toast.success("Restaurant provisionné");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Erreur réseau.");
     } finally {
       setBusy(false);
     }
   }
 
-  async function setStatus(id: string, status: string) {
-    await fetch(`/api/admin/tenants?id=${id}&status=${status}`, { method: "PATCH" });
-    router.refresh();
+  async function setStatus(id: string, status: string, tenantName: string) {
+    if (status === "suspended") {
+      const ok = await confirm({
+        title: "Suspendre ce restaurant",
+        message: `L’accès de « ${tenantName} » sera bloqué immédiatement (lecture et écriture). Continuer ?`,
+        confirmLabel: "Suspendre",
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    try {
+      await fetchJson(`/api/admin/tenants?id=${id}&status=${status}`, { method: "PATCH" });
+      toast.success(status === "suspended" ? "Restaurant suspendu" : "Restaurant réactivé");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Échec de la mise à jour.");
+    }
+    return;
   }
 
   const cols: Column<TenantRow>[] = [
@@ -110,11 +126,11 @@ export function AdminConsole({ initialTenants }: { initialTenants: TenantRow[] }
       align: "right",
       render: (t) =>
         t.status === "active" ? (
-          <button onClick={() => setStatus(t.id, "suspended")} className="inline-flex items-center gap-1 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-danger)]">
+          <button onClick={() => setStatus(t.id, "suspended", t.name)} className="inline-flex items-center gap-1 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-danger)]">
             <Pause className="h-4 w-4" /> Suspendre
           </button>
         ) : (
-          <button onClick={() => setStatus(t.id, "active")} className="inline-flex items-center gap-1 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-positive)]">
+          <button onClick={() => setStatus(t.id, "active", t.name)} className="inline-flex items-center gap-1 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-positive)]">
             <Play className="h-4 w-4" /> Réactiver
           </button>
         ),
@@ -199,6 +215,7 @@ export function AdminConsole({ initialTenants }: { initialTenants: TenantRow[] }
           Aucun restaurant. Provisionnez le premier pour lancer la cohorte pilote.
         </div>
       )}
+      {dialog}
     </div>
   );
 }
