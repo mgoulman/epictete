@@ -1,0 +1,204 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Building2, Store, CheckCircle2, Plus, Copy, Check, Pause, Play, X, Loader2 } from "lucide-react";
+import { StatCard } from "@/components/ui/StatCard";
+import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input, Label } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
+import { Table, type Column } from "@/components/ui/Table";
+
+export interface TenantRow {
+  id: string;
+  name: string;
+  slug: string;
+  city: string | null;
+  status: string;
+  created_at: string;
+  members: number;
+  cash_sheets: number;
+  has_owner: boolean;
+}
+
+const STATUS: Record<string, { tone: "positive" | "danger" | "warning" | "neutral"; label: string }> = {
+  active: { tone: "positive", label: "Actif" },
+  suspended: { tone: "danger", label: "Suspendu" },
+  offboarding: { tone: "warning", label: "Départ" },
+};
+
+export function AdminConsole({ initialTenants }: { initialTenants: TenantRow[] }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [city, setCity] = useState("");
+  const [ownerEmail, setOwnerEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [link, setLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const total = initialTenants.length;
+  const active = initialTenants.filter((t) => t.status === "active").length;
+  const onboarded = initialTenants.filter((t) => t.cash_sheets > 0).length;
+
+  async function copy(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* shown for manual copy */
+    }
+  }
+
+  async function provision(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    setLink(null);
+    try {
+      const res = await fetch("/api/admin/provision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurantName: name, city, ownerEmail }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) setError(d.error ?? "Échec du provisionnement.");
+      else {
+        setLink(d.url);
+        setName("");
+        setCity("");
+        setOwnerEmail("");
+        router.refresh();
+      }
+    } catch {
+      setError("Erreur réseau.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setStatus(id: string, status: string) {
+    await fetch(`/api/admin/tenants?id=${id}&status=${status}`, { method: "PATCH" });
+    router.refresh();
+  }
+
+  const cols: Column<TenantRow>[] = [
+    {
+      key: "name",
+      header: "Restaurant",
+      render: (t) => (
+        <div>
+          <div className="font-medium">{t.name}</div>
+          <div className="text-xs text-[var(--color-muted-foreground)]">{t.slug}{t.city ? ` · ${t.city}` : ""}</div>
+        </div>
+      ),
+    },
+    { key: "status", header: "Statut", render: (t) => <Badge tone={STATUS[t.status]?.tone ?? "neutral"}>{STATUS[t.status]?.label ?? t.status}</Badge> },
+    {
+      key: "owner",
+      header: "Propriétaire",
+      render: (t) => (t.has_owner ? <Badge tone="positive">Actif</Badge> : <Badge tone="warning">Invitation en attente</Badge>),
+    },
+    { key: "members", header: "Membres", numeric: true, render: (t) => t.members },
+    { key: "cash", header: "Feuilles", numeric: true, render: (t) => t.cash_sheets },
+    {
+      key: "actions",
+      header: "",
+      align: "right",
+      render: (t) =>
+        t.status === "active" ? (
+          <button onClick={() => setStatus(t.id, "suspended")} className="inline-flex items-center gap-1 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-danger)]">
+            <Pause className="h-4 w-4" /> Suspendre
+          </button>
+        ) : (
+          <button onClick={() => setStatus(t.id, "active")} className="inline-flex items-center gap-1 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-positive)]">
+            <Play className="h-4 w-4" /> Réactiver
+          </button>
+        ),
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-[var(--color-foreground)]">Restaurants</h1>
+          <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">Cohorte pilote — provisionnement et gestion.</p>
+        </div>
+        {!open && (
+          <Button onClick={() => { setOpen(true); setLink(null); setError(null); }}>
+            <Plus className="h-4 w-4" /> Provisionner un restaurant
+          </Button>
+        )}
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard label="Restaurants" value={total} icon={<Building2 className="h-5 w-5" />} tone="accent" />
+        <StatCard label="Actifs" value={active} icon={<Store className="h-5 w-5" />} tone="positive" />
+        <StatCard label="Onboardés" value={onboarded} icon={<CheckCircle2 className="h-5 w-5" />} tone="info" hint="≥ 1 feuille de caisse" />
+      </div>
+
+      {open && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Provisionner un restaurant</CardTitle>
+            <button onClick={() => setOpen(false)} className="text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]">
+              <X className="h-4 w-4" />
+            </button>
+          </CardHeader>
+          <CardBody>
+            {link ? (
+              <div className="space-y-3">
+                <p className="text-sm text-[var(--color-foreground)]">
+                  Restaurant créé. Envoyez ce lien au propriétaire — il définit son mot de passe et prend possession de l’espace :
+                </p>
+                <div className="flex items-center gap-2">
+                  <input readOnly value={link} className="flex-1 h-10 px-3 rounded-[var(--radius-sm)] bg-[var(--color-secondary)] border border-[var(--color-border)] text-sm text-[var(--color-muted-foreground)]" />
+                  <Button variant="secondary" onClick={() => copy(link)}>
+                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    {copied ? "Copié" : "Copier"}
+                  </Button>
+                </div>
+                <button onClick={() => setLink(null)} className="text-sm font-medium text-[var(--color-accent)] hover:underline">
+                  Provisionner un autre restaurant
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={provision} className="grid sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <Label htmlFor="rname">Nom du restaurant</Label>
+                  <Input id="rname" value={name} onChange={(e) => setName(e.target.value)} placeholder="ex: Le Gourmet" required />
+                </div>
+                <div>
+                  <Label htmlFor="rcity">Ville</Label>
+                  <Input id="rcity" value={city} onChange={(e) => setCity(e.target.value)} placeholder="ex: Marrakech" />
+                </div>
+                <div>
+                  <Label htmlFor="oemail">Email du propriétaire</Label>
+                  <Input id="oemail" type="email" value={ownerEmail} onChange={(e) => setOwnerEmail(e.target.value)} placeholder="proprietaire@restaurant.ma" required />
+                </div>
+                <div className="sm:col-span-2">
+                  <Button type="submit" disabled={busy}>
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Créer + générer le lien propriétaire"}
+                  </Button>
+                </div>
+              </form>
+            )}
+            {error && <div className="mt-3 text-sm text-[var(--color-danger)]">{error}</div>}
+          </CardBody>
+        </Card>
+      )}
+
+      {initialTenants.length > 0 ? (
+        <Table columns={cols} rows={initialTenants} rowKey={(t) => t.id} />
+      ) : (
+        <div className="rounded-[var(--radius)] border border-dashed border-[var(--color-border-strong)] bg-[var(--color-card)] py-12 text-center text-sm text-[var(--color-muted-foreground)]">
+          Aucun restaurant. Provisionnez le premier pour lancer la cohorte pilote.
+        </div>
+      )}
+    </div>
+  );
+}

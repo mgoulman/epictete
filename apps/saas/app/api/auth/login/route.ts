@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { signSaasJWT } from "@epictete/core/auth";
+import { signSaasJWT, signPlatformJWT } from "@epictete/core/auth";
 import { SAAS_COOKIE } from "@/lib/tenant";
+import { PLATFORM_COOKIE } from "@/lib/platform";
+
+const COOKIE_OPTS = {
+  httpOnly: true,
+  sameSite: "lax" as const,
+  secure: process.env.NODE_ENV === "production",
+  path: "/",
+  maxAge: 60 * 60 * 24 * 7,
+};
 
 export const dynamic = "force-dynamic";
 
@@ -24,14 +33,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Email et mot de passe requis." }, { status: 400 });
   }
 
-  const { rows: users } = await db.unsafeQuery<{ id: string }>(
-    "SELECT id FROM users WHERE email = $1 AND password_hash = crypt($2, password_hash)",
+  const { rows: users } = await db.unsafeQuery<{ id: string; is_platform_admin: boolean }>(
+    "SELECT id, is_platform_admin FROM users WHERE email = $1 AND password_hash = crypt($2, password_hash)",
     [email, password],
   );
   if (users.length === 0) {
     return NextResponse.json({ error: "Identifiants incorrects." }, { status: 401 });
   }
   const userId = users[0].id;
+
+  // Platform (super) admin → cross-tenant console, no tenant membership required.
+  if (users[0].is_platform_admin) {
+    const token = await signPlatformJWT({ sub: userId, platform_admin: true });
+    const res = NextResponse.json({ ok: true, redirect: "/admin" });
+    res.cookies.set(PLATFORM_COOKIE, token, COOKIE_OPTS);
+    return res;
+  }
 
   const { rows: memberships } = await db.unsafeQuery<{
     tenant_id: string;
@@ -62,13 +79,7 @@ export async function POST(req: Request) {
     role: m.role ?? undefined,
   });
 
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set(SAAS_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
+  const res = NextResponse.json({ ok: true, redirect: "/dashboard" });
+  res.cookies.set(SAAS_COOKIE, token, COOKIE_OPTS);
   return res;
 }

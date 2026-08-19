@@ -29,7 +29,7 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
-      router.push("/dashboard");
+      router.push(data.redirect ?? "/dashboard");
       router.refresh();
     } catch {
       setError("Erreur réseau. Réessayez.");

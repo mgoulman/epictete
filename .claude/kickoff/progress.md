@@ -199,3 +199,26 @@ team step, light pilot consent). Built + VERIFIED e2e (11/11):
   invite; consent/invite events recorded.
 - NOTE: demo tenant "Le Gourmet" is now in a used/onboarded state; re-run db/seed/demo.sql to reset to a
   fresh onboarding demo.
+
+## 2026-08-19 — Phase 2: Super-admin console + tenant provisioning (localhost; live Neon untouched)
+The missing structural piece — how real pilot restaurants get created (was seed-only).
+- core jwt.ts: added PlatformClaims + signPlatformJWT/verifyPlatformJWT (separate from SaasClaims so
+  tenant tokens always carry tenant_id; platform tokens carry none).
+- DB 0011_platform_admin.sql: users.is_platform_admin. Seed db/seed/platform_admin.sql →
+  super@epictete.ma / super1234 (no tenant).
+- Auth: lib/platform.ts (PLATFORM_COOKIE saas_admin_token, resolvePlatformAdmin re-checks the flag live,
+  requirePlatformAdmin). /api/auth/login branches: platform admin → platform token + redirect /admin;
+  else membership flow. logout clears both cookies. Root / routes admins to /admin. Login page honors
+  server redirect.
+- Provisioning: lib/provision.ts provisionTenant() (slugify+unique slug → tenant+default branch+OWNER
+  invitation) — platform-level unsafeQuery. /api/admin/provision (requirePlatformAdmin) returns the owner
+  accept link + emits tenant.provisioned. /api/admin/tenants GET (list w/ members/feuilles/has_owner) +
+  PATCH status (active/suspended/offboarding, emits tenant.status_changed).
+- UI: /admin route group (own layout gated by resolvePlatformAdmin; AdminBar) + AdminConsole (KPIs
+  Restaurants/Actifs/Onboardés, provision panel w/ copyable owner link, tenants table w/ suspend/réactiver).
+- E2E VERIFIED (9/9 + gating): admin login→/admin; console renders; provision "Café Test" (Rabat) → owner
+  invite link; owner accept page shows Propriétaire; owner accepts (new user) → dashboard 200; tenant owner
+  BLOCKED from admin API (401); suspend→owner login blocked (403); reactivate→owner login ok. DB: Café Test
+  tenant + owner2 membership role=owner.
+- Full lifecycle now works: provision → owner invite → accept → onboard (consent/profile/team/1st caisse) →
+  suspend/reactivate. Platform-admin login: super@epictete.ma / super1234.

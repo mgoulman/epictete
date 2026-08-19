@@ -41,3 +41,31 @@ export async function verifySaasJWT(token: string): Promise<SaasClaims | null> {
     return null;
   }
 }
+
+/**
+ * Platform-admin claims — a cross-tenant operator (provisioning, cohort management)
+ * that belongs to NO tenant. Deliberately separate from SaasClaims so tenant tokens
+ * always carry a tenant_id and can never be confused with a platform token.
+ */
+export interface PlatformClaims {
+  sub: string;
+  platform_admin: true;
+}
+
+export async function signPlatformJWT(claims: PlatformClaims, expiresIn: string = "7d"): Promise<string> {
+  return new SignJWT({ ...claims })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(expiresIn)
+    .sign(getSecret());
+}
+
+export async function verifyPlatformJWT(token: string): Promise<PlatformClaims | null> {
+  try {
+    const { payload } = await jwtVerify(token, getSecret());
+    if (typeof payload.sub !== "string" || payload.platform_admin !== true) return null;
+    return { sub: payload.sub, platform_admin: true };
+  } catch {
+    return null;
+  }
+}
