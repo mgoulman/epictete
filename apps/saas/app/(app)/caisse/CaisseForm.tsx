@@ -193,6 +193,7 @@ export function CaisseForm({
       <div class="sec">Dépenses</div><table>
       ${form.depenses.filter((d) => d.label || num(d.amount)).map((d) => rows(d.label || "—", money2(num(d.amount)))).join("") || rows("—", money2(0))}</table>
       <table class="tot">${rows("Total Dépense", money2(totals.totalDepense))}${rows("Total Espèce Caisse", money2(totals.caisseEspeces))}${rows("Total Espèces", money2(totals.totalEspeces))}${rows("Solde (reste espèces)", money2(totals.resteEspeces))}</table>
+      ${form.especes_note ? `<div class="muted" style="margin-top:10px">Note espèces : ${form.especes_note.replace(/</g, "&lt;")}</div>` : ""}
       </body></html>`);
     w.document.close();
     w.focus();
@@ -217,7 +218,7 @@ export function CaisseForm({
               <Badge tone="warning">Brouillon</Badge>
             )}
           </div>
-          <p className="mt-1 text-sm text-[var(--color-muted-foreground)] capitalize">
+          <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
             {branchName} · {dateFR(form.entry_date)}
           </p>
         </div>

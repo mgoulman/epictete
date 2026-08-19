@@ -29,7 +29,8 @@ const DATE_FR = new Intl.DateTimeFormat("fr-FR", {
 
 export function dateFR(d: Date | string): string {
   const date = typeof d === "string" ? new Date(d + "T00:00:00") : d;
-  return DATE_FR.format(date);
+  const s = DATE_FR.format(date); // fr: lowercase weekday/month — capitalize only the first letter
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 /** Local YYYY-MM-DD (NOT UTC — avoids the off-by-one near midnight in Morocco). */

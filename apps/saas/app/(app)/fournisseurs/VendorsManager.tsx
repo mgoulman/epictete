@@ -81,7 +81,7 @@ export function VendorsManager({ vendors, canWrite }: { vendors: Vendor[]; canWr
     { key: "name", header: "Fournisseur", sortable: true, sortValue: (v) => v.name.toLowerCase(), render: (v) => <span className="font-medium">{v.name}</span> },
     { key: "contact", header: "Contact", render: (v) => v.contact_name || "—" },
     { key: "phone", header: "Téléphone", render: (v) => v.phone || "—" },
-    { key: "solde", header: "Solde dû", numeric: true, sortable: true, sortValue: (v) => Number(v.solde), render: (v) => Number(v.solde) > 0 ? <Badge tone="danger">{money2(v.solde)}</Badge> : <span className="text-[var(--color-positive)]">{money2(0)}</span> },
+    { key: "solde", header: "Solde dû", numeric: true, sortable: true, sortValue: (v) => Number(v.solde), render: (v) => Number(v.solde) > 0 ? <Badge tone="danger">{money2(v.solde)}</Badge> : <span className="text-[var(--color-muted-foreground)]">—</span> },
     ...(canWrite ? [{
       key: "actions", header: "", align: "right" as const,
       render: (v: Vendor) => (

@@ -241,13 +241,11 @@ export function TeamManager({
   return (
     <div className="space-y-5 max-w-3xl">
       {/* Invite action */}
-      {canManage && (
+      {canManage && !showInvite && (
         <div className="flex justify-end">
-          {!showInvite ? (
-            <Button onClick={() => { setShowInvite(true); setCreatedLink(null); setError(null); }}>
-              <UserPlus className="h-4 w-4" /> Inviter un membre
-            </Button>
-          ) : null}
+          <Button onClick={() => { setShowInvite(true); setCreatedLink(null); setError(null); }}>
+            <UserPlus className="h-4 w-4" /> Inviter un membre
+          </Button>
         </div>
       )}
 

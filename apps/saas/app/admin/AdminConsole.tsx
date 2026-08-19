@@ -153,32 +153,39 @@ export function AdminConsole({ initialTenants }: { initialTenants: TenantRow[] }
       key: "actions",
       header: "",
       align: "right",
-      render: (t) => (
-        <div className="flex items-center justify-end gap-3">
-          {t.has_owner && t.status === "active" && (
-            <button onClick={() => impersonate(t)} title="Voir en tant que (support)" className="inline-flex items-center gap-1 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-accent)]">
-              <Eye className="h-4 w-4" /> Voir
-            </button>
-          )}
-          {t.status === "active" ? (
-            <button onClick={() => setStatus(t.id, "suspended", t.name)} className="inline-flex items-center gap-1 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-danger)]">
-              <Pause className="h-4 w-4" /> Suspendre
-            </button>
-          ) : (
-            <button onClick={() => setStatus(t.id, "active", t.name)} className="inline-flex items-center gap-1 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-positive)]">
-              <Play className="h-4 w-4" /> Réactiver
-            </button>
-          )}
-          <a href={`/api/admin/tenants/export?tenantId=${t.id}`} title="Exporter les données (JSON)" className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-muted-foreground)] hover:bg-[var(--color-secondary)]">
-            <Download className="h-4 w-4" />
-          </a>
-          {t.status !== "active" && (
-            <button onClick={() => deleteTenant(t)} title="Supprimer définitivement" className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-muted-foreground)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger-bg)]">
-              <Trash2 className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      ),
+      render: (t) => {
+        const btn = "inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-muted-foreground)]";
+        return (
+          <div className="flex items-center justify-end gap-1">
+            {t.has_owner && t.status === "active" ? (
+              <button onClick={() => impersonate(t)} title="Voir en tant que (support)" className={`${btn} hover:text-[var(--color-accent)] hover:bg-[var(--color-secondary)]`}>
+                <Eye className="h-4 w-4" />
+              </button>
+            ) : (
+              <span className="h-8 w-8 inline-block" />
+            )}
+            {t.status === "active" ? (
+              <button onClick={() => setStatus(t.id, "suspended", t.name)} title="Suspendre" className={`${btn} hover:text-[var(--color-danger)] hover:bg-[var(--color-secondary)]`}>
+                <Pause className="h-4 w-4" />
+              </button>
+            ) : (
+              <button onClick={() => setStatus(t.id, "active", t.name)} title="Réactiver" className={`${btn} hover:text-[var(--color-positive)] hover:bg-[var(--color-secondary)]`}>
+                <Play className="h-4 w-4" />
+              </button>
+            )}
+            <a href={`/api/admin/tenants/export?tenantId=${t.id}`} title="Exporter les données (JSON)" className={`${btn} hover:bg-[var(--color-secondary)]`}>
+              <Download className="h-4 w-4" />
+            </a>
+            {t.status !== "active" ? (
+              <button onClick={() => deleteTenant(t)} title="Supprimer définitivement" className={`${btn} hover:text-[var(--color-danger)] hover:bg-[var(--color-danger-bg)]`}>
+                <Trash2 className="h-4 w-4" />
+              </button>
+            ) : (
+              <span className="h-8 w-8 inline-block" />
+            )}
+          </div>
+        );
+      },
     },
   ];
 

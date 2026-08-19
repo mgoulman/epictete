@@ -13,7 +13,7 @@ import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { fetchJson, ApiError } from "@/lib/api/fetch-json";
 import { inventoryItemSchema } from "@/lib/schemas";
 import { zodErrors } from "@/lib/validation";
-import { money } from "@/lib/format";
+import { money2 } from "@/lib/format";
 
 export interface Item {
   id: string;
@@ -95,7 +95,7 @@ export function InventoryManager({ items, canWrite }: { items: Item[]; canWrite:
     { key: "category", header: "Catégorie", sortable: true, sortValue: (i) => i.category ?? "", render: (i) => i.category ?? "—" },
     { key: "quantity", header: "Quantité", numeric: true, sortable: true, sortValue: (i) => Number(i.quantity), render: (i) => `${Number(i.quantity)} ${i.unit}` },
     { key: "min", header: "Seuil", numeric: true, render: (i) => Number(i.minimum_stock) || "—" },
-    { key: "price", header: "Dernier prix", numeric: true, sortable: true, sortValue: (i) => Number(i.last_purchase_price), render: (i) => money(i.last_purchase_price) },
+    { key: "price", header: "Dernier prix", numeric: true, sortable: true, sortValue: (i) => Number(i.last_purchase_price), render: (i) => money2(i.last_purchase_price) },
     { key: "status", header: "Statut", align: "center", sortable: true, sortValue: (i) => status(i).rank, render: (i) => { const st = status(i); return <Badge tone={st.tone}>{st.label}</Badge>; } },
     ...(canWrite ? [{
       key: "actions", header: "", align: "right" as const,

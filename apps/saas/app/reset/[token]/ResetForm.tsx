@@ -39,8 +39,21 @@ export function ResetForm({ token, email }: { token: string; email: string }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)] p-6">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen grid lg:grid-cols-2 bg-[var(--color-background)]">
+      <div className="hidden lg:flex flex-col justify-between p-12 bg-[var(--color-accent)] text-[var(--color-accent-foreground)]">
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] bg-white/15 font-semibold">E</span>
+          <span className="text-lg font-semibold">Epictète</span>
+        </div>
+        <div className="max-w-md">
+          <h1 className="text-3xl font-semibold leading-tight text-white">Choisissez un nouveau mot de passe.</h1>
+          <p className="mt-4 text-white/80 leading-relaxed">Votre accès sera rétabli immédiatement après la réinitialisation.</p>
+        </div>
+        <div className="text-sm text-white/60">Programme pilote · Maroc</div>
+      </div>
+
+      <div className="flex items-center justify-center p-6">
+        <div className="w-full max-w-sm">
         <div className="inline-flex h-11 w-11 items-center justify-center rounded-[var(--radius)] bg-[var(--color-accent)]/12 text-[var(--color-accent)] mb-4">
           <KeyRound className="h-5 w-5" />
         </div>
@@ -63,6 +76,7 @@ export function ResetForm({ token, email }: { token: string; email: string }) {
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Réinitialiser le mot de passe"}
           </Button>
         </form>
+        </div>
       </div>
     </div>
   );

@@ -41,7 +41,7 @@ export function PresenceManager({ rows, canWrite, today }: { rows: Row[]; canWri
 
   return (
     <div className="space-y-4">
-      <div className="text-sm text-[var(--color-muted-foreground)] capitalize">
+      <div className="text-sm text-[var(--color-muted-foreground)]">
         {dateFR(today)} · <span className="font-semibold text-[var(--color-foreground)]">{present} / {rows.length}</span> présents
       </div>
       {rows.length === 0 ? (

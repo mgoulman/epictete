@@ -97,6 +97,8 @@ export default async function DashboardPage() {
     team: data.memberCount > 1 || data.hasInvite,
     caisse: data.cashCount > 0,
   };
+  const todayStr = todayISO();
+  const latestIsToday = data.latest?.entry_date?.slice(0, 10) === todayStr;
 
   return (
     <div>
@@ -105,7 +107,7 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-semibold text-[var(--color-foreground)]">
           {greeting}, {firstName}
         </h1>
-        <p className="mt-1 text-sm text-[var(--color-muted-foreground)] capitalize">
+        <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
           {session.tenant.name} · {dateFR(new Date())}
         </p>
       </div>
@@ -118,7 +120,7 @@ export default async function DashboardPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <StatCard
               featured
-              label="Caisse du jour"
+              label={latestIsToday ? "Caisse du jour" : "Dernière caisse"}
               value={money(data.latest?.total_ca)}
               icon={<Wallet className="h-5 w-5" />}
               tone="accent"
@@ -171,16 +173,20 @@ export default async function DashboardPage() {
           </div>
 
           {/* Daily loop CTA */}
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-[var(--radius)] border border-[var(--color-accent)]/25 bg-[var(--color-accent)]/[0.06] px-5 py-4">
+          <div className={`mt-6 flex flex-wrap items-center justify-between gap-4 rounded-[var(--radius)] border px-5 py-4 ${latestIsToday ? "border-[var(--color-border)] bg-[var(--color-card)]" : "border-[var(--color-accent)]/25 bg-[var(--color-accent)]/[0.06]"}`}>
             <div>
-              <div className="font-semibold text-[var(--color-foreground)]">Fermer la caisse du jour</div>
+              <div className="font-semibold text-[var(--color-foreground)]">
+                {latestIsToday ? "Caisse du jour enregistrée ✓" : "Fermer la caisse du jour"}
+              </div>
               <div className="text-sm text-[var(--color-muted-foreground)]">
-                Enregistrez la feuille de caisse d’aujourd’hui pour garder le contrôle.
+                {latestIsToday
+                  ? "La feuille de caisse d’aujourd’hui est à jour."
+                  : "Enregistrez la feuille de caisse d’aujourd’hui pour garder le contrôle."}
               </div>
             </div>
             <Link href="/caisse">
-              <Button size="lg">
-                Ouvrir la Feuille de Caisse <ArrowRight className="h-4 w-4" />
+              <Button size="lg" variant={latestIsToday ? "secondary" : "primary"}>
+                {latestIsToday ? "Voir / modifier" : "Ouvrir la Feuille de Caisse"} <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
           </div>
