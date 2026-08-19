@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { Table, type Column } from "@/components/ui/Table";
+import { DataTable, type DataColumn } from "@/components/ui/DataTable";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { fetchJson, ApiError } from "@/lib/api/fetch-json";
@@ -114,7 +114,7 @@ export function TeamManager({
     }
   }
 
-  const memberCols: Column<Member>[] = [
+  const memberCols: DataColumn<Member>[] = [
     {
       key: "name",
       header: "Nom",
@@ -139,7 +139,7 @@ export function TeamManager({
     },
   ];
 
-  const inviteCols: Column<Invite>[] = [
+  const inviteCols: DataColumn<Invite>[] = [
     { key: "email", header: "Email", render: (i) => <span className="font-medium">{i.email}</span> },
     { key: "role", header: "Rôle", render: (i) => <Badge tone={roleTone(i.role)}>{ROLE_LABEL_FR[i.role ?? ""] ?? i.role}</Badge> },
     {
@@ -242,14 +242,14 @@ export function TeamManager({
       {/* Members */}
       <div>
         <h2 className="text-sm font-semibold text-[var(--color-foreground)] mb-2">Membres ({initialMembers.length})</h2>
-        <Table columns={memberCols} rows={initialMembers} rowKey={(m) => m.user_id} />
+        <DataTable columns={memberCols} rows={initialMembers} rowKey={(m) => m.user_id} getSearchText={(m) => `${m.name} ${m.email} ${m.role ?? ""}`} searchPlaceholder="Rechercher un membre…" />
       </div>
 
       {/* Pending invites */}
       {initialInvites.length > 0 && (
         <div>
           <h2 className="text-sm font-semibold text-[var(--color-foreground)] mb-2">Invitations en attente ({initialInvites.length})</h2>
-          <Table columns={inviteCols} rows={initialInvites} rowKey={(i) => i.id} />
+          <DataTable columns={inviteCols} rows={initialInvites} rowKey={(i) => i.id} pageSize={20} />
         </div>
       )}
 

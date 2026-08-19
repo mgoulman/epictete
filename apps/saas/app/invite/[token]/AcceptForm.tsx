@@ -22,11 +22,21 @@ export function AcceptForm({
   const router = useRouter();
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Inline validation (new users only): min length + confirmation match.
+  const pwTooShort = !userExists && password.length > 0 && password.length < 8;
+  const mismatch = !userExists && confirm.length > 0 && confirm !== password;
+  const canSubmit =
+    userExists
+      ? password.length > 0
+      : name.trim().length > 0 && password.length >= 8 && confirm === password;
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!canSubmit) return;
     setError(null);
     setLoading(true);
     try {
@@ -100,9 +110,29 @@ export function AcceptForm({
                 required
               />
               {!userExists && (
-                <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">8 caractères minimum.</p>
+                <p className={"mt-1 text-xs " + (pwTooShort ? "text-[var(--color-danger)]" : "text-[var(--color-muted-foreground)]")}>
+                  8 caractères minimum.
+                </p>
               )}
             </div>
+
+            {!userExists && (
+              <div>
+                <Label htmlFor="confirm">Confirmez le mot de passe</Label>
+                <Input
+                  id="confirm"
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+                {mismatch && (
+                  <p className="mt-1 text-xs text-[var(--color-danger)]">Les mots de passe ne correspondent pas.</p>
+                )}
+              </div>
+            )}
 
             {error && (
               <div className="rounded-[var(--radius-sm)] bg-[var(--color-danger-bg)] text-[var(--color-danger)] text-sm px-3 py-2">
@@ -110,7 +140,7 @@ export function AcceptForm({
               </div>
             )}
 
-            <Button type="submit" size="lg" disabled={loading} className="w-full">
+            <Button type="submit" size="lg" disabled={loading || !canSubmit} className="w-full">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : userExists ? "Se connecter et rejoindre" : "Créer mon compte et rejoindre"}
             </Button>
             <p className="text-xs text-[var(--color-muted-foreground)] text-center">

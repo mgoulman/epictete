@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { Table, type Column } from "@/components/ui/Table";
+import { DataTable, type DataColumn } from "@/components/ui/DataTable";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { fetchJson, ApiError } from "@/lib/api/fetch-json";
@@ -101,10 +101,12 @@ export function AdminConsole({ initialTenants }: { initialTenants: TenantRow[] }
     return;
   }
 
-  const cols: Column<TenantRow>[] = [
+  const cols: DataColumn<TenantRow>[] = [
     {
       key: "name",
       header: "Restaurant",
+      sortable: true,
+      sortValue: (t) => t.name.toLowerCase(),
       render: (t) => (
         <div>
           <div className="font-medium">{t.name}</div>
@@ -112,14 +114,14 @@ export function AdminConsole({ initialTenants }: { initialTenants: TenantRow[] }
         </div>
       ),
     },
-    { key: "status", header: "Statut", render: (t) => <Badge tone={STATUS[t.status]?.tone ?? "neutral"}>{STATUS[t.status]?.label ?? t.status}</Badge> },
+    { key: "status", header: "Statut", sortable: true, sortValue: (t) => t.status, render: (t) => <Badge tone={STATUS[t.status]?.tone ?? "neutral"}>{STATUS[t.status]?.label ?? t.status}</Badge> },
     {
       key: "owner",
       header: "Propriétaire",
       render: (t) => (t.has_owner ? <Badge tone="positive">Actif</Badge> : <Badge tone="warning">Invitation en attente</Badge>),
     },
-    { key: "members", header: "Membres", numeric: true, render: (t) => t.members },
-    { key: "cash", header: "Feuilles", numeric: true, render: (t) => t.cash_sheets },
+    { key: "members", header: "Membres", numeric: true, sortable: true, sortValue: (t) => t.members, render: (t) => t.members },
+    { key: "cash", header: "Feuilles", numeric: true, sortable: true, sortValue: (t) => t.cash_sheets, render: (t) => t.cash_sheets },
     {
       key: "actions",
       header: "",
@@ -209,7 +211,13 @@ export function AdminConsole({ initialTenants }: { initialTenants: TenantRow[] }
       )}
 
       {initialTenants.length > 0 ? (
-        <Table columns={cols} rows={initialTenants} rowKey={(t) => t.id} />
+        <DataTable
+          columns={cols}
+          rows={initialTenants}
+          rowKey={(t) => t.id}
+          getSearchText={(t) => `${t.name} ${t.slug} ${t.city ?? ""}`}
+          searchPlaceholder="Rechercher un restaurant…"
+        />
       ) : (
         <div className="rounded-[var(--radius)] border border-dashed border-[var(--color-border-strong)] bg-[var(--color-card)] py-12 text-center text-sm text-[var(--color-muted-foreground)]">
           Aucun restaurant. Provisionnez le premier pour lancer la cohorte pilote.

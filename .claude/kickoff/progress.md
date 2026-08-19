@@ -251,3 +251,15 @@ the critical trust/safety bugs. All VERIFIED at runtime.
 Remaining: Phase 1 (DoD sweep on remaining screens: login/invite toast, form primitives, DataTable,
 skeletons), Phase 2 (module recipe → inventory CRUD + the 6 modules + membership mgmt), Phase 3 (password
 reset, account page, verification, impersonation, offboarding, help).
+
+## 2026-08-19 — Phase 1: DoD sweep — form primitives, DataTable, skeletons (localhost)
+- Form primitives components/ui/Field.tsx: FormField (label+error+hint+required), TextInput, Textarea,
+  Select, MoneyInput (tnum+DH), Checkbox. lib/validation.ts zodErrors() helper for inline field errors.
+- DataTable components/ui/DataTable.tsx: search (getSearchText), sortable columns, pagination, optional
+  row-click — reuses the Column model (DataColumn adds sortable/sortValue). Migrated Stock (new StockList
+  client), Admin tenants, Users members+invites. Fixes the unpaginated-wall + no-search gaps.
+- Skeletons components/ui/Skeleton.tsx (+ shimmer CSS) + per-route loading.tsx for dashboard/caisse/stock/
+  reglages(restaurant,utilisateurs)/admin — real skeletons instead of blocking blank.
+- Invite accept: added password-confirm field + inline min-length/mismatch validation + submit gating
+  (login/invite are outside the ToastProvider so they correctly use inline errors, not toasts).
+- Verified: build green; Stock/Admin/Users search boxes render; invite confirm field renders.
