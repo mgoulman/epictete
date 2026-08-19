@@ -11,6 +11,8 @@ export interface SaasClaims {
   tenant_id: string;
   tenant_slug?: string;
   role?: string;
+  /** Set when a platform admin is impersonating this tenant (their user id). */
+  impersonated_by?: string;
 }
 
 function getSecret(): Uint8Array {
@@ -36,6 +38,7 @@ export async function verifySaasJWT(token: string): Promise<SaasClaims | null> {
       tenant_id: payload.tenant_id as string,
       tenant_slug: payload.tenant_slug as string | undefined,
       role: payload.role as string | undefined,
+      impersonated_by: payload.impersonated_by as string | undefined,
     };
   } catch {
     return null;

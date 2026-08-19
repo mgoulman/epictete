@@ -5,4 +5,6 @@ export interface SessionView {
   branch: { name: string } | null;
   role: string | null;
   perms: string[];
+  /** True when a platform admin is viewing this tenant via impersonation. */
+  impersonating: boolean;
 }

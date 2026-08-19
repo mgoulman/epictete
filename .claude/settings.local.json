@@ -106,7 +106,12 @@
       "Bash(bash /private/tmp/claude-501/-Users-macbook-Desktop-epictelerestaurant/bd9a7544-5de8-4de9-b971-d0123d9710b9/scratchpad/admin_e2e.sh)",
       "Bash(echo \"build started pid $!\")",
       "Bash(pkill -f \"next build\")",
-      "Bash(rm -rf .next/lock .next/dev)"
+      "Bash(rm -rf .next/lock .next/dev)",
+      "Bash(echo \"saas build pid $!\")",
+      "Bash(echo \"restaurant safety build pid $!\")",
+      "Bash(curl -s -c /private/tmp/claude-501/-Users-macbook-Desktop-epictelerestaurant/bd9a7544-5de8-4de9-b971-d0123d9710b9/scratchpad/imp.txt -X POST http://localhost:3020/api/auth/login -H 'Content-Type: application/json' --data '{\"email\":\"super@epictete.ma\",\"password\":\"super1234\"}')",
+      "Bash(curl -s -b /private/tmp/claude-501/-Users-macbook-Desktop-epictelerestaurant/bd9a7544-5de8-4de9-b971-d0123d9710b9/scratchpad/imp.txt -c /private/tmp/claude-501/-Users-macbook-Desktop-epictelerestaurant/bd9a7544-5de8-4de9-b971-d0123d9710b9/scratchpad/imp.txt -X POST http://localhost:3020/api/admin/impersonate?tenantId=11111111-1111-1111-1111-111111111111)",
+      "Bash(curl -s -b /private/tmp/claude-501/-Users-macbook-Desktop-epictelerestaurant/bd9a7544-5de8-4de9-b971-d0123d9710b9/scratchpad/imp.txt http://localhost:3020/dashboard -o /private/tmp/claude-501/-Users-macbook-Desktop-epictelerestaurant/bd9a7544-5de8-4de9-b971-d0123d9710b9/scratchpad/d.html)"
     ],
     "ask": []
   },

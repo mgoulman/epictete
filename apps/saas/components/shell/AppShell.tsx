@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import type { SessionView } from "@/lib/session-view";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
+import { ImpersonationBanner } from "./ImpersonationBanner";
 
 export function AppShell({
   session,
@@ -48,6 +49,7 @@ export function AppShell({
 
       {/* Main column */}
       <div className="flex flex-1 flex-col overflow-hidden">
+        {session.impersonating && <ImpersonationBanner tenantName={session.tenant.name} />}
         <Header session={session} onMenu={() => setMobileOpen(true)} />
         <main className="flex-1 overflow-y-auto scroll-thin">
           <div className="mx-auto max-w-6xl px-4 lg:px-8 py-6 lg:py-8">{children}</div>

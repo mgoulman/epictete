@@ -16,3 +16,10 @@ export async function resolveTenant(): Promise<TenantContext | null> {
   if (!claims?.tenant_id) return null;
   return { tenantId: claims.tenant_id, userId: claims.sub, role: claims.role };
 }
+
+/** The raw verified session claims (for the impersonation flag). Null when signed out. */
+export async function getSaasClaims() {
+  const token = (await cookies()).get(SAAS_COOKIE)?.value;
+  if (!token) return null;
+  return verifySaasJWT(token);
+}

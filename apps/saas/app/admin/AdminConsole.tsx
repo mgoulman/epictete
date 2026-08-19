@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Store, CheckCircle2, Plus, Copy, Check, Pause, Play, X, Loader2 } from "lucide-react";
+import { Building2, Store, CheckCircle2, Plus, Copy, Check, Pause, Play, X, Loader2, Eye } from "lucide-react";
 import { StatCard } from "@/components/ui/StatCard";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -101,6 +101,16 @@ export function AdminConsole({ initialTenants }: { initialTenants: TenantRow[] }
     return;
   }
 
+  async function impersonate(t: TenantRow) {
+    try {
+      const d = await fetchJson<{ redirect: string }>(`/api/admin/impersonate?tenantId=${t.id}`, { method: "POST" });
+      router.push(d.redirect ?? "/dashboard");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Impossible d’ouvrir la session support.");
+    }
+  }
+
   const cols: DataColumn<TenantRow>[] = [
     {
       key: "name",
@@ -126,16 +136,24 @@ export function AdminConsole({ initialTenants }: { initialTenants: TenantRow[] }
       key: "actions",
       header: "",
       align: "right",
-      render: (t) =>
-        t.status === "active" ? (
-          <button onClick={() => setStatus(t.id, "suspended", t.name)} className="inline-flex items-center gap-1 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-danger)]">
-            <Pause className="h-4 w-4" /> Suspendre
-          </button>
-        ) : (
-          <button onClick={() => setStatus(t.id, "active", t.name)} className="inline-flex items-center gap-1 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-positive)]">
-            <Play className="h-4 w-4" /> Réactiver
-          </button>
-        ),
+      render: (t) => (
+        <div className="flex items-center justify-end gap-3">
+          {t.has_owner && t.status === "active" && (
+            <button onClick={() => impersonate(t)} title="Voir en tant que (support)" className="inline-flex items-center gap-1 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-accent)]">
+              <Eye className="h-4 w-4" /> Voir
+            </button>
+          )}
+          {t.status === "active" ? (
+            <button onClick={() => setStatus(t.id, "suspended", t.name)} className="inline-flex items-center gap-1 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-danger)]">
+              <Pause className="h-4 w-4" /> Suspendre
+            </button>
+          ) : (
+            <button onClick={() => setStatus(t.id, "active", t.name)} className="inline-flex items-center gap-1 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-positive)]">
+              <Play className="h-4 w-4" /> Réactiver
+            </button>
+          )}
+        </div>
+      ),
     },
   ];
 

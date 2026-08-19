@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { getSaasSession } from "@/lib/auth";
+import { getSaasClaims } from "@/lib/tenant";
 import type { SessionView } from "@/lib/session-view";
 
 /**
@@ -30,11 +31,14 @@ export async function getSessionView(): Promise<SessionView | null> {
 
   if (u.rows.length === 0 || t.rows.length === 0) return null;
 
+  const claims = await getSaasClaims();
+
   return {
     user: { id: s.userId, name: u.rows[0].name, email: u.rows[0].email },
     tenant: { name: t.rows[0].name, slug: t.rows[0].slug, status: t.rows[0].status },
     branch: b.rows[0] ? { name: b.rows[0].name } : null,
     role: s.role,
     perms: s.perms,
+    impersonating: !!claims?.impersonated_by,
   };
 }
