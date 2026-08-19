@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Store, CheckCircle2, Plus, Copy, Check, Pause, Play, X, Loader2, Eye } from "lucide-react";
+import { Building2, Store, CheckCircle2, Plus, Copy, Check, Pause, Play, X, Loader2, Eye, Download, Trash2 } from "lucide-react";
 import { StatCard } from "@/components/ui/StatCard";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -101,6 +101,23 @@ export function AdminConsole({ initialTenants }: { initialTenants: TenantRow[] }
     return;
   }
 
+  async function deleteTenant(t: TenantRow) {
+    const ok = await confirm({
+      title: "Supprimer définitivement",
+      message: `Toutes les données de « ${t.name} » (feuilles, stock, équipe…) seront supprimées de façon irréversible. Exportez d’abord les données si nécessaire. Continuer ?`,
+      confirmLabel: "Supprimer définitivement",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await fetchJson(`/api/admin/tenants?id=${t.id}`, { method: "DELETE" });
+      toast.success("Restaurant supprimé");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Échec de la suppression.");
+    }
+  }
+
   async function impersonate(t: TenantRow) {
     try {
       const d = await fetchJson<{ redirect: string }>(`/api/admin/impersonate?tenantId=${t.id}`, { method: "POST" });
@@ -150,6 +167,14 @@ export function AdminConsole({ initialTenants }: { initialTenants: TenantRow[] }
           ) : (
             <button onClick={() => setStatus(t.id, "active", t.name)} className="inline-flex items-center gap-1 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-positive)]">
               <Play className="h-4 w-4" /> Réactiver
+            </button>
+          )}
+          <a href={`/api/admin/tenants/export?tenantId=${t.id}`} title="Exporter les données (JSON)" className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-muted-foreground)] hover:bg-[var(--color-secondary)]">
+            <Download className="h-4 w-4" />
+          </a>
+          {t.status !== "active" && (
+            <button onClick={() => deleteTenant(t)} title="Supprimer définitivement" className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-muted-foreground)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger-bg)]">
+              <Trash2 className="h-4 w-4" />
             </button>
           )}
         </div>

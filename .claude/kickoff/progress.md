@@ -297,3 +297,14 @@ Phase 2 (modules: inventory/members/dépenses/fournisseurs/personnel/présence/r
 Phase 3 (account+password reset+help) ✅ core. Remaining: impersonation, offboarding export/delete,
 email verification, Achats-du-jour module, + prod-hardening (SECURITY DEFINER, leak-test) at the
 external-tenant gate.
+
+## 2026-08-19 — Deferred P1 items completed (localhost)
+- Admin impersonation: SaasClaims.impersonated_by; /api/admin/impersonate (mint owner session,
+  keep admin cookie) + DELETE (exit); shell ImpersonationBanner; console "Voir" action. Verified e2e.
+- Cross-tenant leak-test suite: apps/saas/scripts/leak-test.sh — ISOLATION HOLDS ✓ (own/0-of-B,
+  fail-closed, WITH CHECK block, 0-row cross update, every tenant_id table FORCE RLS + policy).
+- Tenant offboarding: /api/admin/tenants/export (JSON download, data portability) + DELETE (cascade)
+  gated to non-active tenants in the console; 0014 makes the audit trigger FK-tolerant during tenant
+  cascade-delete. Verified: export JSON + attachment; provision→offboarding→delete→gone.
+Remaining (lower priority): email verification; a dedicated Achats-du-jour module (overlaps
+Dépenses+Inventory); prod SECURITY DEFINER rewrite of unsafeQuery paths (external-tenant gate).

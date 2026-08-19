@@ -44,3 +44,14 @@ export async function PATCH(req: Request) {
   }
   return NextResponse.json({ ok: true });
 }
+
+// DELETE /api/admin/tenants?id= → permanently delete a tenant + all its data (cascade).
+export async function DELETE(req: Request) {
+  const admin = await requirePlatformAdmin();
+  if (admin instanceof Response) return admin;
+  const id = new URL(req.url).searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "id requis" }, { status: 400 });
+  const { rowCount } = await db.unsafeQuery("DELETE FROM tenants WHERE id = $1", [id]);
+  if (!rowCount) return NextResponse.json({ error: "Restaurant introuvable." }, { status: 404 });
+  return NextResponse.json({ ok: true });
+}
