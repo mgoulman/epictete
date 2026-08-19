@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Menu, Store, ChevronDown, LogOut } from "lucide-react";
+import Link from "next/link";
+import { Menu, Store, ChevronDown, LogOut, UserCog, LifeBuoy } from "lucide-react";
 import type { SessionView } from "@/lib/session-view";
 import { cn } from "@/components/ui/cn";
 
@@ -98,6 +99,22 @@ export function Header({ session, onMenu }: { session: SessionView; onMenu: () =
                 </div>
               )}
             </div>
+            <div className="my-1 h-px bg-[var(--color-border)]" />
+            <Link
+              href="/reglages/compte"
+              onClick={() => setMenuOpen(false)}
+              className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm text-[var(--color-foreground)] hover:bg-[var(--color-secondary)]"
+            >
+              <UserCog className="h-4 w-4" /> Mon compte
+            </Link>
+            <a
+              href="https://wa.me/212600000000?text=Bonjour%2C%20j%27ai%20besoin%20d%27aide%20avec%20Epict%C3%A8te"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm text-[var(--color-foreground)] hover:bg-[var(--color-secondary)]"
+            >
+              <LifeBuoy className="h-4 w-4" /> Aide &amp; support
+            </a>
             <div className="my-1 h-px bg-[var(--color-border)]" />
             <button
               onClick={logout}

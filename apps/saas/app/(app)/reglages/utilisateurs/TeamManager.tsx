@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { UserPlus, Copy, Check, RefreshCw, Trash2, Loader2, X } from "lucide-react";
+import { UserPlus, Copy, Check, RefreshCw, Trash2, Loader2, X, KeyRound } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
@@ -131,6 +131,15 @@ export function TeamManager({
     if (!(await confirm({ title: "Retirer le membre", message: `« ${name} » perdra l’accès à cet espace. Continuer ?`, confirmLabel: "Retirer", danger: true }))) return;
     memberAction(() => fetchJson(`/api/members?userId=${userId}`, { method: "DELETE" }), "Membre retiré");
   }
+  async function resetMember(userId: string) {
+    try {
+      const d = await fetchJson<{ url: string }>(`/api/members/reset?userId=${userId}`, { method: "POST" });
+      await copy(d.url);
+      toast.success("Lien de réinitialisation copié — envoyez-le au membre");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Échec.");
+    }
+  }
 
   const memberCols: DataColumn<Member>[] = [
     {
@@ -179,6 +188,9 @@ export function TeamManager({
             if (m.role === "owner" || m.user_id === currentUserId) return null;
             return (
               <div className="flex items-center justify-end gap-2">
+                <button onClick={() => resetMember(m.user_id)} title="Réinitialiser le mot de passe" className="h-8 w-8 inline-flex items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-muted-foreground)] hover:bg-[var(--color-secondary)]">
+                  <KeyRound className="h-4 w-4" />
+                </button>
                 <button onClick={() => toggleActive(m.user_id, !m.is_active)} className="text-xs font-medium text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]">
                   {m.is_active ? "Désactiver" : "Réactiver"}
                 </button>

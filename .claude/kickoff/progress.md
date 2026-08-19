@@ -278,3 +278,22 @@ Using the InventoryManager recipe (route + Manager client + page; enforce + zod 
   + Inventory restock — deferred rather than build a redundant module).
 - E2E verified: expense/vendor+dette/staff+presence create → 200; all module pages 200; vendor in list.
 Remaining: Phase 3 lifecycle (password reset, account page, verification, impersonation, offboarding, help).
+
+## 2026-08-19 — Phase 3: account + tenant lifecycle (localhost)
+- Account: /reglages/compte + /api/account (change name; change password with current-password
+  verify). Profile dropdown now links "Mon compte" + "Aide & support" (WhatsApp CTA).
+- Password reset (no email infra → link-share model): 0013_password_resets table; owner generates a
+  reset link for a member (/api/members/reset + TeamManager key action), platform admin for any user
+  (/api/admin/reset by email); public /reset/[token] page + /api/reset/accept (validate/single-use/
+  update). Covers the forgotten-password lockout.
+- E2E verified: name change; wrong-current→401, change→login-new→revert; owner-reset→accept→member
+  login; reset token single-use 410; pages render.
+- DEFERRED (P1, honestly flagged): admin impersonation for support; tenant offboarding UI (export +
+  delete, wire offboarding status — compliance-heavy); email verification. Help surface done.
+
+## Completeness plan status
+Phase 0 (foundations+critical fixes) ✅ · Phase 1 (DoD sweep: primitives/DataTable/skeletons) ✅ ·
+Phase 2 (modules: inventory/members/dépenses/fournisseurs/personnel/présence/rapports) ✅ ·
+Phase 3 (account+password reset+help) ✅ core. Remaining: impersonation, offboarding export/delete,
+email verification, Achats-du-jour module, + prod-hardening (SECURITY DEFINER, leak-test) at the
+external-tenant gate.

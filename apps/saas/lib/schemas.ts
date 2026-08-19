@@ -95,6 +95,17 @@ export const staffSchema = z.object({
   phone: z.string().trim().max(40).optional().default(""),
 });
 
+export const accountSchema = z.object({
+  name: z.string().trim().min(1, "Nom requis.").max(120).optional(),
+  current_password: z.string().max(200).optional(),
+  new_password: z.string().min(8, "8 caractères minimum.").max(200).optional(),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(8, "8 caractères minimum.").max(200),
+});
+
 export const inventoryItemSchema = z.object({
   name: z.string().trim().min(1, "Le nom est requis.").max(160),
   category: z.string().trim().max(120).optional().default(""),
