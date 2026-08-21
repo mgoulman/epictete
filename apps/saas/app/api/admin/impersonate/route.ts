@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { runWithTenant } from "@epictete/core/db";
 import { db } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/platform";
 import { withErrorHandler, ApiRouteError } from "@/lib/api/handler";
@@ -17,14 +18,16 @@ export const POST = withErrorHandler(async (req: Request) => {
   const tenantId = new URL(req.url).searchParams.get("tenantId");
   if (!tenantId) throw new ApiRouteError("tenantId requis", 400);
 
-  const { rows } = await db.unsafeQuery<{ user_id: string; slug: string }>(
-    `SELECT m.user_id, t.slug
-       FROM memberships m
-       JOIN roles r ON r.id = m.role_id
-       JOIN tenants t ON t.id = m.tenant_id
-      WHERE m.tenant_id = $1 AND r.name = 'owner' AND m.is_active = true
-      LIMIT 1`,
-    [tenantId],
+  // Known tenant → RLS-scoped read inside its context.
+  const { rows } = await runWithTenant({ tenantId }, () =>
+    db.query<{ user_id: string; slug: string }>(
+      `SELECT m.user_id, t.slug
+         FROM memberships m
+         JOIN roles r ON r.id = m.role_id
+         JOIN tenants t ON t.id = m.tenant_id
+        WHERE r.name = 'owner' AND m.is_active = true
+        LIMIT 1`,
+    ),
   );
   if (rows.length === 0) throw new ApiRouteError("Ce restaurant n’a pas encore de propriétaire actif.", 409);
 
@@ -36,9 +39,11 @@ export const POST = withErrorHandler(async (req: Request) => {
     impersonated_by: admin.userId,
   });
   try {
-    await db.unsafeQuery(
-      `INSERT INTO analytics_events (tenant_id, user_id, event, props) VALUES ($1,$2,'tenant.impersonated',$3::jsonb)`,
-      [tenantId, admin.userId, JSON.stringify({ by: admin.email })],
+    await runWithTenant({ tenantId, userId: admin.userId }, () =>
+      db.query(
+        `INSERT INTO analytics_events (tenant_id, user_id, event, props) VALUES ($1,$2,'tenant.impersonated',$3::jsonb)`,
+        [tenantId, admin.userId, JSON.stringify({ by: admin.email })],
+      ),
     );
   } catch { /* best-effort */ }
 

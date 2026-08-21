@@ -50,20 +50,12 @@ export async function POST(req: Request) {
     return res;
   }
 
+  // Context-less lookup (we don't know the tenant yet) → SECURITY DEFINER function.
   const { rows: memberships } = await db.unsafeQuery<{
     tenant_id: string;
     slug: string;
     role: string | null;
-  }>(
-    `SELECT m.tenant_id, t.slug, r.name AS role
-       FROM memberships m
-       JOIN tenants t ON t.id = m.tenant_id
-       LEFT JOIN roles r ON r.id = m.role_id
-      WHERE m.user_id = $1 AND m.is_active = true AND t.status = 'active'
-      ORDER BY m.created_at
-      LIMIT 1`,
-    [userId],
-  );
+  }>("SELECT tenant_id, slug, role FROM plt_login($1)", [userId]);
   if (memberships.length === 0) {
     return NextResponse.json(
       { error: "Aucun restaurant actif associé à ce compte." },

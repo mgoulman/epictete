@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { runWithTenant } from "@epictete/core/db";
 import { db } from "@/lib/db";
 import { signSaasJWT } from "@epictete/core/auth";
 import { SAAS_COOKIE } from "@/lib/tenant";
@@ -16,16 +17,10 @@ interface InviteRow {
   expired: boolean;
 }
 
-// Platform-level lookup — no tenant context exists yet (unsafeQuery bypasses RLS in dev;
-// prod hardening = a SECURITY DEFINER fn, per the 0009 migration note).
+// Context-less lookup (no tenant known yet) → SECURITY DEFINER function.
 async function loadInvite(token: string): Promise<InviteRow | null> {
   const { rows } = await db.unsafeQuery<InviteRow>(
-    `SELECT i.id, i.tenant_id, t.slug, i.email, i.role_id, r.name AS role, i.status,
-            (i.expires_at < now()) AS expired
-       FROM invitations i
-       JOIN tenants t ON t.id = i.tenant_id
-       LEFT JOIN roles r ON r.id = i.role_id
-      WHERE i.token = $1`,
+    "SELECT id, tenant_id, slug, email, role_id, role, status, expired FROM plt_invite($1)",
     [token],
   );
   return rows[0] ?? null;
@@ -81,28 +76,33 @@ export async function POST(req: Request) {
     );
   }
 
-  // attach (or re-activate) the membership + consume the invite
-  await db.unsafeQuery(
-    `INSERT INTO memberships (tenant_id, user_id, role_id)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (tenant_id, user_id) DO UPDATE SET is_active = true, role_id = EXCLUDED.role_id`,
-    [invite.tenant_id, userId, invite.role_id],
-  );
-  await db.unsafeQuery(
-    "UPDATE invitations SET status = 'accepted', accepted_at = now(), accepted_by = $2, updated_at = now() WHERE id = $1",
-    [invite.id, userId],
-  );
+  // attach (or re-activate) the membership + consume the invite — RLS-scoped writes in the
+  // invite's tenant context.
+  await runWithTenant({ tenantId: invite.tenant_id, userId }, async () => {
+    await db.query(
+      `INSERT INTO memberships (tenant_id, user_id, role_id)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (tenant_id, user_id) DO UPDATE SET is_active = true, role_id = EXCLUDED.role_id`,
+      [invite.tenant_id, userId, invite.role_id],
+    );
+    await db.query(
+      "UPDATE invitations SET status = 'accepted', accepted_at = now(), accepted_by = $2, updated_at = now() WHERE id = $1",
+      [invite.id, userId],
+    );
+  });
   try {
-    await db.unsafeQuery(
-      `INSERT INTO analytics_events (tenant_id, user_id, event, props) VALUES
-         ($1, $2, 'invite.accepted', $3::jsonb),
-         ($1, $2, 'consent.accepted', $4::jsonb)`,
-      [
-        invite.tenant_id,
-        userId,
-        JSON.stringify({ role: invite.role }),
-        JSON.stringify({ version: "pilot-2026-08", via: "invite" }),
-      ],
+    await runWithTenant({ tenantId: invite.tenant_id, userId }, () =>
+      db.query(
+        `INSERT INTO analytics_events (tenant_id, user_id, event, props) VALUES
+           ($1, $2, 'invite.accepted', $3::jsonb),
+           ($1, $2, 'consent.accepted', $4::jsonb)`,
+        [
+          invite.tenant_id,
+          userId,
+          JSON.stringify({ role: invite.role }),
+          JSON.stringify({ version: "pilot-2026-08", via: "invite" }),
+        ],
+      ),
     );
   } catch {
     /* best-effort */

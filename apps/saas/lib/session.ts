@@ -1,3 +1,4 @@
+import { runWithTenant } from "@epictete/core/db";
 import { db } from "@/lib/db";
 import { getSaasSession } from "@/lib/auth";
 import { getSaasClaims } from "@/lib/tenant";
@@ -12,24 +13,30 @@ export async function getSessionView(): Promise<SessionView | null> {
   const s = await getSaasSession();
   if (!s) return null;
 
-  const [u, t, b] = await Promise.all([
+  const ctx = { tenantId: s.tenantId, userId: s.userId, role: s.role ?? undefined };
+  const [u, tb] = await Promise.all([
+    // identity tables are global (no RLS)
     db.unsafeQuery<{ name: string; email: string }>(
       `SELECT COALESCE(NULLIF(p.full_name, ''), u.email) AS name, u.email
          FROM users u LEFT JOIN profiles p ON p.id = u.id
         WHERE u.id = $1`,
       [s.userId],
     ),
-    db.unsafeQuery<{ name: string; slug: string; status: string }>(
-      `SELECT name, slug, status FROM tenants WHERE id = $1`,
-      [s.tenantId],
-    ),
-    db.unsafeQuery<{ name: string }>(
-      `SELECT name FROM branches WHERE tenant_id = $1 ORDER BY is_default DESC, name LIMIT 1`,
-      [s.tenantId],
-    ),
+    // tenant + branch are RLS-scoped → read inside the tenant context
+    runWithTenant(ctx, async () => {
+      const t = await db.query<{ name: string; slug: string; status: string }>(
+        `SELECT name, slug, status FROM tenants LIMIT 1`,
+      );
+      const b = await db.query<{ name: string }>(
+        `SELECT name FROM branches ORDER BY is_default DESC, name LIMIT 1`,
+      );
+      return { t: t.rows, b: b.rows };
+    }),
   ]);
 
-  if (u.rows.length === 0 || t.rows.length === 0) return null;
+  if (u.rows.length === 0 || tb.t.length === 0) return null;
+  const t = { rows: tb.t };
+  const b = { rows: tb.b };
 
   const claims = await getSaasClaims();
 

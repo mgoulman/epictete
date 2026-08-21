@@ -45,14 +45,17 @@ export interface SaasSession {
 export async function getSaasSession(): Promise<SaasSession | null> {
   const ctx = await resolveTenant();
   if (!ctx) return null;
-  const { rows } = await db.unsafeQuery<{ role: string | null; perm: string | null }>(
-    `SELECT r.name AS role, p.name AS perm
-       FROM memberships m
-       LEFT JOIN roles r ON r.id = m.role_id
-       LEFT JOIN role_permissions rp ON rp.role_id = m.role_id
-       LEFT JOIN permissions p ON p.id = rp.permission_id
-      WHERE m.tenant_id = $1 AND m.user_id = $2 AND m.is_active = true`,
-    [ctx.tenantId, ctx.userId],
+  // Known tenant (from the JWT) → RLS-scoped read inside the tenant context.
+  const { rows } = await runWithTenant(ctx, () =>
+    db.query<{ role: string | null; perm: string | null }>(
+      `SELECT r.name AS role, p.name AS perm
+         FROM memberships m
+         LEFT JOIN roles r ON r.id = m.role_id
+         LEFT JOIN role_permissions rp ON rp.role_id = m.role_id
+         LEFT JOIN permissions p ON p.id = rp.permission_id
+        WHERE m.user_id = $1 AND m.is_active = true`,
+      [ctx.userId],
+    ),
   );
   if (rows.length === 0) return null;
   return {

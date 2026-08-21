@@ -36,13 +36,7 @@ export default async function InviteAcceptPage({ params }: { params: Promise<{ t
   const { token } = await params;
 
   const { rows } = await db.unsafeQuery<Row>(
-    `SELECT t.name AS tenant_name, i.email, r.name AS role, i.status,
-            (i.expires_at < now()) AS expired,
-            EXISTS (SELECT 1 FROM users u WHERE lower(u.email) = lower(i.email)) AS user_exists
-       FROM invitations i
-       JOIN tenants t ON t.id = i.tenant_id
-       LEFT JOIN roles r ON r.id = i.role_id
-      WHERE i.token = $1`,
+    "SELECT tenant_name, email, role, status, expired, user_exists FROM plt_invite($1)",
     [token],
   );
   const invite = rows[0];

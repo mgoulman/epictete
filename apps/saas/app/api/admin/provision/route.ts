@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { runWithTenant } from "@epictete/core/db";
 import { db } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/platform";
 import { provisionTenant } from "@/lib/provision";
@@ -16,22 +17,23 @@ export const POST = withErrorHandler(async (req: Request) => {
   const { restaurantName, city, ownerEmail } = provisionSchema.parse(await req.json());
 
   // Idempotency guard: don't double-provision on a double submit / retry.
-  const dupe = await db.unsafeQuery(
-    `SELECT 1 FROM invitations i JOIN roles r ON r.id = i.role_id
-      WHERE lower(i.email) = $1 AND r.name = 'owner' AND i.status = 'pending' AND i.expires_at > now()`,
+  const dupe = await db.unsafeQuery<{ dup: boolean }>(
+    "SELECT plt_pending_owner_invite($1) AS dup",
     [ownerEmail],
   );
-  if (dupe.rows.length > 0) {
+  if (dupe.rows[0]?.dup) {
     throw new ApiRouteError("Une invitation propriétaire est déjà en attente pour cet email.", 409);
   }
 
   const result = await provisionTenant({ restaurantName, city, ownerEmail, invitedBy: admin.userId });
 
   try {
-    await db.unsafeQuery(
-      `INSERT INTO analytics_events (tenant_id, user_id, event, props)
-       VALUES ($1, $2, 'tenant.provisioned', $3::jsonb)`,
-      [result.tenantId, admin.userId, JSON.stringify({ slug: result.slug, ownerEmail })],
+    await runWithTenant({ tenantId: result.tenantId, userId: admin.userId }, () =>
+      db.query(
+        `INSERT INTO analytics_events (tenant_id, user_id, event, props)
+         VALUES ($1, $2, 'tenant.provisioned', $3::jsonb)`,
+        [result.tenantId, admin.userId, JSON.stringify({ slug: result.slug, ownerEmail })],
+      ),
     );
   } catch {
     /* best-effort */
