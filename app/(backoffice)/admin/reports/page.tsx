@@ -427,6 +427,9 @@ export default function ReportsPage() {
   // so the printed sheet can never contain data that was never persisted.
   const [cashSheetSavedSnapshot, setCashSheetSavedSnapshot] = useState<string | null>(null);
   const [showCashSheet, setShowCashSheet] = useState(false);
+  // Cumulative cash balance ("solde espèces cumulé") for the loaded day — running
+  // report de caisse so a day's negative "Reste en espèces" never means empty drawer.
+  const [cashLedger, setCashLedger] = useState<{ allTime: number; opening: number; closing: number; hasSheet: boolean } | null>(null);
   const [cashSheetUploading, setCashSheetUploading] = useState(false);
   const [cashSheetUploadError, setCashSheetUploadError] = useState<string | null>(null);
   // R3 — lightbox for viewing an attached image full-size; showAllAttachments expands
@@ -547,6 +550,21 @@ export default function ReportsPage() {
         });
         setCashSheetSavedSnapshot(null); // brand new / unsaved → hide print until saved
       }
+      // Cumulative running balance up to & including this day (report de caisse).
+      try {
+        const ledgerRes = await fetch(`/api/reports/cash-ledger?date=${date}`);
+        const ledger = await ledgerRes.json();
+        if (typeof ledger?.allTime === 'number') {
+          setCashLedger({
+            allTime: ledger.allTime,
+            opening: ledger.opening ?? 0,
+            closing: ledger.closing ?? 0,
+            hasSheet: !!ledger.hasSheet,
+          });
+        } else {
+          setCashLedger(null);
+        }
+      } catch { setCashLedger(null); }
     } catch { /* silent */ }
   }, []);
 
@@ -1934,12 +1952,46 @@ export default function ReportsPage() {
                       <div className="text-lg font-bold text-orange-500 mt-0.5">{fmtMAD(currentCashSheetTotals.totalDepense)}</div>
                     </div>
                     <div className={`rounded-xl border px-4 py-3 ${currentCashSheetTotals.resteEspeces >= 0 ? 'border-[#606338]/30 bg-[#606338]/5' : 'border-red-500/30 bg-red-500/5'}`}>
-                      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Reste en espèces</div>
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Reste en espèces (jour)</div>
                       <div className={`text-lg font-bold mt-0.5 ${currentCashSheetTotals.resteEspeces >= 0 ? 'text-[#606338]' : 'text-red-500'}`}>
                         {fmtMAD(currentCashSheetTotals.resteEspeces)}
                       </div>
                     </div>
                   </div>
+
+                  {/* Solde de caisse cumulé — running report de caisse (espèces de tous les jours,
+                      démarré à 0). Le "Reste en espèces (jour)" ci-dessus peut être négatif un jour
+                      donné ; ce solde cumulé, lui, reflète l'argent réellement en caisse. */}
+                  {cashLedger && (
+                    <div className="rounded-xl border border-[#606338]/30 bg-[#606338]/[0.04] px-4 py-3">
+                      <div className="flex items-center justify-between gap-2 mb-2.5">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Solde de caisse cumulé</span>
+                        <span className="text-[10px] text-muted-foreground">report de caisse · démarré à 0</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Report (ouverture)</div>
+                          <div className="text-sm font-semibold mt-0.5 text-foreground">{fmtMAD(cashLedger.opening)}</div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Mouvement du jour</div>
+                          <div className={`text-sm font-semibold mt-0.5 ${currentCashSheetTotals.resteEspeces >= 0 ? 'text-[#606338]' : 'text-red-500'}`}>
+                            {currentCashSheetTotals.resteEspeces >= 0 ? '+' : ''}{fmtMAD(currentCashSheetTotals.resteEspeces)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Solde de clôture</div>
+                          <div className="text-sm font-bold mt-0.5 text-[#606338]">
+                            {fmtMAD(cashLedger.opening + currentCashSheetTotals.resteEspeces)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-2.5 pt-2.5 border-t border-[#606338]/15 flex items-center justify-between gap-2">
+                        <span className="text-[11px] text-muted-foreground">Solde espèces (tout le temps)</span>
+                        <span className="text-base font-bold text-[#606338]">{fmtMAD(cashLedger.allTime)}</span>
+                      </div>
+                    </div>
+                  )}
 
                   {/* ── Validation ── */}
                   <div className="flex items-center gap-3 pt-1">
