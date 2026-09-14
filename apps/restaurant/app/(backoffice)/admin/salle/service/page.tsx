@@ -488,7 +488,7 @@ export default function ServicePage() {
       {/* Floor plan (read only) */}
       <div
         ref={canvasRef}
-        className="relative bg-card border border-border rounded-xl overflow-visible"
+        className="relative bg-card border border-border rounded-xl overflow-visible shadow-[var(--shadow-sm)]"
         style={{ aspectRatio: '4 / 3', maxHeight: '60vh' }}
       >
         {/* Grid background */}
@@ -557,7 +557,7 @@ export default function ServicePage() {
       {/* Seat Guests Modal */}
       {showSeatModal && selectedTable && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center">
-          <div className="bg-card border border-border rounded-t-2xl md:rounded-xl w-full max-w-sm p-6 max-h-[90vh] overflow-y-auto">
+          <div className="bg-card border border-border rounded-t-2xl md:rounded-xl w-full max-w-sm p-6 max-h-[90vh] overflow-y-auto shadow-[var(--shadow-sm)]">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">{sv.seatGuestsAt} {selectedTable.table_number}</h3>
               <button onClick={() => setShowSeatModal(false)} className="p-2 hover:bg-secondary rounded-lg">
@@ -603,7 +603,7 @@ export default function ServicePage() {
       {panelOpen && activeSession && (
         <div className="fixed inset-0 z-50 flex items-end md:items-stretch md:justify-end">
           <div className="absolute inset-0 bg-black/40" onClick={closePanel} />
-          <div className="relative bg-card border-t md:border-l border-border w-full md:w-[440px] max-h-[85vh] md:max-h-full md:h-full overflow-y-auto rounded-t-2xl md:rounded-none">
+          <div className="relative bg-card border-t md:border-l border-border w-full md:w-[440px] max-h-[85vh] md:max-h-full md:h-full overflow-y-auto rounded-t-2xl md:rounded-none shadow-[var(--shadow-sm)]">
             {/* Panel header */}
             <div className="sticky top-0 bg-card border-b border-border p-4 z-10">
               <div className="flex items-center justify-between">
@@ -764,7 +764,7 @@ export default function ServicePage() {
       {/* Bill Modal */}
       {showBill && activeSession && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white text-black rounded-xl w-full max-w-sm overflow-hidden shadow-2xl">
+          <div className="bg-[var(--color-card)] text-[var(--color-foreground)] rounded-xl w-full max-w-sm overflow-hidden shadow-2xl">
             {/* Receipt header */}
             <div className="text-center p-4 border-b border-dashed border-gray-300">
               <Sparkles className="w-5 h-5 mx-auto mb-1 text-[#606338]" />
@@ -821,7 +821,7 @@ export default function ServicePage() {
       {showMenuPicker && (
         <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowMenuPicker(false)} />
-          <div className="relative bg-card border-t md:border border-border w-full md:max-w-lg md:rounded-xl max-h-[85vh] md:max-h-[80vh] flex flex-col rounded-t-2xl">
+          <div className="relative bg-card border-t md:border border-border w-full md:max-w-lg md:rounded-xl max-h-[85vh] md:max-h-[80vh] flex flex-col rounded-t-2xl shadow-[var(--shadow-sm)]">
             {/* Search header */}
             <div className="p-4 border-b border-border">
               <div className="flex items-center justify-between mb-3">

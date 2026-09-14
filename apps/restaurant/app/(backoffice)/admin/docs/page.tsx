@@ -248,10 +248,10 @@ function MarkdownRenderer({ content }: { content: string }) {
       elements.push(
         <div key={i} className="overflow-x-auto my-4">
           <table className="w-full text-[13px] border border-border rounded-lg">
-            <thead>
+            <thead className="bg-[var(--color-secondary)]/50">
               <tr className="bg-card">
                 {tableRows[0]?.map((cell, ci) => (
-                  <th key={ci} className="px-3 py-2.5 text-left font-medium text-foreground border-b border-border">{processInline(cell)}</th>
+                  <th key={ci} className="px-3 py-2.5 text-left font-medium text-foreground border-b border-border text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{processInline(cell)}</th>
                 ))}
               </tr>
             </thead>

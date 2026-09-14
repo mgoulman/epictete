@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useSearchParams } from 'next/navigation';
@@ -176,7 +177,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
 
       <aside
         className={`
-          fixed left-0 top-0 h-full bg-secondary border-r border-border z-50
+          fixed left-0 top-0 h-full bg-[var(--color-olive-900)] text-white/80 z-50
           flex flex-col transition-all duration-200
           ${isCollapsed ? 'w-[72px]' : 'w-[260px]'}
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -185,11 +186,11 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
       >
         {/* Logo + Collapse Toggle */}
         <div className={`
-          h-16 flex items-center border-b border-border
+          h-16 flex items-center border-b border-white/10
           ${isCollapsed ? 'justify-center px-2' : 'justify-between pl-5 pr-3'}
         `}>
           <Link href="/admin" className={`flex items-center gap-3 no-underline ${isCollapsed ? '' : 'flex-1 min-w-0'}`}>
-            <div className="w-10 h-10 rounded-xl bg-[#EDE6D6] flex items-center justify-center shadow-lg shadow-[#606338]/10 shrink-0 overflow-hidden">
+            <div className="w-10 h-10 rounded-xl bg-[#EDE6D6] flex items-center justify-center shadow-lg shadow-black/20 shrink-0 overflow-hidden">
               <Image
                 src="/logos/logo-icon.png"
                 alt="Epictète"
@@ -200,8 +201,8 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
             </div>
             {!isCollapsed && (
               <div className="overflow-hidden">
-                <span className="text-[15px] font-semibold text-foreground block">Epictète</span>
-                <span className="text-[11px] text-muted-foreground block">{t.backoffice.sidebar.backoffice}</span>
+                <span className="text-[15px] font-semibold text-white block">Epictète</span>
+                <span className="text-[11px] text-white/45 block">{t.backoffice.sidebar.backoffice}</span>
               </div>
             )}
           </Link>
@@ -210,7 +211,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
           {!isCollapsed && (
             <button
               onClick={onToggle}
-              className="hidden md:flex items-center justify-center w-7 h-7 rounded-md border border-border bg-card text-muted-foreground hover:bg-secondary hover:border-muted hover:text-foreground transition-all shrink-0"
+              className="hidden md:flex items-center justify-center w-7 h-7 rounded-md border border-white/15 bg-white/[0.06] text-white/60 hover:bg-white/[0.12] hover:text-white transition-all shrink-0"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
@@ -220,7 +221,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
           {!isCollapsed && (
             <button
               onClick={onMobileClose}
-              className="flex md:hidden items-center justify-center w-8 h-8 rounded-lg bg-transparent text-muted-foreground hover:text-foreground"
+              className="flex md:hidden items-center justify-center w-8 h-8 rounded-lg bg-transparent text-white/60 hover:text-white"
             >
               <X className="w-5 h-5" />
             </button>
@@ -229,10 +230,10 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
 
         {/* Expand button when collapsed */}
         {isCollapsed && (
-          <div className="hidden md:flex justify-center py-2 border-b border-border">
+          <div className="hidden md:flex justify-center py-2 border-b border-white/10">
             <button
               onClick={onToggle}
-              className="flex items-center justify-center w-10 h-8 rounded-lg border border-border bg-card text-muted-foreground hover:bg-secondary hover:border-muted hover:text-foreground transition-all"
+              className="flex items-center justify-center w-10 h-8 rounded-lg border border-white/15 bg-white/[0.06] text-white/60 hover:bg-white/[0.12] hover:text-white transition-all"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -258,8 +259,8 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                       className={`
                         w-full flex items-center gap-3 rounded-lg transition-all py-2.5 px-3
                         ${isActive
-                          ? 'bg-[#606338]/10 text-[#606338]'
-                          : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                          ? 'bg-[var(--color-olive-600)] text-white shadow-[var(--shadow-sm)]'
+                          : 'text-white/65 hover:bg-white/[0.07] hover:text-white'
                         }
                       `}
                     >
@@ -277,7 +278,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                         ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}
                       `}
                     >
-                      <div className="ml-4 pl-3 border-l border-border/50 mt-1 flex flex-col gap-0.5">
+                      <div className="ml-4 pl-3 border-l border-white/10 mt-1 flex flex-col gap-0.5">
                         {item.children!.map((child) => {
                           const ChildIcon = iconMap[child.icon] || LayoutDashboard;
                           const isChildActive = isItemActive(child);
@@ -290,8 +291,8 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                               className={`
                                 flex items-center gap-2.5 rounded-md no-underline transition-all py-2 px-2.5
                                 ${isChildActive
-                                  ? 'bg-[#606338]/10 text-[#606338]'
-                                  : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                                  ? 'bg-[var(--color-olive-600)] text-white shadow-[var(--shadow-sm)]'
+                                  : 'text-white/65 hover:bg-white/[0.07] hover:text-white'
                                 }
                               `}
                             >
@@ -315,13 +316,17 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                     title={getNavLabel(item)}
                     onClick={onMobileClose}
                     className={`
-                      flex items-center gap-3 rounded-lg no-underline transition-all py-2.5 justify-center
-                      ${isActive
-                        ? 'bg-[#606338]/10 text-[#606338]'
-                        : 'text-muted-foreground hover:bg-card hover:text-foreground'
-                      }
+                      relative isolate flex items-center gap-3 rounded-lg no-underline transition-all py-2.5 justify-center
+                      ${isActive ? 'text-white' : 'text-white/65 hover:bg-white/[0.07] hover:text-white'}
                     `}
                   >
+                    {isActive && (
+                      <motion.span
+                        layoutId="bo-nav-active"
+                        transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+                        className="absolute inset-0 -z-10 rounded-lg bg-[var(--color-olive-600)] shadow-[var(--shadow-sm)]"
+                      />
+                    )}
                     <Icon className="w-[18px] h-[18px] shrink-0" />
                   </Link>
                 );
@@ -335,14 +340,18 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                   title={isCollapsed ? getNavLabel(item) : undefined}
                   onClick={onMobileClose}
                   className={`
-                    flex items-center gap-3 rounded-lg no-underline transition-all
+                    relative isolate flex items-center gap-3 rounded-lg no-underline transition-all
                     ${isCollapsed ? 'py-2.5 justify-center' : 'py-2.5 px-3'}
-                    ${isActive
-                      ? 'bg-[#606338]/10 text-[#606338]'
-                      : 'text-muted-foreground hover:bg-card hover:text-foreground'
-                    }
+                    ${isActive ? 'text-white' : 'text-white/65 hover:bg-white/[0.07] hover:text-white'}
                   `}
                 >
+                  {isActive && (
+                    <motion.span
+                      layoutId="bo-nav-active"
+                      transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+                      className="absolute inset-0 -z-10 rounded-lg bg-[var(--color-olive-600)] shadow-[var(--shadow-sm)]"
+                    />
+                  )}
                   <Icon className="w-[18px] h-[18px] shrink-0" />
                   {!isCollapsed && (
                     <span className="text-[13px] font-medium">{getNavLabel(item)}</span>
@@ -355,17 +364,17 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
 
         {/* User + Logout */}
         {user && (
-          <div className="border-t border-border p-3">
+          <div className="border-t border-white/10 p-3">
             <div className={`flex items-center gap-3 p-2 ${isCollapsed ? 'justify-center' : ''}`}>
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#606338] to-[#4d4f2e] flex items-center justify-center text-[13px] font-semibold text-white shrink-0">
+              <div className="w-9 h-9 rounded-full bg-[var(--color-olive-600)] flex items-center justify-center text-[13px] font-semibold text-white shrink-0">
                 {getInitials(user.full_name)}
               </div>
               {!isCollapsed && (
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-medium text-foreground m-0 truncate">
+                  <p className="text-[13px] font-medium text-white m-0 truncate">
                     {user.full_name || user.email}
                   </p>
-                  <p className="text-[11px] text-muted-foreground m-0 capitalize">
+                  <p className="text-[11px] text-white/45 m-0 capitalize">
                     {user.role}
                   </p>
                 </div>
@@ -380,7 +389,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                 className={`
                   w-full flex items-center gap-3 rounded-lg transition-all mt-2
                   ${isCollapsed ? 'py-2.5 justify-center' : 'py-2.5 px-3'}
-                  text-[#606338] hover:bg-[#606338]/10
+                  text-white/80 hover:bg-white/[0.08]
                 `}
               >
                 <Download className="w-[18px] h-[18px] shrink-0" />
@@ -397,7 +406,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
               className={`
                 w-full flex items-center gap-3 rounded-lg transition-all mt-2
                 ${isCollapsed ? 'py-2.5 justify-center' : 'py-2.5 px-3'}
-                text-red-500 hover:bg-red-500/10
+                text-red-300 hover:bg-red-500/15
               `}
             >
               <LogOut className="w-[18px] h-[18px] shrink-0" />

@@ -41,7 +41,7 @@ export default function DroppableScheduleDay({
   const itemIds = items.map(i => i.id);
 
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden flex flex-col">
+    <div className="bg-card border border-border rounded-lg overflow-hidden flex flex-col shadow-[var(--shadow-sm)]">
       {/* Day Header */}
       <div
         className={`p-2 text-center border-b border-border ${

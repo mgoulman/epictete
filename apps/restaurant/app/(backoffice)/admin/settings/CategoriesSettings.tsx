@@ -197,7 +197,7 @@ function MenuCategoriesSection() {
             {categories.map(cat => {
               const count = itemCounts[cat.id] || 0;
               return (
-                <div key={cat.id} className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg">
+                <div key={cat.id} className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg shadow-[var(--shadow-sm)]">
                   <span className="text-2xl shrink-0">{cat.icon || '🍽️'}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">{cat.name_fr}</p>
@@ -412,7 +412,7 @@ function InventoryCategoriesSection() {
             {categories.map(cat => {
               const count = itemCounts[cat.id] || 0;
               return (
-                <div key={cat.id} className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg">
+                <div key={cat.id} className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg shadow-[var(--shadow-sm)]">
                   <span className="w-9 h-9 rounded-lg bg-[#606338]/10 flex items-center justify-center shrink-0">
                     <Package className="w-4 h-4 text-[#606338]" />
                   </span>

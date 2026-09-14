@@ -220,13 +220,13 @@ export default function AuditPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead>
+                <thead className="bg-[var(--color-secondary)]/50">
                   <tr className="bg-card">
                     <th className="px-4 py-3 text-left"><SortHeader label={a.timestamp} field="created_at" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-medium text-muted" /></th>
                     <th className="px-4 py-3 text-left"><SortHeader label={a.user} field="user_email" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-medium text-muted" /></th>
                     <th className="px-4 py-3 text-left"><SortHeader label={a.action} field="action" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-medium text-muted" /></th>
                     <th className="px-4 py-3 text-left"><SortHeader label={a.resource} field="resource_type" currentSort={sortField} currentDir={sortDir} onSort={handleSort} className="text-xs font-medium text-muted" /></th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-muted">{a.details}</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{a.details}</th>
                   </tr>
                 </thead>
                 <tbody>
