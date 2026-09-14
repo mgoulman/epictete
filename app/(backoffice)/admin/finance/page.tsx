@@ -1495,7 +1495,7 @@ export default function FinancePage() {
                     <h3 className="text-lg font-semibold text-foreground mb-4">{fn.topProducts}</h3>
                     <div className="space-y-2">
                       {dashStats.topProducts.map((p, i) => (
-                        <div key={p.name} className="flex items-center gap-3 p-3 bg-card rounded-xl">
+                        <div key={p.name} className="flex items-center gap-3 p-3 bg-card rounded-xl shadow-[var(--shadow-sm)]">
                           <div className="w-8 h-8 rounded-lg bg-[#606338]/20 flex items-center justify-center text-[#606338] font-bold text-sm">
                             {i + 1}
                           </div>
@@ -1590,7 +1590,7 @@ export default function FinancePage() {
 
             {/* Totals for the current filter */}
             {!loading && total > 0 && (
-              <div className="flex flex-wrap items-center gap-4 px-4 py-3 bg-card border border-border rounded-xl">
+              <div className="flex flex-wrap items-center gap-4 px-4 py-3 bg-card border border-border rounded-xl shadow-[var(--shadow-sm)]">
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-lg font-bold text-[#606338]">{totalAmount.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}</span>
                   <span className="text-xs text-muted-foreground">MAD</span>
@@ -1620,7 +1620,7 @@ export default function FinancePage() {
                 <>
                   <div className="overflow-x-auto">
                     <table className="w-full">
-                      <thead>
+                      <thead className="bg-[var(--color-secondary)]/50">
                         <tr className="bg-card">
                           <th className="px-4 py-3"><SortHeader label={fn.date} field="sale_date" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
                           <th className="px-4 py-3"><SortHeader label={fn.product} field="product_name" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
@@ -1629,7 +1629,7 @@ export default function FinancePage() {
                           <th className="px-4 py-3"><SortHeader label={fn.qty} field="quantity" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
                           <th className="px-4 py-3"><SortHeader label={fn.price} field="selling_price" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
                           <th className="px-4 py-3"><SortHeader label={fn.total} field="total" currentSort={salesSort} currentDir={salesSortDir} onSort={handleSalesSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
-                          {canWrite && <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">{fn.actions}</th>}
+                          {canWrite && <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{fn.actions}</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -1790,7 +1790,7 @@ export default function FinancePage() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead>
+                    <thead className="bg-[var(--color-secondary)]/50">
                       <tr className="bg-card">
                         <th className="px-4 py-3"><SortHeader label={fn.item} field="name" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
                         <th className="px-4 py-3"><SortHeader label={fn.category} field="inventory_category.name" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
@@ -1799,7 +1799,7 @@ export default function FinancePage() {
                         <th className="px-4 py-3"><SortHeader label={fn.costPerUnit} field="cost_per_unit" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
                         <th className="px-4 py-3"><SortHeader label={fn.lastPrice} field="last_purchase_price" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
                         <th className="px-4 py-3"><SortHeader label={fn.totalValue} field="totalValue" currentSort={invSort} currentDir={invSortDir} onSort={handleInvSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
-                        {canWrite && <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">{fn.actions}</th>}
+                        {canWrite && <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{fn.actions}</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -2332,7 +2332,7 @@ export default function FinancePage() {
                       const isExpanded = expandedTxId === tx.id;
                       const lines = txDetails[tx.id];
                       return (
-                        <div key={tx.id} className="bg-card rounded-lg overflow-hidden">
+                        <div key={tx.id} className="bg-card rounded-lg overflow-hidden shadow-[var(--shadow-sm)]">
                           <div
                             onClick={() => isExpandable && toggleTransactionDetail(tx, viewingVendorTransactions.id)}
                             className={`flex items-center justify-between p-3 ${isExpandable ? 'cursor-pointer hover:bg-card/70' : ''}`}
@@ -2404,7 +2404,7 @@ export default function FinancePage() {
                   </h3>
                   <div className="space-y-2">
                     {vendorInvoices.map(inv => (
-                      <div key={inv.id} className="flex items-center justify-between p-3 bg-card rounded-lg">
+                      <div key={inv.id} className="flex items-center justify-between p-3 bg-card rounded-lg shadow-[var(--shadow-sm)]">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
                             <FileText className="w-4 h-4 text-blue-500" />
@@ -2538,7 +2538,7 @@ export default function FinancePage() {
                   <p className="text-xs text-muted-foreground mb-2">{fn.uploadTemplateTip}</p>
                   {newVendor.invoice_template_url ? (
                     <div className="space-y-2">
-                      <div className="relative w-full h-32 bg-card border border-border rounded-lg overflow-hidden">
+                      <div className="relative w-full h-32 bg-card border border-border rounded-lg overflow-hidden shadow-[var(--shadow-sm)]">
                         <img src={newVendor.invoice_template_url} alt="Template" className="w-full h-full object-contain" />
                       </div>
                       <button
@@ -2677,7 +2677,7 @@ export default function FinancePage() {
                   <label className="block text-xs text-muted-foreground mb-1.5">{fn.invoiceTemplate}</label>
                   {editingVendor.invoice_template_url ? (
                     <div className="space-y-2">
-                      <div className="relative w-full h-32 bg-card border border-border rounded-lg overflow-hidden">
+                      <div className="relative w-full h-32 bg-card border border-border rounded-lg overflow-hidden shadow-[var(--shadow-sm)]">
                         <img src={editingVendor.invoice_template_url} alt="Template" className="w-full h-full object-contain" />
                       </div>
                       <button
@@ -3285,7 +3285,7 @@ export default function FinancePage() {
                 <div className="space-y-4">
                   {/* Vendor is pre-selected from the card */}
                   {scannerVendorId && (
-                    <div className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg">
+                    <div className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg shadow-[var(--shadow-sm)]">
                       <Users className="w-5 h-5 text-[#606338]" />
                       <span className="text-sm font-medium text-foreground">
                         {vendors.find(v => v.id === scannerVendorId)?.name}
@@ -3367,17 +3367,17 @@ export default function FinancePage() {
                     <label className="block text-xs text-muted-foreground mb-1.5">
                       {fn.extractedItems} ({scannedItems.length})
                     </label>
-                    <div className="bg-card border border-border rounded-xl overflow-hidden">
+                    <div className="bg-card border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]">
                       <div className="overflow-x-auto">
                         <table className="w-full">
-                          <thead>
+                          <thead className="bg-[var(--color-secondary)]/50">
                             <tr className="bg-secondary">
-                              <th className="px-3 py-2 text-left text-xs font-medium text-muted uppercase">{fn.product}</th>
-                              <th className="px-3 py-2 text-center text-xs font-medium text-muted uppercase">{fn.qty}</th>
-                              <th className="px-3 py-2 text-center text-xs font-medium text-muted uppercase">{fn.unit}</th>
-                              <th className="px-3 py-2 text-right text-xs font-medium text-muted uppercase">{fn.price}</th>
-                              <th className="px-3 py-2 text-right text-xs font-medium text-muted uppercase">{fn.total}</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-muted uppercase">{fn.inventoryMatch}</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-muted uppercase text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{fn.product}</th>
+                              <th className="px-3 py-2 text-center text-xs font-medium text-muted uppercase text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{fn.qty}</th>
+                              <th className="px-3 py-2 text-center text-xs font-medium text-muted uppercase text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{fn.unit}</th>
+                              <th className="px-3 py-2 text-right text-xs font-medium text-muted uppercase text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{fn.price}</th>
+                              <th className="px-3 py-2 text-right text-xs font-medium text-muted uppercase text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{fn.total}</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-muted uppercase text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{fn.inventoryMatch}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -3482,7 +3482,7 @@ export default function FinancePage() {
                   </div>
 
                   {/* Update inventory checkbox */}
-                  <div className="flex items-center gap-2 p-3 bg-card border border-border rounded-lg">
+                  <div className="flex items-center gap-2 p-3 bg-card border border-border rounded-lg shadow-[var(--shadow-sm)]">
                     <input
                       type="checkbox"
                       id="update_inventory"
@@ -3510,7 +3510,7 @@ export default function FinancePage() {
                     </p>
                   </div>
                   {confirmResult.inventory_updates.length > 0 && (
-                    <div className="bg-card border border-border rounded-lg p-4 text-left">
+                    <div className="bg-card border border-border rounded-lg p-4 text-left shadow-[var(--shadow-sm)]">
                       <p className="text-xs font-medium text-muted-foreground mb-2">{fn.inventoryUpdated}</p>
                       <div className="space-y-1">
                         {confirmResult.inventory_updates.map((upd, i) => (
@@ -3642,7 +3642,7 @@ export default function FinancePage() {
                 /* Current item + vendor list */
                 <>
                   {/* Item card */}
-                  <div className="mb-4 bg-card border border-border rounded-xl overflow-hidden">
+                  <div className="mb-4 bg-card border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]">
                     <div className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3">

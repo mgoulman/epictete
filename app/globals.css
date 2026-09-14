@@ -55,9 +55,37 @@ input[type="number"] {
   --color-muted-foreground: #5c5c52;
   --color-background: #fdfcf9;
   --color-foreground: #1a1a18;
-  --color-card: #f9f8f4;
+  --color-card: #ffffff;
   --color-card-foreground: #1a1a18;
   --color-border: #e8e6de;
+  --color-border-strong: #d9d6cb;
+
+  /* Refined elevation scale (warm-tinted so shadows sit in the cream, never gray) */
+  --shadow-xs: 0 1px 2px rgb(46 44 32 / 0.05);
+  --shadow-sm: 0 1px 2px rgb(46 44 32 / 0.04), 0 2px 6px -2px rgb(46 44 32 / 0.07);
+  --shadow-md: 0 4px 14px -3px rgb(46 44 32 / 0.10), 0 2px 6px -3px rgb(46 44 32 / 0.06);
+  --shadow-soft: 0 4px 16px -2px rgb(20 20 19 / 0.10), 0 2px 6px -2px rgb(20 20 19 / 0.06);
+  --shadow-hero: 0 10px 30px -8px rgb(77 79 46 / 0.35), 0 4px 10px -4px rgb(46 44 32 / 0.20);
+
+  /* Radius scale (3 steps) */
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+
+  /* Depth gradients (the refined-olive richness) */
+  --gradient-hero: linear-gradient(135deg, #6b7a2e 0%, #4d4f2e 100%);
+  --gradient-hero-sheen: linear-gradient(135deg, rgb(255 255 255 / 0.14) 0%, rgb(255 255 255 / 0) 55%);
+  --gradient-card: linear-gradient(180deg, rgb(255 255 255 / 0.6) 0%, rgb(255 255 255 / 0) 40%);
+
+  /* Semantic states (money/stock/staff) — translucent -bg so they read on cream AND dark */
+  --color-positive: #3f7d3f;
+  --color-positive-bg: rgb(63 125 63 / 0.12);
+  --color-warning: #b5701a;
+  --color-warning-bg: rgb(181 112 26 / 0.14);
+  --color-danger: #b5342f;
+  --color-danger-bg: rgb(181 52 47 / 0.12);
+  --color-info: #2f5fa0;
+  --color-info-bg: rgb(47 95 160 / 0.12);
 
   /* Dark theme colors (deep olive/charcoal) */
   --color-primary-dark: #141413;
@@ -71,6 +99,7 @@ input[type="number"] {
   --color-card-dark: #1a1a18;
   --color-card-foreground-dark: #faf9f5;
   --color-border-dark: #2d2d28;
+  --color-border-strong-dark: #3b3a33;
 }
 
 /* Apply theme colors based on class */
@@ -94,6 +123,13 @@ input[type="number"] {
   --color-card: var(--color-card-dark);
   --color-card-foreground: var(--color-card-foreground-dark);
   --color-border: var(--color-border-dark);
+  --color-border-strong: var(--color-border-strong-dark);
+
+  /* Semantic foregrounds brightened for the charcoal surface */
+  --color-positive: #6fbf6f;
+  --color-warning: #d99a4e;
+  --color-danger: #e06a63;
+  --color-info: #6a9fe0;
 }
 
 /* Base styles */

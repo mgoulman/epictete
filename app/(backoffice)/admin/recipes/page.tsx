@@ -438,14 +438,14 @@ export default function RecipesPage() {
           </div>
         ) : (
           <table className="w-full">
-            <thead className="bg-card">
+            <thead className="bg-card bg-[var(--color-secondary)]/50">
               <tr>
                 <th className="px-4 py-3 text-left"><SortHeader label={rc.recipe} field="name" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
                 <th className="px-4 py-3 text-left"><SortHeader label={rc.category} field="category" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="left" className="text-xs font-medium text-muted uppercase" /></th>
                 <th className="px-4 py-3 text-center"><SortHeader label={rc.portions} field="portions" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
                 <th className="px-4 py-3 text-center"><SortHeader label={rc.ingredients} field="ingredient_count" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="center" className="text-xs font-medium text-muted uppercase" /></th>
                 <th className="px-4 py-3 text-right"><SortHeader label={rc.cost} field="cost_price" currentSort={sortField} currentDir={sortDir} onSort={handleSort} align="right" className="text-xs font-medium text-muted uppercase" /></th>
-                {canWrite && <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">{rc.actions}</th>}
+                {canWrite && <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase text-[11px] font-semibold tracking-wider text-[var(--color-muted-foreground)]">{rc.actions}</th>}
               </tr>
             </thead>
             <tbody>
@@ -879,21 +879,21 @@ export default function RecipesPage() {
               {/* Recipe Info Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
                 {selectedRecipe.preparation_time && (
-                  <div className="bg-card rounded-lg p-3 text-center">
+                  <div className="bg-card rounded-lg p-3 text-center shadow-[var(--shadow-sm)]">
                     <Clock className="w-4 h-4 mx-auto text-muted-foreground mb-1" />
                     <p className="text-sm font-medium text-foreground">{selectedRecipe.preparation_time} min</p>
                     <p className="text-xs text-muted-foreground">{rc.preparation}</p>
                   </div>
                 )}
                 {selectedRecipe.cooking_time && (
-                  <div className="bg-card rounded-lg p-3 text-center">
+                  <div className="bg-card rounded-lg p-3 text-center shadow-[var(--shadow-sm)]">
                     <Timer className="w-4 h-4 mx-auto text-muted-foreground mb-1" />
                     <p className="text-sm font-medium text-foreground">{selectedRecipe.cooking_time} min</p>
                     <p className="text-xs text-muted-foreground">{rc.cooking}</p>
                   </div>
                 )}
                 {(selectedRecipe.preparation_time || selectedRecipe.cooking_time) && (
-                  <div className="bg-card rounded-lg p-3 text-center">
+                  <div className="bg-card rounded-lg p-3 text-center shadow-[var(--shadow-sm)]">
                     <Gauge className="w-4 h-4 mx-auto text-muted-foreground mb-1" />
                     <p className="text-sm font-medium text-foreground">
                       {(selectedRecipe.preparation_time || 0) + (selectedRecipe.cooking_time || 0)} min
@@ -902,7 +902,7 @@ export default function RecipesPage() {
                   </div>
                 )}
                 {selectedRecipe.selling_price && (
-                  <div className="bg-card rounded-lg p-3 text-center">
+                  <div className="bg-card rounded-lg p-3 text-center shadow-[var(--shadow-sm)]">
                     <DollarSign className="w-4 h-4 mx-auto text-green-500 mb-1" />
                     <p className="text-sm font-medium text-green-600">{formatCurrency(selectedRecipe.selling_price)}</p>
                     <p className="text-xs text-muted-foreground">{rc.sellingPrice}</p>
@@ -914,7 +914,7 @@ export default function RecipesPage() {
               {selectedRecipe.instructions && (
                 <div className="mb-5">
                   <h3 className="font-medium text-foreground mb-2">{rc.instructions}</h3>
-                  <div className="bg-card rounded-lg p-3 text-sm text-muted-foreground whitespace-pre-line">
+                  <div className="bg-card rounded-lg p-3 text-sm text-muted-foreground whitespace-pre-line shadow-[var(--shadow-sm)]">
                     {selectedRecipe.instructions}
                   </div>
                 </div>
@@ -1138,7 +1138,7 @@ export default function RecipesPage() {
                 </div>
               </div>
 
-              <div className="p-3 bg-card rounded-lg">
+              <div className="p-3 bg-card rounded-lg shadow-[var(--shadow-sm)]">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">{rc.total}</span>
                   <span className="font-bold text-[#606338]">

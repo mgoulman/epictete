@@ -99,7 +99,7 @@ export default function StaffPool({ staffMembers, scheduleView, searchTerm, onSe
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="bg-card border border-border rounded-lg mb-4">
+    <div className="bg-card border border-border rounded-lg mb-4 shadow-[var(--shadow-sm)]">
       {/* Collapsible header — keeps the board uncluttered until you add staff */}
       <button
         onClick={() => setOpen(v => !v)}

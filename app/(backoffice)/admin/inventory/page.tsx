@@ -1226,7 +1226,7 @@ export default function InventoryPage() {
   // ─── Shared sub-components ────────────────────────────────────────────
 
   const renderDateNav = (date: string, setDate: (v: string) => void) => (
-    <div className="flex items-center gap-3 bg-card border border-border rounded-xl p-4">
+    <div className="flex items-center gap-3 bg-card border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
       <Calendar className="w-5 h-5 text-muted-foreground" />
       <button onClick={() => navigateDate(setDate, date, -1)} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
         <ChevronLeft className="w-4 h-4" />
@@ -1252,7 +1252,7 @@ export default function InventoryPage() {
     return (
       <div className="space-y-4">
         {/* Filters bar */}
-        <div className="flex items-center gap-3 flex-wrap bg-card border border-border rounded-xl p-4">
+        <div className="flex items-center gap-3 flex-wrap bg-card border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
           <Calendar className="w-5 h-5 text-muted-foreground" />
           <div className="flex items-center gap-2">
             <label className="text-sm text-muted-foreground">{tt('from', 'Du')}</label>
@@ -1349,7 +1349,7 @@ export default function InventoryPage() {
               const dayTotal = dayMovements.reduce((sum, m) => sum + Math.abs(m.quantity_change) * m.unit_cost, 0);
               const isExpanded = expandedDays[date] ?? false;
               return (
-                <div key={date} className="bg-card border border-border rounded-xl overflow-hidden">
+                <div key={date} className="bg-card border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]">
                   <button
                     type="button"
                     onClick={() => setExpandedDays(prev => ({ ...prev, [date]: !prev[date] }))}
@@ -1553,7 +1553,7 @@ export default function InventoryPage() {
             })}
 
             {/* Grand total */}
-            <div className="flex items-center justify-between bg-card border border-border rounded-xl p-4">
+            <div className="flex items-center justify-between bg-card border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
               <span className="text-sm font-medium text-muted-foreground">{tt('grandTotal', 'Total sur la période')}</span>
               <span className="text-lg font-bold text-foreground">
                 {formatCurrency(movements.reduce((sum, m) => sum + Math.abs(m.quantity_change) * m.unit_cost, 0))}
@@ -1623,7 +1623,7 @@ export default function InventoryPage() {
           </div>
 
           {/* Purchase lines */}
-          <div className="bg-card border border-border rounded-xl overflow-visible">
+          <div className="bg-card border border-border rounded-xl overflow-visible shadow-[var(--shadow-sm)]">
             <div className="grid grid-cols-[1fr_100px_120px_1fr_40px] gap-3 px-4 py-3 bg-secondary/50 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               <span>{tt('columns.product', 'Produit')}</span>
               <span>{tt('columns.quantity', 'Quantité')}</span>
@@ -1780,7 +1780,7 @@ export default function InventoryPage() {
 
           {/* Vendor payment summary */}
           {vendorSummary.length > 0 && (
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]">
               <div className="flex items-center gap-2 px-4 py-3 bg-secondary/50 border-b border-border">
                 <Wallet className="w-4 h-4 text-muted-foreground" />
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{tt('vendorPayments', 'Paiement fournisseurs')}</span>
@@ -1818,7 +1818,7 @@ export default function InventoryPage() {
           )}
 
           {/* TVA + Total + Save */}
-          <div className="flex items-center justify-between bg-card border border-border rounded-xl p-4 flex-wrap gap-3">
+          <div className="flex items-center justify-between bg-card border border-border rounded-xl p-4 flex-wrap gap-3 shadow-[var(--shadow-sm)]">
             <div className="flex items-center gap-6">
               <div>
                 <span className="text-sm text-muted-foreground">{tt('totalProducts', 'Produits')}: </span>
@@ -1874,7 +1874,7 @@ export default function InventoryPage() {
           </div>
 
           {/* Usage lines */}
-          <div className="bg-card border border-border rounded-xl overflow-visible">
+          <div className="bg-card border border-border rounded-xl overflow-visible shadow-[var(--shadow-sm)]">
             <div className="grid grid-cols-[1fr_100px_140px_1fr_40px] gap-3 px-4 py-3 bg-secondary/50 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               <span>{tt('columns.product', 'Produit')}</span>
               <span>{tt('columns.quantity', 'Quantité')}</span>
@@ -1932,7 +1932,7 @@ export default function InventoryPage() {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center justify-between bg-card border border-border rounded-xl p-4 shadow-[var(--shadow-sm)]">
             <div>
               <span className="text-sm text-muted-foreground">{tt('totalProducts', 'Produits')}: </span>
               <span className="text-sm font-semibold">{validUsageLines.length}</span>
@@ -1982,7 +1982,7 @@ export default function InventoryPage() {
 
           {/* New order form */}
           {showOrderForm && (
-            <div className="bg-card border border-border rounded-xl overflow-visible">
+            <div className="bg-card border border-border rounded-xl overflow-visible shadow-[var(--shadow-sm)]">
               <div className="flex items-center justify-between px-4 py-3 bg-secondary/50 border-b border-border">
                 <span className="text-sm font-semibold">{tt('newOrder', 'Nouvelle commande')}</span>
                 <button onClick={resetOrderForm} className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary"><X className="w-4 h-4" /></button>
@@ -2093,7 +2093,7 @@ export default function InventoryPage() {
                 };
 
                 return (
-                  <div key={order.id} className="bg-card border border-border rounded-xl overflow-hidden">
+                  <div key={order.id} className="bg-card border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]">
                     {/* Order header */}
                     <div className="flex items-center justify-between px-4 py-3 bg-secondary/50 border-b border-border">
                       <div className="flex items-center gap-3">
@@ -2178,7 +2178,7 @@ export default function InventoryPage() {
                           <div className="flex items-center gap-2">
                             <label className="text-xs text-emerald-700">{tt('paid', 'Payé')}</label>
                             <div className="relative">
-                              <input type="number" min="0" step="0.01" value={receivePaidAmount || ''} onChange={e => setReceivePaidAmount(parseFloat(e.target.value) || 0)} placeholder="0" className="w-28 bg-white border border-emerald-300 rounded-lg px-2 py-1.5 pr-7 text-sm text-right" />
+                              <input type="number" min="0" step="0.01" value={receivePaidAmount || ''} onChange={e => setReceivePaidAmount(parseFloat(e.target.value) || 0)} placeholder="0" className="w-28 bg-[var(--color-card)] border border-emerald-300 rounded-lg px-2 py-1.5 pr-7 text-sm text-right" />
                               <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">DH</span>
                             </div>
                             <button onClick={() => setReceivePaidAmount(order.total_amount)} className="text-xs px-2 py-1 rounded border border-emerald-300 text-emerald-700 hover:bg-emerald-100">{tt('payAll', 'Tout')}</button>

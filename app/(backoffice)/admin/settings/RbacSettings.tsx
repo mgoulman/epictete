@@ -211,7 +211,7 @@ export function RbacSettings() {
 
       {/* Create role form */}
       {showCreate && (
-        <div className="mb-5 p-4 bg-card rounded-lg border border-border">
+        <div className="mb-5 p-4 bg-card rounded-lg border border-border shadow-[var(--shadow-sm)]">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-medium text-foreground mb-1">Nom technique</label>

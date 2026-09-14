@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Bell } from 'lucide-react';
 import { useAuth } from '@/lib/auth/hooks';
 import { PresenceCard } from '@/components/backoffice/PresenceCard';
@@ -24,7 +25,7 @@ function TestNotificationButton() {
     <button
       onClick={send}
       disabled={state === 'sending'}
-      className="flex items-center gap-2 px-3 py-1.5 border border-dashed border-[#606338]/50 text-[#606338] rounded-lg text-xs font-medium hover:bg-[#606338]/10 disabled:opacity-50 transition-colors"
+      className="flex items-center gap-2 px-3 py-1.5 border border-dashed border-white/30 text-white/90 rounded-lg text-xs font-medium hover:bg-white/10 disabled:opacity-50 transition-colors"
     >
       <Bell className="w-3.5 h-3.5" />
       {state === 'sending' ? 'Envoi…' : state === 'sent' ? 'Envoyée ✓' : state === 'error' ? 'Échec ✕' : 'Tester une notification'}
@@ -54,21 +55,31 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Greeting */}
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">
-          {greet}{name ? `, ${name}` : ''} 👋
-        </h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          {ROLE_LABELS[user?.role || ''] ? `${ROLE_LABELS[user!.role]} · ` : ''}Voici votre aperçu du jour.
-        </p>
-        {/* TEMPORARY — push test button (admin only); remove once verified. */}
-        {user?.role === 'admin' && (
-          <div className="mt-3">
-            <TestNotificationButton />
-          </div>
-        )}
-      </div>
+      {/* Greeting — command hero */}
+      <motion.section
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
+        className="relative overflow-hidden rounded-[var(--radius-lg)] text-white shadow-[var(--shadow-hero)]"
+        style={{ backgroundImage: 'var(--gradient-hero)' }}
+      >
+        <div className="pointer-events-none absolute inset-0" style={{ backgroundImage: 'var(--gradient-hero-sheen)' }} />
+        <div className="relative p-6 lg:p-7">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-white/55">Tableau de bord</div>
+          <h1 className="mt-1 text-2xl font-semibold text-white">
+            {greet}{name ? `, ${name}` : ''} 👋
+          </h1>
+          <p className="text-white/70 mt-1 text-sm">
+            {ROLE_LABELS[user?.role || ''] ? `${ROLE_LABELS[user!.role]} · ` : ''}Voici votre aperçu du jour.
+          </p>
+          {/* TEMPORARY — push test button (admin only); remove once verified. */}
+          {user?.role === 'admin' && (
+            <div className="mt-4">
+              <TestNotificationButton />
+            </div>
+          )}
+        </div>
+      </motion.section>
 
       {/* Personal presence confirmation (linked staff scheduled today) */}
       <PresenceCard />

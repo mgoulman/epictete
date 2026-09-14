@@ -106,21 +106,21 @@ export default function ScheduleTable({ staffMembers, weekDays, approvedTimeOff,
   const editingShifts = editing && editingStaff ? getConfig(editingStaff)[editing.dayName].shifts : [];
 
   return (
-    <div className="bg-card border border-border rounded-xl overflow-x-auto">
+    <div className="bg-card border border-border rounded-xl overflow-x-auto shadow-[var(--shadow-sm)]">
       <table className="w-full text-sm border-collapse">
-        <thead>
+        <thead className="bg-[var(--color-secondary)]/50">
           <tr className="bg-secondary">
-            <th className="sticky left-0 z-10 bg-secondary text-left p-2.5 font-medium text-muted-foreground min-w-[170px] border-b border-border">{pn.staff}</th>
+            <th className="sticky left-0 z-10 bg-secondary text-left p-2.5 font-medium text-muted-foreground min-w-[170px] border-b border-border text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{pn.staff}</th>
             {weekDays.map((day, i) => {
               const today = day.toDateString() === new Date().toDateString();
               return (
-                <th key={i} className={`p-2 text-center font-medium border-b border-l border-border min-w-[92px] ${today ? 'text-[#606338]' : 'text-muted-foreground'}`}>
+                <th key={i} className={`p-2 text-center font-medium border-b border-l border-border min-w-[92px] text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)] ${today ? 'text-[#606338]' : 'text-muted-foreground'}`}>
                   <div className="text-[11px] uppercase">{day.toLocaleDateString('en-US', { weekday: 'short' })}</div>
                   <div className={`text-base font-bold ${today ? 'text-[#606338]' : 'text-foreground'}`}>{day.getDate()}</div>
                 </th>
               );
             })}
-            <th className="p-2 text-center font-medium text-muted-foreground border-b border-l border-border min-w-[70px]">{pn.hours}</th>
+            <th className="p-2 text-center font-medium text-muted-foreground border-b border-l border-border min-w-[70px] text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{pn.hours}</th>
           </tr>
         </thead>
         <tbody>
@@ -189,7 +189,7 @@ export default function ScheduleTable({ staffMembers, weekDays, approvedTimeOff,
       {/* Cell editor */}
       {editing && editingStaff && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setEditing(null)}>
-          <div className="bg-card border border-border rounded-2xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
+          <div className="bg-card border border-border rounded-2xl w-full max-w-sm p-5 shadow-[var(--shadow-sm)]" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="font-semibold text-foreground">{editingStaff.first_name} {editingStaff.last_name}</h3>

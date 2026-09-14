@@ -147,12 +147,12 @@ export default function ApprovalsPage() {
                         {r.details.date && <p className="text-[12px] text-muted-foreground mb-2">Date : {r.details.date}</p>}
                         <div className="overflow-x-auto">
                           <table className="w-full text-[13px]">
-                            <thead>
+                            <thead className="bg-[var(--color-secondary)]/50">
                               <tr className="text-muted-foreground text-left">
-                                <th className="py-1 font-medium">Produit</th>
-                                <th className="py-1 font-medium text-right">Qté</th>
-                                <th className="py-1 font-medium text-right">P.U.</th>
-                                <th className="py-1 font-medium text-right">Total</th>
+                                <th className="py-1 font-medium text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Produit</th>
+                                <th className="py-1 font-medium text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Qté</th>
+                                <th className="py-1 font-medium text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">P.U.</th>
+                                <th className="py-1 font-medium text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Total</th>
                               </tr>
                             </thead>
                             <tbody>

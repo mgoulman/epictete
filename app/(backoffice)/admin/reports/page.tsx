@@ -427,8 +427,8 @@ export default function ReportsPage() {
   // so the printed sheet can never contain data that was never persisted.
   const [cashSheetSavedSnapshot, setCashSheetSavedSnapshot] = useState<string | null>(null);
   const [showCashSheet, setShowCashSheet] = useState(false);
-  // Cumulative cash balance ("solde espèces cumulé") for the loaded day — running
-  // report de caisse so a day's negative "Reste en espèces" never means empty drawer.
+  // Cumulative cash balance ("solde espèces cumulé") for the loaded date — opening
+  // (report from all prior days) + all-time closing, derived read-only from stored sheets.
   const [cashLedger, setCashLedger] = useState<{ allTime: number; opening: number; closing: number; hasSheet: boolean } | null>(null);
   const [cashSheetUploading, setCashSheetUploading] = useState(false);
   const [cashSheetUploadError, setCashSheetUploadError] = useState<string | null>(null);
@@ -508,6 +508,11 @@ export default function ReportsPage() {
 
   // ── Fetchers ──
   const fetchCashSheet = useCallback(async (date: string) => {
+    // Running cash balance for this date (report + all-time), read-only.
+    fetch(`/api/reports/cash-ledger?date=${date}`)
+      .then(r => r.json())
+      .then(l => { if (l && !l.error) setCashLedger({ allTime: Number(l.allTime) || 0, opening: Number(l.opening) || 0, closing: Number(l.closing) || 0, hasSheet: !!l.hasSheet }); })
+      .catch(() => setCashLedger(null));
     try {
       const res = await fetch(`/api/reports/cash-sheets?date=${date}`);
       const data = await res.json();
@@ -550,21 +555,6 @@ export default function ReportsPage() {
         });
         setCashSheetSavedSnapshot(null); // brand new / unsaved → hide print until saved
       }
-      // Cumulative running balance up to & including this day (report de caisse).
-      try {
-        const ledgerRes = await fetch(`/api/reports/cash-ledger?date=${date}`);
-        const ledger = await ledgerRes.json();
-        if (typeof ledger?.allTime === 'number') {
-          setCashLedger({
-            allTime: ledger.allTime,
-            opening: ledger.opening ?? 0,
-            closing: ledger.closing ?? 0,
-            hasSheet: !!ledger.hasSheet,
-          });
-        } else {
-          setCashLedger(null);
-        }
-      } catch { setCashLedger(null); }
     } catch { /* silent */ }
   }, []);
 
@@ -1693,7 +1683,7 @@ export default function ReportsPage() {
                   </div>
 
                   {/* Autres encaissements — user-defined non-cash payment sources (R1) */}
-                  <div className="bg-card border border-border rounded-xl p-3">
+                  <div className="bg-card border border-border rounded-xl p-3 shadow-[var(--shadow-sm)]">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Autres encaissements</span>
                       <span className="text-[10px] text-muted-foreground">Virement, chèque, etc.</span>
@@ -1769,7 +1759,7 @@ export default function ReportsPage() {
 
                   {/* Auto-calculated espèce totals */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-xl border border-border bg-card px-4 py-3">
+                    <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-[var(--shadow-sm)]">
                       <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Total Espèce Caisse</div>
                       <div className="text-lg font-bold text-[#606338] mt-0.5">{fmtMAD(currentCashSheetTotals.caisseEspeces)}</div>
                     </div>
@@ -1971,31 +1961,29 @@ export default function ReportsPage() {
 
                   {/* Bottom totals */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-xl border border-border bg-card px-4 py-3">
+                    <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-[var(--shadow-sm)]">
                       <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Total Dépense</div>
                       <div className="text-lg font-bold text-orange-500 mt-0.5">{fmtMAD(currentCashSheetTotals.totalDepense)}</div>
                     </div>
                     <div className={`rounded-xl border px-4 py-3 ${currentCashSheetTotals.resteEspeces >= 0 ? 'border-[#606338]/30 bg-[#606338]/5' : 'border-red-500/30 bg-red-500/5'}`}>
-                      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Reste en espèces (jour)</div>
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Reste en espèces <span className="normal-case font-normal">(jour)</span></div>
                       <div className={`text-lg font-bold mt-0.5 ${currentCashSheetTotals.resteEspeces >= 0 ? 'text-[#606338]' : 'text-red-500'}`}>
                         {fmtMAD(currentCashSheetTotals.resteEspeces)}
                       </div>
                     </div>
                   </div>
 
-                  {/* Solde de caisse cumulé — running report de caisse (espèces de tous les jours,
-                      démarré à 0). Le "Reste en espèces (jour)" ci-dessus peut être négatif un jour
-                      donné ; ce solde cumulé, lui, reflète l'argent réellement en caisse. */}
+                  {/* ── Solde de caisse cumulé (report de caisse) ── */}
                   {cashLedger && (
-                    <div className="rounded-xl border border-[#606338]/30 bg-[#606338]/[0.04] px-4 py-3">
-                      <div className="flex items-center justify-between gap-2 mb-2.5">
-                        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Solde de caisse cumulé</span>
-                        <span className="text-[10px] text-muted-foreground">report de caisse · démarré à 0</span>
+                    <div className="rounded-xl border border-[#606338]/30 bg-[#606338]/[0.07] px-4 py-3 shadow-[var(--shadow-sm)]">
+                      <div className="flex items-center justify-between">
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Solde de caisse cumulé</div>
+                        <div className="text-[10px] text-muted-foreground">report depuis le début · départ 0</div>
                       </div>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="mt-2 grid grid-cols-3 gap-2 text-center">
                         <div>
                           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Report (ouverture)</div>
-                          <div className="text-sm font-semibold mt-0.5 text-foreground">{fmtMAD(cashLedger.opening)}</div>
+                          <div className="text-sm font-semibold text-foreground mt-0.5">{fmtMAD(cashLedger.opening)}</div>
                         </div>
                         <div>
                           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Mouvement du jour</div>
@@ -2005,14 +1993,12 @@ export default function ReportsPage() {
                         </div>
                         <div>
                           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Solde de clôture</div>
-                          <div className="text-sm font-bold mt-0.5 text-[#606338]">
-                            {fmtMAD(cashLedger.opening + currentCashSheetTotals.resteEspeces)}
-                          </div>
+                          <div className="text-base font-bold text-[#606338] mt-0.5">{fmtMAD(cashLedger.opening + currentCashSheetTotals.resteEspeces)}</div>
                         </div>
                       </div>
-                      <div className="mt-2.5 pt-2.5 border-t border-[#606338]/15 flex items-center justify-between gap-2">
+                      <div className="mt-2 pt-2 border-t border-[#606338]/15 flex items-center justify-between">
                         <span className="text-[11px] text-muted-foreground">Solde espèces (tout le temps)</span>
-                        <span className="text-base font-bold text-[#606338]">{fmtMAD(cashLedger.allTime)}</span>
+                        <span className="text-sm font-bold text-[#606338]">{fmtMAD(cashLedger.allTime)}</span>
                       </div>
                     </div>
                   )}
@@ -2083,7 +2069,7 @@ export default function ReportsPage() {
                             {visible.map((a) => {
                               const isImg = (a.mime || '').startsWith('image/');
                               return (
-                                <div key={a.url} className="relative group border border-border rounded-lg overflow-hidden bg-card aspect-square">
+                                <div key={a.url} className="relative group border border-border rounded-lg overflow-hidden bg-card aspect-square shadow-[var(--shadow-sm)]">
                                   {isImg ? (
                                     <button type="button" onClick={() => setLightboxUrl(a.url)} className="block w-full h-full cursor-zoom-in" title={a.name}>
                                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2192,7 +2178,7 @@ export default function ReportsPage() {
               ) : (
                 <div className="overflow-x-auto rounded-xl border border-border">
                   <table className="w-full text-xs whitespace-nowrap">
-                    <thead>
+                    <thead className="bg-[var(--color-secondary)]/50">
                       <tr className="bg-secondary text-[10px] text-muted-foreground uppercase tracking-wide">
                         <th rowSpan={2} className="sticky left-0 z-10 bg-secondary px-3 py-3 text-left border-r border-border min-w-[68px] font-semibold">{rp.date}</th>
                         <th colSpan={6} className="px-3 py-2 text-center border-r border-border font-semibold text-[#606338]">Recettes</th>
@@ -2338,11 +2324,11 @@ export default function ReportsPage() {
                 {/* Breakdown Table */}
                 <div className="bg-secondary border border-border rounded-xl overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead>
+                    <thead className="bg-[var(--color-secondary)]/50">
                       <tr className="bg-card text-xs text-muted-foreground uppercase">
-                        <th className="px-4 py-3 text-left">{rp.indicator}</th>
-                        <th className="px-4 py-3 text-right">{rp.amount}</th>
-                        <th className="px-4 py-3 text-right">{rp.pctOfRevenue}</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{rp.indicator}</th>
+                        <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{rp.amount}</th>
+                        <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{rp.pctOfRevenue}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2445,14 +2431,14 @@ export default function ReportsPage() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead>
+                    <thead className="bg-[var(--color-secondary)]/50">
                       <tr className="bg-card text-xs text-muted-foreground uppercase">
-                        <th className="px-4 py-3 text-left">{rp.date}</th>
-                        <th className="px-4 py-3 text-left">{rp.description}</th>
-                        <th className="px-4 py-3 text-left">{rp.category}</th>
-                        <th className="px-4 py-3 text-left">{rp.paymentMethod}</th>
-                        <th className="px-4 py-3 text-right">{rp.amount}</th>
-                        <th className="px-4 py-3 text-right">{rp.actions}</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{rp.date}</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{rp.description}</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{rp.category}</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{rp.paymentMethod}</th>
+                        <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{rp.amount}</th>
+                        <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{rp.actions}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2511,14 +2497,14 @@ export default function ReportsPage() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead>
+                    <thead className="bg-[var(--color-secondary)]/50">
                       <tr className="bg-card text-xs text-muted-foreground uppercase">
-                        <th className="px-4 py-3 text-left">{rp.date}</th>
-                        <th className="px-4 py-3 text-left">{rp.product}</th>
-                        <th className="px-4 py-3 text-left">{rp.type}</th>
-                        <th className="px-4 py-3 text-right">{rp.qtyChange}</th>
-                        <th className="px-4 py-3 text-right">{rp.before}</th>
-                        <th className="px-4 py-3 text-right">{rp.after}</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{rp.date}</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{rp.product}</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{rp.type}</th>
+                        <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{rp.qtyChange}</th>
+                        <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{rp.before}</th>
+                        <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{rp.after}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2644,7 +2630,7 @@ export default function ReportsPage() {
               </div>
             </div>
 
-            <div className="bg-card border border-border rounded-xl p-4 text-sm">
+            <div className="bg-card border border-border rounded-xl p-4 text-sm shadow-[var(--shadow-sm)]">
               <span className="text-muted-foreground">Total du mois :</span>{' '}
               <span className="font-semibold text-[#606338]">
                 {miscExpenses.reduce((s, e) => s + Number(e.amount), 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DH
@@ -2665,13 +2651,13 @@ export default function ReportsPage() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead>
+                    <thead className="bg-[var(--color-secondary)]/50">
                       <tr className="bg-secondary text-xs text-muted-foreground uppercase tracking-wide">
-                        <th className="px-4 py-3 text-left font-semibold">Date</th>
-                        <th className="px-4 py-3 text-right font-semibold">Montant</th>
-                        <th className="px-4 py-3 text-left font-semibold">Description</th>
-                        <th className="px-4 py-3 text-left font-semibold">Justification</th>
-                        <th className="px-4 py-3 text-right font-semibold">Actions</th>
+                        <th className="px-4 py-3 text-left font-semibold text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Date</th>
+                        <th className="px-4 py-3 text-right font-semibold text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Montant</th>
+                        <th className="px-4 py-3 text-left font-semibold text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Description</th>
+                        <th className="px-4 py-3 text-left font-semibold text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Justification</th>
+                        <th className="px-4 py-3 text-right font-semibold text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2810,7 +2796,7 @@ export default function ReportsPage() {
               </div>
             </div>
 
-            <div className="bg-card border border-border rounded-xl p-4 text-sm flex flex-wrap gap-x-6 gap-y-2">
+            <div className="bg-card border border-border rounded-xl p-4 text-sm flex flex-wrap gap-x-6 gap-y-2 shadow-[var(--shadow-sm)]">
               <div><span className="text-muted-foreground">Total CNSS:</span> <span className="font-semibold text-foreground">{payrollEntries.reduce((s, e) => s + Number(e.cnss), 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DH</span></div>
               <div><span className="text-muted-foreground">Total TAC:</span> <span className="font-semibold text-foreground">{payrollEntries.reduce((s, e) => s + Number(e.tac), 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DH</span></div>
               <div><span className="text-muted-foreground">Total paie du mois:</span> <span className="font-semibold text-[#606338]">{payrollEntries.reduce((s, e) => s + Number(e.total), 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DH</span></div>
@@ -2829,16 +2815,16 @@ export default function ReportsPage() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead>
+                    <thead className="bg-[var(--color-secondary)]/50">
                       <tr className="bg-secondary text-xs text-muted-foreground uppercase tracking-wide">
-                        <th className="px-4 py-3 text-left font-semibold">Employé</th>
-                        <th className="px-4 py-3 text-right font-semibold">Jours travaillés</th>
-                        <th className="px-4 py-3 text-right font-semibold">Jours de repos</th>
-                        <th className="px-4 py-3 text-right font-semibold">Jours fériés</th>
-                        <th className="px-4 py-3 text-right font-semibold">CNSS</th>
-                        <th className="px-4 py-3 text-right font-semibold">TAC</th>
-                        <th className="px-4 py-3 text-right font-semibold">Total</th>
-                        <th className="px-4 py-3 text-right font-semibold">Actions</th>
+                        <th className="px-4 py-3 text-left font-semibold text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Employé</th>
+                        <th className="px-4 py-3 text-right font-semibold text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Jours travaillés</th>
+                        <th className="px-4 py-3 text-right font-semibold text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Jours de repos</th>
+                        <th className="px-4 py-3 text-right font-semibold text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Jours fériés</th>
+                        <th className="px-4 py-3 text-right font-semibold text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">CNSS</th>
+                        <th className="px-4 py-3 text-right font-semibold text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">TAC</th>
+                        <th className="px-4 py-3 text-right font-semibold text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Total</th>
+                        <th className="px-4 py-3 text-right font-semibold text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Actions</th>
                       </tr>
                     </thead>
                     <tbody>

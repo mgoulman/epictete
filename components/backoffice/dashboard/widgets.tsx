@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import {
   TrendingUp, Package, CreditCard, CalendarCheck, Clock, ClipboardList, Armchair, ArrowRight, Loader2,
 } from 'lucide-react';
@@ -12,8 +13,18 @@ const todayISO = () => new Date().toLocaleDateString('en-CA');
 const mad = (n: number) => n.toLocaleString('fr-FR', { maximumFractionDigits: 0 });
 
 function Card({ children, accent = 'border-border', href }: { children: React.ReactNode; accent?: string; href?: string }) {
-  const inner = <div className={`bg-secondary border rounded-2xl p-5 h-full ${accent}`}>{children}</div>;
-  return href ? <Link href={href} className="block hover:opacity-90 transition-opacity">{inner}</Link> : inner;
+  const inner = (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+      whileHover={href ? { y: -2 } : undefined}
+      className={`bg-[var(--color-card)] border rounded-[var(--radius)] p-5 h-full shadow-[var(--shadow-sm)] transition-shadow ${href ? 'hover:shadow-[var(--shadow-md)]' : ''} ${accent}`}
+    >
+      {children}
+    </motion.div>
+  );
+  return href ? <Link href={href} className="block">{inner}</Link> : inner;
 }
 
 function Stat({ icon: Icon, color, label, value, sub }: { icon: React.ElementType; color: string; label: string; value: React.ReactNode; sub?: React.ReactNode }) {
