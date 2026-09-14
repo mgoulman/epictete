@@ -614,6 +614,21 @@ export default function ReportsPage() {
         // Mark this content as saved → the print button becomes available.
         setCashSheetSavedSnapshot(serializeCashSheet(cashSheetToSave));
 
+        // Refresh the cumulative ledger so the on-screen card and the printed
+        // sheet's "tout le temps" reflect this just-saved day.
+        try {
+          const ledgerRes = await fetch(`/api/reports/cash-ledger?date=${cashSheet.entry_date}`);
+          const ledger = await ledgerRes.json();
+          if (typeof ledger?.allTime === 'number') {
+            setCashLedger({
+              allTime: ledger.allTime,
+              opening: ledger.opening ?? 0,
+              closing: ledger.closing ?? 0,
+              hasSheet: !!ledger.hasSheet,
+            });
+          }
+        } catch { /* keep existing ledger */ }
+
         // Also save/update the daily entry for suivi journalier
         try {
           // First fetch existing entry to preserve data
@@ -802,8 +817,17 @@ export default function ReportsPage() {
       <table class="summary-table" style="margin-top:4mm">
         <colgroup><col style="width:55%"><col style="width:45%"></colgroup>
         <tr class="total-row"><td class="label">TOTAL DÉPENSE :</td><td class="amount">${fmt(totals.totalDepense)}</td></tr>
-        <tr class="grand"><td class="label">RESTE EN ESPÈCES :</td><td class="amount">${fmt(totals.resteEspeces)}</td></tr>
+        <tr class="grand"><td class="label">RESTE EN ESPÈCES (JOUR) :</td><td class="amount">${fmt(totals.resteEspeces)}</td></tr>
       </table>
+      ${cashLedger ? `
+      <table class="summary-table" style="margin-top:4mm">
+        <colgroup><col style="width:55%"><col style="width:45%"></colgroup>
+        <tr class="date-row"><td colspan="2" class="amount" style="text-align:left;letter-spacing:.4px">SOLDE DE CAISSE CUMULÉ — report de caisse · démarré à 0</td></tr>
+        <tr><td class="label" style="font-weight:normal">Report (ouverture) :</td><td class="amount">${fmt(cashLedger.opening)}</td></tr>
+        <tr><td class="label" style="font-weight:normal">Mouvement du jour :</td><td class="amount">${totals.resteEspeces >= 0 ? '+' : ''}${fmt(totals.resteEspeces)}</td></tr>
+        <tr class="total-row"><td class="label">Solde de clôture :</td><td class="amount">${fmt(cashLedger.opening + totals.resteEspeces)}</td></tr>
+        <tr class="grand"><td class="label">SOLDE ESPÈCES (TOUT LE TEMPS) :</td><td class="amount">${fmt(cashLedger.allTime)}</td></tr>
+      </table>` : ''}
       <table class="signature-table">
         <colgroup><col style="width:30%"><col style="width:70%"></colgroup>
         <tr><td class="label">MANAGER</td><td class="signature">${esc(cashSheet.manager_name || '')}</td></tr>
