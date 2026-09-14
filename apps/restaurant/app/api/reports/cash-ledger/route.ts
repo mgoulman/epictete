@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
-import { computeRunningBalance, LEDGER_START_DATE, LEDGER_START_BALANCE } from '@/lib/finance/cash-ledger';
+import { computeAnchoredBalance, LEDGER_ANCHOR_DATE, LEDGER_ANCHOR_BALANCE } from '@/lib/finance/cash-ledger';
 
 // GET /api/reports/cash-ledger
 //   ?date=YYYY-MM-DD  → { allTime, opening, dayNet, closing, count } for that day
@@ -27,19 +27,23 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    // Anchor: only sheets from LEDGER_START_DATE onward count, and the running
-    // balance starts at LEDGER_START_BALANCE (a real drawer count) — not 0, not
-    // the sum of all prior history.
+    // Anchored: LEDGER_ANCHOR_BALANCE is the drawer's cash at the CLOSE of
+    // LEDGER_ANCHOR_DATE (already includes that day). Days after it add on top;
+    // the anchor day is pinned to the anchor balance (never re-added); earlier
+    // days are excluded.
     const all = (data as Array<Record<string, unknown>>) || [];
-    const fromAnchor = all.filter((s) => String(s.entry_date) >= LEDGER_START_DATE);
-    const rows = computeRunningBalance(fromAnchor, LEDGER_START_BALANCE);
-    const allTime = rows.length ? rows[rows.length - 1].closing : LEDGER_START_BALANCE;
+    const rows = computeAnchoredBalance(all, LEDGER_ANCHOR_DATE, LEDGER_ANCHOR_BALANCE);
+    const allTime = rows.length ? rows[rows.length - 1].closing : LEDGER_ANCHOR_BALANCE;
 
     if (date) {
-      const beforeStart = date < LEDGER_START_DATE;
-      const before = rows.filter((r) => r.date < date);
-      const opening = before.length ? before[before.length - 1].closing : LEDGER_START_BALANCE;
+      const beforeStart = date < LEDGER_ANCHOR_DATE;
       const onDay = rows.find((r) => r.date === date) || null;
+      const before = rows.filter((r) => r.date < date);
+      const opening = onDay
+        ? onDay.opening
+        : before.length
+          ? before[before.length - 1].closing
+          : LEDGER_ANCHOR_BALANCE;
       return NextResponse.json({
         allTime,
         count: rows.length,
@@ -47,12 +51,12 @@ export async function GET(request: NextRequest) {
         dayNet: onDay ? onDay.dayNet : 0,
         closing: onDay ? onDay.closing : opening,
         hasSheet: !!onDay,
-        startDate: LEDGER_START_DATE,
+        startDate: LEDGER_ANCHOR_DATE,
         beforeStart,
       });
     }
 
-    return NextResponse.json({ allTime, count: rows.length, series: rows, startDate: LEDGER_START_DATE });
+    return NextResponse.json({ allTime, count: rows.length, series: rows, startDate: LEDGER_ANCHOR_DATE });
   } catch (err) {
     console.error('Cash ledger GET error:', err);
     return NextResponse.json({ error: 'Failed to compute cash ledger' }, { status: 500 });
