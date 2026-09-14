@@ -32,7 +32,7 @@ export default function DroppableDay({
   const tripIds = trips.map(t => t.id);
 
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
+    <div className="bg-card border border-border rounded-lg overflow-hidden shadow-[var(--shadow-sm)]">
       <div
         className={`p-2 text-center text-sm font-medium border-b border-border ${
           isToday ? 'bg-[#606338] text-white' : 'bg-secondary'

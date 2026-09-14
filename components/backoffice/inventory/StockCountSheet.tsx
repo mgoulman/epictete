@@ -252,14 +252,14 @@ export default function StockCountSheet({ items, categories, onSaved, showToast 
           )}
         </div>
 
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]">
           <div className="max-h-[60vh] overflow-y-auto">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-secondary z-10">
+              <thead className="sticky top-0 bg-secondary z-10 bg-[var(--color-secondary)]/50">
                 <tr className="text-left text-xs uppercase text-muted-foreground">
-                  <th className="px-3 py-2 font-semibold">Produit</th>
-                  {mode === 'achat' && <th className="px-3 py-2 font-semibold text-right w-32">Prix unitaire</th>}
-                  <th className="px-3 py-2 font-semibold text-right w-32">Quantité</th>
+                  <th className="px-3 py-2 font-semibold text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Produit</th>
+                  {mode === 'achat' && <th className="px-3 py-2 font-semibold text-right w-32 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Prix unitaire</th>}
+                  <th className="px-3 py-2 font-semibold text-right w-32 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Quantité</th>
                 </tr>
               </thead>
               <tbody>

@@ -184,7 +184,7 @@ export function NotificationSettings() {
             const showRecipients = !def?.dynamicRecipients;
             const params = def?.params ?? [];
             return (
-              <div key={s.type} className="bg-card rounded-lg overflow-hidden">
+              <div key={s.type} className="bg-card rounded-lg overflow-hidden shadow-[var(--shadow-sm)]">
                 <div className="flex items-center justify-between p-4">
                   <div className="flex items-start gap-3">
                     <Icon className="w-5 h-5 text-[#606338] mt-0.5" />

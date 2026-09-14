@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
+import { MotionConfig, motion } from 'framer-motion';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/hooks';
 import { useTranslation } from '@/lib/i18n/useTranslation';
@@ -114,30 +115,38 @@ export function BackofficeShell({ children }: BackofficeShellProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Suspense fallback={null}>
-        <Sidebar
-          isCollapsed={sidebarCollapsed}
-          onToggle={handleSidebarToggle}
-          isMobileOpen={isMobileSidebarOpen}
-          onMobileClose={handleMobileSidebarClose}
+    <MotionConfig reducedMotion="user">
+      <div className="min-h-screen bg-background">
+        <Suspense fallback={null}>
+          <Sidebar
+            isCollapsed={sidebarCollapsed}
+            onToggle={handleSidebarToggle}
+            isMobileOpen={isMobileSidebarOpen}
+            onMobileClose={handleMobileSidebarClose}
+          />
+        </Suspense>
+        <Header
+          sidebarCollapsed={sidebarCollapsed}
+          onMobileMenuClick={handleMobileMenuClick}
         />
-      </Suspense>
-      <Header
-        sidebarCollapsed={sidebarCollapsed}
-        onMobileMenuClick={handleMobileMenuClick}
-      />
 
-      <main
-        className={`
-          pt-16 min-h-screen transition-all duration-200
-          pl-0 md:pl-[72px] ${!sidebarCollapsed ? 'md:pl-[260px]' : ''}
-        `}
-      >
-        <div className="p-4 md:p-6 lg:p-8">
-          {children}
-        </div>
-      </main>
-    </div>
+        <main
+          className={`
+            pt-16 min-h-screen transition-all duration-200
+            pl-0 md:pl-[72px] ${!sidebarCollapsed ? 'md:pl-[260px]' : ''}
+          `}
+        >
+          <motion.div
+            key={pathname}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="p-4 md:p-6 lg:p-8"
+          >
+            {children}
+          </motion.div>
+        </main>
+      </div>
+    </MotionConfig>
   );
 }

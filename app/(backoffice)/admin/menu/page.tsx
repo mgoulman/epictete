@@ -1309,7 +1309,7 @@ export default function MenuPage() {
                 /* Current dish + recipe list */
                 <>
                   {/* Dish card with image or placeholder */}
-                  <div className="mb-4 bg-card border border-border rounded-xl overflow-hidden">
+                  <div className="mb-4 bg-card border border-border rounded-xl overflow-hidden shadow-[var(--shadow-sm)]">
                     <div className="h-44 overflow-hidden">
                       {stableMatchDish.image_url ? (
                         <img src={stableMatchDish.image_url} alt={stableMatchDish.name_fr} className="w-full h-full object-cover" />

@@ -828,7 +828,7 @@ export default function PersonnelPage() {
           ) : (
             <div className="grid gap-4">
               {filteredStaff.map(staff => (
-                <div key={staff.id} data-focus={staff.id} className="bg-card border border-border rounded-lg p-4 flex items-center justify-between gap-3">
+                <div key={staff.id} data-focus={staff.id} className="bg-card border border-border rounded-lg p-4 flex items-center justify-between gap-3 shadow-[var(--shadow-sm)]">
                   <div className="flex items-center gap-4 min-w-0">
                     <div
                       className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold shrink-0"
@@ -972,19 +972,19 @@ export default function PersonnelPage() {
               {showWeeklySummary ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
             {showWeeklySummary && (
-              <div className="mt-2 bg-card border border-border rounded-lg overflow-x-auto">
+              <div className="mt-2 bg-card border border-border rounded-lg overflow-x-auto shadow-[var(--shadow-sm)]">
                 <table className="w-full text-sm">
-                  <thead className="bg-secondary">
+                  <thead className="bg-secondary bg-[var(--color-secondary)]/50">
                     <tr>
-                      <th className="text-left p-2 font-medium text-muted-foreground sticky left-0 bg-secondary min-w-[150px]">{pn.staff}</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">{pn.type}</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground sticky left-0 bg-secondary min-w-[150px] text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{pn.staff}</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{pn.type}</th>
                       {getWeekDays().map((day, idx) => (
-                        <th key={idx} className="text-center p-2 font-medium text-muted-foreground min-w-[60px]">
+                        <th key={idx} className="text-center p-2 font-medium text-muted-foreground min-w-[60px] text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">
                           {day.toLocaleDateString('en-US', { weekday: 'short' })}
                         </th>
                       ))}
-                      <th className="text-center p-2 font-medium text-muted-foreground min-w-[70px]">{pn.hours}</th>
-                      <th className="text-center p-2 font-medium text-muted-foreground min-w-[60px]">{pn.offLabel}</th>
+                      <th className="text-center p-2 font-medium text-muted-foreground min-w-[70px] text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{pn.hours}</th>
+                      <th className="text-center p-2 font-medium text-muted-foreground min-w-[60px] text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{pn.offLabel}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1063,14 +1063,14 @@ export default function PersonnelPage() {
               <button onClick={() => { const d = new Date(presenceDate); d.setDate(d.getDate() + 1); setPresenceDate(d.toISOString().split('T')[0]); }} className="p-2 hover:bg-card rounded-lg"><ChevronRight className="w-5 h-5" /></button>
             </div>
 
-            <div className="bg-card border border-border rounded-xl overflow-x-auto">
+            <div className="bg-card border border-border rounded-xl overflow-x-auto shadow-[var(--shadow-sm)]">
               <table className="w-full text-sm">
-                <thead className="bg-secondary">
+                <thead className="bg-secondary bg-[var(--color-secondary)]/50">
                   <tr>
-                    <th className="text-left p-3 font-medium text-muted-foreground min-w-[180px]">{pn.staff}</th>
-                    <th className="text-left p-3 font-medium text-muted-foreground">Prévu</th>
-                    <th className="text-left p-3 font-medium text-muted-foreground">Pointage</th>
-                    <th className="text-left p-3 font-medium text-muted-foreground">Statut</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground min-w-[180px] text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{pn.staff}</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Prévu</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Pointage</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Statut</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1127,7 +1127,7 @@ export default function PersonnelPage() {
 
           <div className="space-y-4">
             {timeOffRecords.map(record => (
-              <div key={record.id} className="bg-card border border-border rounded-lg p-4">
+              <div key={record.id} className="bg-card border border-border rounded-lg p-4 shadow-[var(--shadow-sm)]">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className={`w-2 h-12 rounded-full ${
@@ -1230,9 +1230,9 @@ export default function PersonnelPage() {
             </button>
           </div>
 
-          <div className="bg-card border border-border rounded-lg overflow-x-auto">
+          <div className="bg-card border border-border rounded-lg overflow-x-auto shadow-[var(--shadow-sm)]">
             <table className="w-full">
-              <thead className="bg-secondary">
+              <thead className="bg-secondary bg-[var(--color-secondary)]/50">
                 <tr>
                   <th className="text-left p-3"><SortHeader label={pn.employee} field="staff.first_name" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="left" className="text-sm font-medium text-muted-foreground" /></th>
                   <th className="text-left p-3"><SortHeader label={pn.type} field="staff.staff_type.name" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="left" className="text-sm font-medium text-muted-foreground" /></th>
@@ -1241,7 +1241,7 @@ export default function PersonnelPage() {
                   <th className="text-right p-3"><SortHeader label={pn.deductions} field="deductions" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="right" className="text-sm font-medium text-muted-foreground" /></th>
                   <th className="text-right p-3"><SortHeader label={pn.total} field="total" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="right" className="text-sm font-medium text-muted-foreground" /></th>
                   <th className="text-center p-3"><SortHeader label={pn.status} field="paid_at" currentSort={salarySort} currentDir={salarySortDir} onSort={handleSalarySort} align="center" className="text-sm font-medium text-muted-foreground" /></th>
-                  <th className="text-right p-3 text-sm font-medium text-muted-foreground">{pn.actions}</th>
+                  <th className="text-right p-3 text-sm font-medium text-muted-foreground text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{pn.actions}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1301,7 +1301,7 @@ export default function PersonnelPage() {
           </div>
 
           {salaryRecords.length > 0 && (
-            <div className="mt-4 p-4 bg-card border border-border rounded-lg flex justify-between items-center">
+            <div className="mt-4 p-4 bg-card border border-border rounded-lg flex justify-between items-center shadow-[var(--shadow-sm)]">
               <span className="text-muted-foreground">{pn.totalPayroll}</span>
               <span className="text-xl font-bold text-foreground">
                 {salaryRecords.reduce((sum, r) => sum + r.total, 0).toLocaleString()} DH
@@ -1467,7 +1467,7 @@ function StaffModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="bg-card border border-border rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-[var(--shadow-sm)]">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-lg font-semibold">{editingStaff ? pn.editStaff : pn.addStaffMember}</h2>
           <button onClick={onClose} className="p-2 hover:bg-secondary rounded-lg">
@@ -1811,7 +1811,7 @@ function TimeOffModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-[var(--shadow-sm)]">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-lg font-semibold">{pn.requestTimeOff}</h2>
           <button onClick={onClose} className="p-2 hover:bg-secondary rounded-lg">
@@ -1986,7 +1986,7 @@ function SalaryModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-[var(--shadow-sm)]">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-lg font-semibold">{editingRecord ? pn.editSalaryRecord : pn.addSalaryRecord}</h2>
           <button onClick={onClose} className="p-2 hover:bg-secondary rounded-lg">
@@ -2162,7 +2162,7 @@ function ShiftDetailModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-[var(--shadow-sm)]">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-lg font-semibold">{pn.shiftDetails}</h2>
           <button onClick={onClose} className="p-2 hover:bg-secondary rounded-lg">
@@ -2338,7 +2338,7 @@ function TransportTripModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-[var(--shadow-sm)]">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className={`p-2 rounded-lg ${isPickup ? 'bg-green-500/20' : 'bg-red-500/20'}`}>

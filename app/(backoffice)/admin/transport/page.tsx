@@ -477,7 +477,7 @@ export default function TransportPage() {
           {activeTab === 'resources' && (
             <div className="grid lg:grid-cols-2 gap-6">
               {/* Drivers Section */}
-              <div className="bg-card border border-border rounded-lg p-4">
+              <div className="bg-card border border-border rounded-lg p-4 shadow-[var(--shadow-sm)]">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold flex items-center gap-2">
                     <UserCheck className="w-5 h-5" />
@@ -534,7 +534,7 @@ export default function TransportPage() {
               </div>
 
               {/* Vehicles Section */}
-              <div className="bg-card border border-border rounded-lg p-4">
+              <div className="bg-card border border-border rounded-lg p-4 shadow-[var(--shadow-sm)]">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold flex items-center gap-2">
                     <Car className="w-5 h-5" />
@@ -608,14 +608,14 @@ export default function TransportPage() {
                 </p>
               </div>
 
-              <div className="bg-card border border-border rounded-lg overflow-x-auto">
+              <div className="bg-card border border-border rounded-lg overflow-x-auto shadow-[var(--shadow-sm)]">
                 <table className="w-full">
-                  <thead className="bg-secondary">
+                  <thead className="bg-secondary bg-[var(--color-secondary)]/50">
                     <tr>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">{tp.name}</th>
-                      <th className="text-left p-3 text-sm font-medium text-muted-foreground">{tp.departmentLabel}</th>
-                      <th className="text-center p-3 text-sm font-medium text-muted-foreground">{tp.pickupLabel}</th>
-                      <th className="text-center p-3 text-sm font-medium text-muted-foreground">{tp.dropoffLabel}</th>
+                      <th className="text-left p-3 text-sm font-medium text-muted-foreground text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{tp.name}</th>
+                      <th className="text-left p-3 text-sm font-medium text-muted-foreground text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{tp.departmentLabel}</th>
+                      <th className="text-center p-3 text-sm font-medium text-muted-foreground text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{tp.pickupLabel}</th>
+                      <th className="text-center p-3 text-sm font-medium text-muted-foreground text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">{tp.dropoffLabel}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -815,7 +815,7 @@ function PlanningTab({
 
       <div className="grid grid-cols-7 gap-2">
         {getWeekDays().map((day, idx) => (
-          <div key={idx} className="bg-card border border-border rounded-lg overflow-hidden">
+          <div key={idx} className="bg-card border border-border rounded-lg overflow-hidden shadow-[var(--shadow-sm)]">
             <div className={`p-2 text-center text-sm font-medium border-b border-border ${
               day.toDateString() === new Date().toDateString() ? 'bg-[#606338] text-white' : 'bg-secondary'
             }`}>
@@ -891,7 +891,7 @@ function DriverModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-[var(--shadow-sm)]">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-lg font-semibold">{editingDriver ? tp.editDriver : tp.addDriver}</h2>
           <button onClick={onClose} className="p-2 hover:bg-secondary rounded-lg">
@@ -1019,7 +1019,7 @@ function VehicleModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-[var(--shadow-sm)]">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-lg font-semibold">{editingVehicle ? tp.editVehicle : tp.addVehicle}</h2>
           <button onClick={onClose} className="p-2 hover:bg-secondary rounded-lg">

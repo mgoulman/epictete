@@ -278,7 +278,7 @@ function SecuritySettings() {
 
         <div>
           <label className="block text-[13px] font-medium text-foreground mb-2">{sec.passwordRequirements}</label>
-          <div className="p-4 bg-card rounded-lg text-[13px] text-muted space-y-2">
+          <div className="p-4 bg-card rounded-lg text-[13px] text-muted space-y-2 shadow-[var(--shadow-sm)]">
             <p>{sec.minChars}</p>
             <p>{sec.uppercase}</p>
             <p>{sec.oneNumber}</p>

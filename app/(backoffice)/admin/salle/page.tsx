@@ -461,7 +461,7 @@ export default function SallePlanPage() {
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onClick={() => setSelectedTableId(null)}
-            className="relative bg-card border border-border rounded-xl overflow-visible"
+            className="relative bg-card border border-border rounded-xl overflow-visible shadow-[var(--shadow-sm)]"
             style={{ aspectRatio: '4 / 3' }}
           >
             {/* Grid background */}
@@ -527,7 +527,7 @@ export default function SallePlanPage() {
 
         {/* ─── Properties panel ─────────────────────────────────────────── */}
         {selectedTable && (
-          <div className="w-full lg:w-72 bg-card border border-border rounded-xl p-4 self-start shrink-0 space-y-4">
+          <div className="w-full lg:w-72 bg-card border border-border rounded-xl p-4 self-start shrink-0 space-y-4 shadow-[var(--shadow-sm)]">
             {/* Header: editable number + delete */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
@@ -692,7 +692,7 @@ export default function SallePlanPage() {
       {/* Zone modal */}
       {showZoneModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-xl w-full max-w-sm">
+          <div className="bg-card border border-border rounded-xl w-full max-w-sm shadow-[var(--shadow-sm)]">
             <div className="p-4 border-b border-border flex items-center justify-between">
               <h2 className="text-lg font-semibold">{sl.addZone}</h2>
               <button onClick={() => setShowZoneModal(false)} className="p-2 hover:bg-secondary rounded-lg">
