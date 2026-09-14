@@ -5,11 +5,22 @@
 // outflows exceed its inflows. The drawer physically carries cash forward from
 // every previous day, so the meaningful figure is the RUNNING balance: a day
 // just draws it down, it only turns negative if cumulative cash-out ever exceeds
-// cumulative cash-in. Starting balance is 0 (day-1 opening report).
+// cumulative cash-in.
+//
+// The ledger is ANCHORED to a real drawer count rather than summing all history:
+// on LEDGER_START_DATE the drawer physically held LEDGER_START_BALANCE MAD, and
+// every sheet from that date onward builds on it. Sheets dated before the anchor
+// are excluded from the running balance. To re-anchor (new physical count), change
+// these two values in one place.
 //
 // Formulas below are copied verbatim from app/api/reports/cash-sheets/route.ts so
 // the day-net here is byte-for-byte the same as the "Reste en espèces" the sheet
 // already shows — no drift.
+
+/** First day counted in the cumulative ledger (inclusive). ISO YYYY-MM-DD. */
+export const LEDGER_START_DATE = '2026-09-12';
+/** Physical cash in the drawer at the OPENING of LEDGER_START_DATE (MAD). */
+export const LEDGER_START_BALANCE = 4177.21;
 
 export function parseCashNumber(value: unknown): number {
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
