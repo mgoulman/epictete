@@ -429,7 +429,7 @@ export default function ReportsPage() {
   const [showCashSheet, setShowCashSheet] = useState(false);
   // Cumulative cash balance ("solde espèces cumulé") for the loaded date — opening
   // (report from all prior days) + all-time closing, derived read-only from stored sheets.
-  const [cashLedger, setCashLedger] = useState<{ allTime: number; opening: number; closing: number; hasSheet: boolean } | null>(null);
+  const [cashLedger, setCashLedger] = useState<{ allTime: number; opening: number; closing: number; hasSheet: boolean; startDate?: string; beforeStart?: boolean } | null>(null);
   const [cashSheetUploading, setCashSheetUploading] = useState(false);
   const [cashSheetUploadError, setCashSheetUploadError] = useState<string | null>(null);
   // R3 — lightbox for viewing an attached image full-size; showAllAttachments expands
@@ -511,7 +511,7 @@ export default function ReportsPage() {
     // Running cash balance for this date (report + all-time), read-only.
     fetch(`/api/reports/cash-ledger?date=${date}`)
       .then(r => r.json())
-      .then(l => { if (l && !l.error) setCashLedger({ allTime: Number(l.allTime) || 0, opening: Number(l.opening) || 0, closing: Number(l.closing) || 0, hasSheet: !!l.hasSheet }); })
+      .then(l => { if (l && !l.error) setCashLedger({ allTime: Number(l.allTime) || 0, opening: Number(l.opening) || 0, closing: Number(l.closing) || 0, hasSheet: !!l.hasSheet, startDate: l.startDate, beforeStart: !!l.beforeStart }); })
       .catch(() => setCashLedger(null));
     try {
       const res = await fetch(`/api/reports/cash-sheets?date=${date}`);
@@ -615,6 +615,8 @@ export default function ReportsPage() {
               opening: ledger.opening ?? 0,
               closing: ledger.closing ?? 0,
               hasSheet: !!ledger.hasSheet,
+              startDate: ledger.startDate,
+              beforeStart: !!ledger.beforeStart,
             });
           }
         } catch { /* keep existing ledger */ }
@@ -809,10 +811,10 @@ export default function ReportsPage() {
         <tr class="total-row"><td class="label">TOTAL DÉPENSE :</td><td class="amount">${fmt(totals.totalDepense)}</td></tr>
         <tr class="grand"><td class="label">RESTE EN ESPÈCES (JOUR) :</td><td class="amount">${fmt(totals.resteEspeces)}</td></tr>
       </table>
-      ${cashLedger ? `
+      ${cashLedger && !cashLedger.beforeStart ? `
       <table class="summary-table" style="margin-top:4mm">
         <colgroup><col style="width:55%"><col style="width:45%"></colgroup>
-        <tr class="date-row"><td colspan="2" class="amount" style="text-align:left;letter-spacing:.4px">SOLDE DE CAISSE CUMULÉ — report de caisse · démarré à 0</td></tr>
+        <tr class="date-row"><td colspan="2" class="amount" style="text-align:left;letter-spacing:.4px">SOLDE DE CAISSE CUMULÉ${cashLedger.startDate ? ` — depuis le ${new Date(cashLedger.startDate + 'T12:00:00').toLocaleDateString('fr-FR')}` : ''}</td></tr>
         <tr><td class="label" style="font-weight:normal">Report (ouverture) :</td><td class="amount">${fmt(cashLedger.opening)}</td></tr>
         <tr><td class="label" style="font-weight:normal">Mouvement du jour :</td><td class="amount">${totals.resteEspeces >= 0 ? '+' : ''}${fmt(totals.resteEspeces)}</td></tr>
         <tr class="total-row"><td class="label">Solde de clôture :</td><td class="amount">${fmt(cashLedger.opening + totals.resteEspeces)}</td></tr>
@@ -1974,11 +1976,11 @@ export default function ReportsPage() {
                   </div>
 
                   {/* ── Solde de caisse cumulé (report de caisse) ── */}
-                  {cashLedger && (
+                  {cashLedger && !cashLedger.beforeStart && (
                     <div className="rounded-xl border border-[#606338]/30 bg-[#606338]/[0.07] px-4 py-3 shadow-[var(--shadow-sm)]">
                       <div className="flex items-center justify-between">
                         <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Solde de caisse cumulé</div>
-                        <div className="text-[10px] text-muted-foreground">report depuis le début · départ 0</div>
+                        <div className="text-[10px] text-muted-foreground">{cashLedger.startDate ? `depuis le ${new Date(cashLedger.startDate + 'T12:00:00').toLocaleDateString('fr-FR')}` : 'report de caisse'}</div>
                       </div>
                       <div className="mt-2 grid grid-cols-3 gap-2 text-center">
                         <div>

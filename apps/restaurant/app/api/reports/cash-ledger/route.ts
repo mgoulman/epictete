@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
-import { computeRunningBalance } from '@/lib/finance/cash-ledger';
+import { computeRunningBalance, LEDGER_START_DATE, LEDGER_START_BALANCE } from '@/lib/finance/cash-ledger';
 
 // GET /api/reports/cash-ledger
 //   ?date=YYYY-MM-DD  → { allTime, opening, dayNet, closing, count } for that day
@@ -27,12 +27,18 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    const rows = computeRunningBalance((data as Array<Record<string, unknown>>) || []);
-    const allTime = rows.length ? rows[rows.length - 1].closing : 0;
+    // Anchor: only sheets from LEDGER_START_DATE onward count, and the running
+    // balance starts at LEDGER_START_BALANCE (a real drawer count) — not 0, not
+    // the sum of all prior history.
+    const all = (data as Array<Record<string, unknown>>) || [];
+    const fromAnchor = all.filter((s) => String(s.entry_date) >= LEDGER_START_DATE);
+    const rows = computeRunningBalance(fromAnchor, LEDGER_START_BALANCE);
+    const allTime = rows.length ? rows[rows.length - 1].closing : LEDGER_START_BALANCE;
 
     if (date) {
+      const beforeStart = date < LEDGER_START_DATE;
       const before = rows.filter((r) => r.date < date);
-      const opening = before.length ? before[before.length - 1].closing : 0;
+      const opening = before.length ? before[before.length - 1].closing : LEDGER_START_BALANCE;
       const onDay = rows.find((r) => r.date === date) || null;
       return NextResponse.json({
         allTime,
@@ -41,10 +47,12 @@ export async function GET(request: NextRequest) {
         dayNet: onDay ? onDay.dayNet : 0,
         closing: onDay ? onDay.closing : opening,
         hasSheet: !!onDay,
+        startDate: LEDGER_START_DATE,
+        beforeStart,
       });
     }
 
-    return NextResponse.json({ allTime, count: rows.length, series: rows });
+    return NextResponse.json({ allTime, count: rows.length, series: rows, startDate: LEDGER_START_DATE });
   } catch (err) {
     console.error('Cash ledger GET error:', err);
     return NextResponse.json({ error: 'Failed to compute cash ledger' }, { status: 500 });
