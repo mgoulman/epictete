@@ -308,3 +308,113 @@ external-tenant gate.
   cascade-delete. Verified: export JSON + attachment; provision→offboarding→delete→gone.
 Remaining (lower priority): email verification; a dedicated Achats-du-jour module (overlaps
 Dépenses+Inventory); prod SECURITY DEFINER rewrite of unsafeQuery paths (external-tenant gate).
+
+---
+
+## 2026-08-23 — v2 Competitive Product Plan approved; Phase 1 (Contrôle de Caisse) started
+Founder redirected from "one wow feature" → market-competitive product (3 fronts: design sweep,
+Moroccan-edge features, operator console). Full re-kickoff (5 experts, 2 rounds) → brief v2 approved.
+See brief.md (v2), tasks/v2-competitive-plan.md, memory saas_competitive_direction.
+**Started B2 (marquee, Phase 1):** the écart on the Feuille de Caisse — "Espèces comptées" field +
+variance verdict (Équilibré / Manque / Excédent / Non compté). In-app, no external dependency.
+Note: this first slice persists `especes_comptees` on `cash_sheets` (migration 0016); the full
+append-only `cash_reconciliations` close record (A1) is the next step.
+
+### 2026-08-23 (cont.) — built & typechecked this session
+- **Phase 1 DONE:** écart verdict on the Feuille de Caisse (Espèces comptées → Équilibré/Manque/Excédent,
+  tolérance 20 DH); dashboard **écart hero banner**; append-only **cash_reconciliations** ledger
+  (migration 0017, RLS + REVOKE update/delete = compliance GREEN spine A1), recorded best-effort on save.
+- **Design sweep (Front 1, partial):** Fournisseurs **debt hero** (3 StatCards), Dépenses **summary hero +
+  category chips**, Rapports rebuilt on the **chart kit** (SeriesBars + RankedBars).
+- **Daily loop (Phase 2, partial):** **Achats du jour** finished from the ComingSoon stub — real stock-in
+  (achat) / stock-out (consommation) via new `POST /api/stock/movements` (updates qty + inventory_movements
+  audit row) + `AchatsManager` UI. `stockMovementSchema` added.
+- Migrations to APPLY (additive/safe, no runner in repo): **0016_cash_counted**, **0017_cash_reconciliations**.
+- Unauthenticated preview added: `/preview/caisse` (écart), alongside `/preview/dashboard`.
+
+**Remaining / externally-gated:** rest of design sweep (Stock main, Équipe/Présence, Réglages tabs,
+onboarding wizard, mobile primitives); linked réception fournisseur→stock→dépense; exports; operator console;
+Paie/CNSS engine (needs compliance L1 real-rate sign-off); DGI data-shape (buildable) + clearance (deferred);
+WhatsApp digest (needs Meta Business verification + Twilio + job queue); Sentry (needs @sentry/nextjs install +
+DSN); leak-test extension; backup/cold-archival; CNDP F211 (legal) + DPA (lawyer). Open decision: D5 pilot city.
+
+### 2026-08-23 (cont. 2) — buildable sweep continued (all typechecked + dev-route-verified)
+- **Design sweep (Front 1) extended:** Stock main **summary hero** (En stock/Stock bas/Rupture) + "Achats du
+  jour" link; Équipe/Présence **roll-call hero** (Présents/Retards/Absents/Non pointés); Rapports on chart kit.
+- **Exports (comptable-ready):** `lib/export-csv.ts` (French `;`-sep + UTF-8 BOM) → **Exporter** buttons on
+  Dépenses and Fournisseurs.
+- **Operator console (Front 3):** AdminConsole gains **"À risque"** StatCard + **Activité** column
+  (last_activity/last7) via `plt_tenants_overview()` rewrite (**migration 0018_tenant_health**).
+- **DGI-readiness data-shape (Moroccan edge, buildable half):** **migration 0019_legal_invoices** —
+  `tenants.if_`/`tva_regime`, gap-free `legal_invoice_sequences`, immutable `legal_invoices` (issued-invoice
+  trigger = compliance red-line). Now **captured in the UI**: Réglages ▸ Restaurant gains **IF** +
+  **Régime TVA** fields (schema + `/api/tenant` GET/PUT wired).
+- **Linked réception fournisseur→stock→ledger (atomic) — DONE:** new **`db.tx()`** primitive in
+  `@epictete/core` compat (one BEGIN/COMMIT with the tenant GUC + RLS role set once — fixes the "each
+  db.query is its own txn" footgun). New **`POST /api/stock/reception`**: one supplier delivery restocks N
+  items (+ `inventory_movements` audit) and settles the money side atomically — **à crédit** → vendor debt,
+  or **payé espèces** → cash expense (`vendor_order`). Multi-line **Réception fournisseur** modal on Achats
+  (item/qty/P.U. rows, live total, settlement toggle). Rolls back whole delivery on any failure.
+- **Migrations to APPLY** (additive/safe): **0016, 0017, 0018, 0019**. Réception itself needs no new table.
+
+### 2026-08-23 (cont. 3) — backoffice design overhaul (founder: "most ugliest design")
+Founder flagged the **super-admin console** (and tenant backoffice) as visually weak — washed-out
+cream-on-white, no frame, hollow KPI boxes, bare table. Redesigned both surfaces to a premium,
+cohesive identity. All typechecked + dev-route-verified; previews at `/preview/admin`, `/preview/app`.
+- **Super-admin console** (`AdminConsole`, `AdminBar`, admin layout): **dark olive command hero**
+  (gradient band) as the contrast anchor, holding title + Provisionner CTA + an embedded 4-KPI strip
+  (was 4 hollow StatCards). Table rebuilt: **monogram avatars**, colored **activity dots**
+  (green/amber/grey), tone-matched action buttons, widened to `max-w-6xl`, titled panel.
+- **Tenant shell** (`Sidebar`): **deep-olive rail** (`--color-olive-900`) replacing the plain white
+  sidebar — light nav ink, olive-600 active pill + olive-300 left indicator, richer section labels.
+  Gives the whole tenant app the same authoritative identity as the console.
+- **Tenant dashboard** (`dashboard/page.tsx`): unified **command hero** (olive band) = greeting +
+  the day's cash headline + delta + white CTA in one anchor (replaced the plain text greeting +
+  separate featured StatCard + redundant bottom "fermer la caisse" CTA). KPI row now Stock/Présence/
+  Dû-fournisseurs; charts unchanged.
+- **Global primitive polish** (`DataTable`): header band (`bg-secondary/50`) + uppercase micro-labels
+  + more row breathing room → lifts every list (Fournisseurs, Dépenses, Stock, Équipe, admin).
+- Nav: **Achats du jour** un-flagged from "bientôt" (now actually built this session).
+- **Follow-up (founder: "still the super admin dashboard"):** the console was still frameless (top bar +
+  marooned content + empty void) while the tenant app got a full dark rail. Gave the admin the **same
+  deep-olive sidebar frame** (`AdminSidebar` + two-column `admin/layout.tsx`; `AdminBar` kept as the
+  mobile header): brand lockup, `Plateforme › Restaurants` nav (active pill on real `/admin`), admin
+  identity + logout footer. Added an **"À suivre" triage panel** (one attention item per tenant —
+  suspendu / invitation en attente / à risque — with a one-click impersonate/réactiver) to fill the void
+  with operator value. Migrations 0016–0019 applied to the dev DB (prod/Neon still pending).
+
+### 2026-08-23 (cont. 4) — reskin the epictete restaurant BACKOFFICE with the new design language
+Founder: "apply same UI on the epictete app, no feature/logic changes." Ran the **rollout skill** (scope →
+standard → confirm → parallel sweep → no-leftovers verify). Scope: `apps/restaurant/app/(backoffice)` +
+shell + shared primitives. OUT: public marketing site + digital menu (own branding). Purely className/CSS-token.
+- **CORE:** `globals.css` — added shadow/radius/gradient/semantic token scale (dark-mode-safe translucent
+  -bg tints, brightened semantic fg in `.dark`) + crisp white card. `Sidebar.tsx` — **deep-olive rail**
+  (olive-900, olive-600 active, light ink). `admin/page.tsx` — **command hero**. `widgets.tsx` — crisp KPI cards.
+- **TIER 2 sweep** (6 parallel agents, one mechanical standard): `bg-white`→token, hand-rolled `<thead>`
+  header bands + uppercase `<th>` micro-labels (SortHeader `<th>`s left alone), soft shadow on primary
+  cards. Touched finance, reports, personnel(+comps), inventory(+StockCountSheet), menu, recipes,
+  transport(+comps), salle(×3), settings(+4 sub), docs, audit, approvals, cuisine. (menus, match-images,
+  marketing, users, LoginForm[inline-styles], memos = no qualifying targets.)
+- **Fixed-color-chip reverts:** toggle knobs, status dot, yellow-badge text kept literal `bg-white`/`text-black`
+  (they sit on fixed-color backgrounds; tokenizing would invert them in dark mode).
+- **Motion layer** (framer-motion, already a dep + used in public site): `<MotionConfig reducedMotion="user">`
+  in BackofficeShell + content entrance keyed by pathname; hero fade/slide; KPI card mount + hover-lift;
+  **sidebar sliding active pill** (`layoutId` on regular + collapsed-parent items; parent/child stay static
+  to avoid double-active layoutId conflict).
+- **Verify:** `tsc --noEmit` clean (whole app); no-leftovers grep = no theme-surface bg-white/text-black
+  left; all 21 touched routes compile (no 500s); `/login` 200 (CSS compiles).
+- **CAVEAT:** this touched the **monorepo copy** `apps/restaurant` only. Per [[live_vs_monorepo_structure]]
+  the LIVE restaurant deploys from a different repo (new/adds root `app/`) — the reskin must be re-applied
+  there to reach production. Visual/dark-mode/animation confirmation needs an authenticated browser session.
+
+---
+
+# Odoo Migration (apps/restaurant) — progress log
+
+- **2026-09-19**: Kickoff run (phases 1-7) for replacing apps/restaurant with self-hosted Odoo. Team of 5 profiles generated. Full parallel discovery + Round A debate completed, self-reconciled. Synthesized brief presented in conversation; founder applied stated defaults.
+- **2026-09-19/20**: Got Hetzner API access (explicitly authorized by founder — "total control of the VPS" per the infra owner), confirmed server details (Helsinki/EU datacenter, brand-new box), pulled the real Odoo 19 Enterprise addons (765 modules) from the friend's server, stood up an identical local Odoo 19 Enterprise dev environment via Docker.
+- **2026-09-19**: Full module-mapping refined against the real local catalog + marketplace/OCA search — resolved most flagged gaps to native fits (Approvals, Audit log, Memos, WhatsApp, Invoice OCR, Recipes, Salle, Payroll). Transport confirmed as the one genuine custom-build gap.
+- **2026-09-19**: Till decision reversed — Odoo POS becomes the real till, LaCaisse.ma fully retired. Full caisse-to-reporting cycle configured and validated end-to-end locally (POS session → kitchen → payment → close/écart → stock → reorder → PO → bill → GL), zero custom code.
+- **2026-09-19**: Fixed a live security exposure found on prod (`/web/database/manager` publicly reachable) — flagged, not yet independently reconfirmed as closed.
+- **2026-09-23**: Pushed validated module set + `auditlog` custom module to the remote **test** environment only (backed up `epictete_test` DB first). Fixed a version-skew bug (`pos_settle_due` duplicate dialog registration) found locally.
+- **2026-09-23**: Founder authorized pulling real production data from Neon (`neondb` — corrects earlier assumption that apps/restaurant used Supabase; Neon is the actual runtime DB) into local Odoo, building the real RBAC module (8-role model), and writing a Playwright test suite across roles. In progress.
