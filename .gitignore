@@ -37,3 +37,6 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+odoo/.ssh/
+odoo/custom_addons/epictete_assistant_douchette/__pycache__/
+odoo/custom_addons/*/__pycache__/
