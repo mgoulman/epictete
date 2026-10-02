@@ -12,12 +12,14 @@
                     <field name="currency_id" invisible="1"/>
                 </group>
                 <div class="alert alert-info" role="alert">
-                    Scannez vos produits à vide. Chaque scan ajoute une ligne vide
-                    sur la facture &#160;— vous remplirez quantité et prix à la main ensuite.
+                    Scannez vos produits un par un. Chaque scan ajoute une ligne
+                    ci-dessous — remplissez quantité et prix unitaire (ou Montant
+                    ligne) à la volée, puis cliquez « Transférer sur la facture ».
                 </div>
                 <group>
                     <div class="o_row" style="width: 100%">
-                        <field name="barcode" default_focus="1"
+                        <field name="barcode"
+                               autofocus="autofocus"
                                placeholder="Scannez un code-barres..."
                                style="width: 70%"/>
                         <button name="action_scan" type="object"
@@ -31,8 +33,11 @@
                 <field name="scan_line_ids" nolabel="1"
                        string="Produits scannés">
                     <list editable="bottom" create="false" delete="true">
-                        <field name="product_id" readonly="1"/>
+                        <field name="product_id" readonly="1" optional="hide"/>
                         <field name="name" readonly="1" string="Nom du produit"/>
+                        <field name="quantity" string="Quantité" widget="float"/>
+                        <field name="price_unit" string="Prix unitaire" widget="float"/>
+                        <field name="montant_ligne" string="Montant ligne" widget="float"/>
                     </list>
                 </field>
                 <footer>

@@ -20,8 +20,8 @@ class AccountInvoiceScanWizard(models.TransientModel):
     barcode = fields.Char(
         string='Code-barres',
         help="Scannez un code-barres avec votre douchette, puis cliquez « Ajouter » "
-             "(ou Enter). Chaque scan ajoute une ligne vide sur la facture : vous "
-             "remplirez quantité et prix manuellement ensuite.",
+             "(ou Enter). Chaque scan ajoute une ligne ; vous remplissez quantité, "
+             "prix et montant ligne au fil de l'eau ou en une fois avant de transférer.",
     )
     scan_line_ids = fields.One2many(
         'account.invoice.scan.wizard.line', 'wizard_id',
@@ -36,9 +36,8 @@ class AccountInvoiceScanWizard(models.TransientModel):
             wiz.scan_line_count = len(wiz.scan_line_ids)
 
     def action_scan(self):
-        """Look up the product by barcode and append a new (empty) line on the
-        wizard. Each scan produces its own line so the user can enter a different
-        quantity or unit price per physical item on the invoice."""
+        """Look up the product by barcode and append a new line on the wizard.
+        The line starts empty (no qty, no price); the user fills them in inline."""
         self.ensure_one()
         barcode = (self.barcode or '').strip()
         if not barcode:
@@ -59,8 +58,7 @@ class AccountInvoiceScanWizard(models.TransientModel):
             'barcode': False,
             'last_scan_message': _('✓ %s') % product.display_name,
         })
-        # Reopen the wizard in the same dialog so the barcode field stays focused
-        # and ready for the next scan.
+        # Reopen the wizard so the barcode field stays focused for the next scan.
         return {
             'type': 'ir.actions.act_window',
             'res_model': 'account.invoice.scan.wizard',
@@ -70,8 +68,9 @@ class AccountInvoiceScanWizard(models.TransientModel):
         }
 
     def action_confirm(self):
-        """Push every scanned line onto the vendor bill with quantity=0 and
-        price_unit=0. The user fills those values manually on the bill afterwards."""
+        """Push every scanned line onto the vendor bill, preserving the qty and
+        price the user typed inline. Lines missing a qty or price are still
+        pushed (with 0) so the user can fill them on the bill itself."""
         self.ensure_one()
         if not self.scan_line_ids:
             raise UserError(_(
@@ -86,11 +85,9 @@ class AccountInvoiceScanWizard(models.TransientModel):
                 'move_id': self.move_id.id,
                 'product_id': product.id,
                 'name': product.display_name,
-                'quantity': 0.0,
-                'price_unit': 0.0,
+                'quantity': scan.quantity or 0.0,
+                'price_unit': scan.price_unit or 0.0,
             }
-            # Use the product's default account/taxes if configured, mirroring
-            # what Odoo does when a product is picked from the product picker.
             if product.property_account_expense_id:
                 vals['account_id'] = product.property_account_expense_id.id
             elif product.categ_id.property_account_expense_categ_id:
@@ -110,6 +107,7 @@ class AccountInvoiceScanWizard(models.TransientModel):
 class AccountInvoiceScanWizardLine(models.TransientModel):
     _name = 'account.invoice.scan.wizard.line'
     _description = 'Assistant douchette — scanned line'
+    _order = 'id'
 
     wizard_id = fields.Many2one(
         'account.invoice.scan.wizard', required=True, ondelete='cascade',
@@ -118,3 +116,39 @@ class AccountInvoiceScanWizardLine(models.TransientModel):
         'product.product', string='Produit', required=True,
     )
     name = fields.Char(string='Nom du produit', required=True)
+    quantity = fields.Float(string='Quantité', default=0.0, digits='Product Unit of Measure')
+    price_unit = fields.Float(string='Prix unitaire', default=0.0)
+    # Montant ligne = quantity * price_unit (or the user-typed override that
+    # takes priority, mirroring how the epictete_bill_line_total module works
+    # on the bill).
+    montant_ligne = fields.Float(
+        string='Montant ligne',
+        compute='_compute_montant_ligne',
+        inverse='_inverse_montant_ligne',
+        digits='Account',
+        help="Total de la ligne. Modifié automatiquement quand vous tapez "
+             "quantité × prix unitaire ; vous pouvez aussi le saisir directement "
+             "(le prix unitaire sera recalculé).",
+    )
+
+    @api.depends('quantity', 'price_unit')
+    def _compute_montant_ligne(self):
+        for line in self:
+            line.montant_ligne = (line.quantity or 0.0) * (line.price_unit or 0.0)
+
+    def _inverse_montant_ligne(self):
+        for line in self:
+            if line.quantity:
+                line.price_unit = (line.montant_ligne or 0.0) / line.quantity
+            else:
+                # No quantity yet — store the typed value as price_unit and
+                # leave quantity at 0; the user will fill qty and the total
+                # stays equal to the typed amount.
+                line.price_unit = line.montant_ligne or 0.0
+
+    @api.onchange('quantity', 'price_unit')
+    def _onchange_recompute_montant(self):
+        """Triggered while the user types in the list view. The compute runs
+        server-side too, but onchange keeps the UI instant."""
+        for line in self:
+            line.montant_ligne = (line.quantity or 0.0) * (line.price_unit or 0.0)
