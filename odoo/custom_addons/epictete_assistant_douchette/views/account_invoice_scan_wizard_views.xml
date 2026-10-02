@@ -8,13 +8,17 @@
             <form string="Assistant douchette">
                 <group>
                     <field name="move_id" invisible="1"/>
-                    <field name="partner_id"/>
+                    <field name="partner_id"
+                           placeholder="Choisir le fournisseur (optionnel)"/>
                     <field name="currency_id" invisible="1"/>
                 </group>
                 <div class="alert alert-info" role="alert">
-                    Scannez vos produits un par un. Chaque scan ajoute une ligne
-                    ci-dessous — remplissez quantité et prix unitaire (ou Montant
-                    ligne) à la volée, puis cliquez « Transférer sur la facture ».
+                    <ol style="margin: 0; padding-left: 1.2em">
+                        <li>Scannez vos produits un par un avec la douchette — chaque scan ajoute une ligne.</li>
+                        <li>Renseignez <b>Quantité</b>, <b>Prix unitaire</b> (ou directement <b>Montant ligne</b>) sur chaque ligne.</li>
+                        <li>Cliquez <b>Enregistrer</b> pour pousser les lignes sur la facture.</li>
+                        <li>Sur la facture, ajoutez le fournisseur si besoin, vérifiez, puis <b>Confirmez</b> manuellement.</li>
+                    </ol>
                 </div>
                 <group>
                     <div class="o_row" style="width: 100%">
@@ -42,8 +46,9 @@
                 </field>
                 <footer>
                     <button name="action_confirm" type="object"
-                            string="Transférer sur la facture"
+                            string="Enregistrer"
                             class="btn-primary"
+                            icon="fa-save"
                             invisible="not scan_line_ids"/>
                     <button string="Fermer" class="btn-secondary"
                             special="cancel"/>

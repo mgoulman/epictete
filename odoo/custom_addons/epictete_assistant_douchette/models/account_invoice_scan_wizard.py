@@ -11,8 +11,9 @@ class AccountInvoiceScanWizard(models.TransientModel):
         domain=[('move_type', '=', 'in_invoice')],
     )
     partner_id = fields.Many2one(
-        'res.partner', related='move_id.partner_id',
-        string='Fournisseur', readonly=True,
+        'res.partner', string='Fournisseur',
+        help="Choisissez le fournisseur ici (optionnel avant le scan) ; "
+             "il sera reporté sur la facture à l'enregistrement.",
     )
     currency_id = fields.Many2one(
         'res.currency', related='move_id.currency_id', readonly=True,
@@ -70,13 +71,17 @@ class AccountInvoiceScanWizard(models.TransientModel):
     def action_confirm(self):
         """Push every scanned line onto the vendor bill, preserving the qty and
         price the user typed inline. Lines missing a qty or price are still
-        pushed (with 0) so the user can fill them on the bill itself."""
+        pushed (with 0) so the user can fill them on the bill itself. If a
+        supplier was picked in the wizard, it's written onto the bill first so
+        the lines inherit the right currency / fiscal position / taxes."""
         self.ensure_one()
         if not self.scan_line_ids:
             raise UserError(_(
                 "Aucune ligne scannée. Scannez au moins un produit avant de "
                 "transférer sur la facture."
             ))
+        if self.partner_id and self.partner_id != self.move_id.partner_id:
+            self.move_id.partner_id = self.partner_id
         AccountMoveLine = self.env['account.move.line']
         lines_vals = []
         for scan in self.scan_line_ids:
