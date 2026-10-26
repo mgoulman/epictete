@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import twilio from "twilio";
 import { createNotification } from "@/lib/notifications";
 import { createAuditLog } from "@/lib/auth/audit";
+import { query } from "@/lib/db";
+import { pushReservationToOdoo } from "@/lib/reservations/push-odoo";
 
 interface ReservationData {
   name: string;
@@ -52,6 +54,34 @@ export async function POST(request: Request) {
         dedupKey: `new_reservation:${body.date}:${body.time}:${body.phone}`,
       });
     } catch { /* ignore */ }
+
+    // Persist (source of truth, never lost) + push to Odoo so staff see it there.
+    // Best-effort: never blocks the reservation — WhatsApp still notifies staff.
+    try {
+      const { rows } = await query<{ id: string }>(
+        `INSERT INTO reservations
+           (name, phone, email, res_date, res_time, adults, children, baby_chairs, special_requests, source)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         RETURNING id`,
+        [body.name, body.phone, body.email || null, body.date, body.time,
+         body.adults, body.children || 0, body.babyChairs || 0, body.specialRequests || null, "site web"],
+      );
+      const webRef: string | undefined = rows[0]?.id;
+      if (webRef) {
+        const push = await pushReservationToOdoo({
+          web_ref: webRef,
+          name: body.name, phone: body.phone, email: body.email,
+          date: body.date, time: body.time,
+          adults: body.adults, children: body.children || 0,
+          babyChairs: body.babyChairs || 0, specialRequests: body.specialRequests, source: "site web",
+        });
+        await query(`UPDATE reservations SET odoo_pushed = $1, odoo_id = $2 WHERE id = $3`,
+          [push.ok, push.odooId ?? null, webRef]);
+        if (!push.ok) console.error("Odoo reservation push failed:", push.error);
+      }
+    } catch (e) {
+      console.error("Reservation persist/push failed:", e);
+    }
 
     // Baby chairs text
     const babyChairsText = body.babyChairs && body.babyChairs > 0
