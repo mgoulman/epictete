@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Utensils, Loader2 } from "lucide-react";
 import { MENU_CATEGORIES, MenuCategory, MenuTag, MenuItem, MenuCategoryInfo } from "@/lib/menu-types";
@@ -255,6 +255,37 @@ export function DigitalMenuClient() {
 
     return grouped;
   }, [filteredItems, categories, itemIsInCategory]);
+
+  // Deep-link to a category: /menu?cat=breakfast (or #category-breakfast).
+  // The menu loads its data client-side, so we can't rely on the browser's native
+  // hash scroll (it fires before the sections exist). Once data is in and the
+  // sections are painted, scroll to the requested one. Runs once.
+  const didDeepLink = useRef(false);
+  useEffect(() => {
+    if (isLoading || didDeepLink.current || itemsByCategory.size === 0) return;
+
+    const params = new URLSearchParams(window.location.search);
+    let target = params.get("cat") || params.get("category");
+    if (!target && window.location.hash.startsWith("#category-")) {
+      target = window.location.hash.slice("#category-".length);
+    }
+    didDeepLink.current = true;
+    if (!target) return;
+
+    const id = `category-${target.toLowerCase().trim()}`;
+    let tries = 0;
+    const scrollToSection = () => {
+      const el = document.getElementById(id);
+      if (el) {
+        const offset = 120; // clear the sticky header
+        const top = el.getBoundingClientRect().top + window.scrollY - offset;
+        window.scrollTo({ top: Math.max(top, 0), behavior: "smooth" });
+      } else if (tries++ < 20) {
+        setTimeout(scrollToSection, 100); // section may paint a beat after load
+      }
+    };
+    setTimeout(scrollToSection, 150);
+  }, [isLoading, itemsByCategory]);
 
   // Handle category in view (from intersection observer)
   const handleCategoryInView = useCallback((categoryId: string) => {
