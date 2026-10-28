@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Utensils, Loader2 } from "lucide-react";
 import { MENU_CATEGORIES, MenuCategory, MenuTag, MenuItem, MenuCategoryInfo } from "@/lib/menu-types";
@@ -293,10 +294,10 @@ export function DigitalMenuClient() {
   }, []);
 
   // Handle item click - open modal
+  const router = useRouter();
   const handleItemClick = useCallback((item: MenuItem) => {
-    setSelectedItem(item);
-    setIsModalOpen(true);
-  }, []);
+    router.push(`/menu/${item.id}`);
+  }, [router]);
 
   // Handle modal close
   const handleModalClose = useCallback(() => {
