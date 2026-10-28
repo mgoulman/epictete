@@ -37,21 +37,24 @@ export function DishView({
 }: Props) {
   return (
     <main className="bg-background">
-      {/* ─── HERO · full-bleed plate, deep olive scrim over the text half ─── */}
-      <section className="relative min-h-[94svh] overflow-hidden bg-[#1b1d18]">
+      {/* ─── HERO · full-bleed plate, cinematic scrim + gold frame ─── */}
+      <section className="relative min-h-[94svh] overflow-hidden bg-[#0f110b]">
         {image ? (
           <motion.div
-            initial={{ scale: 1.08, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 1.4, ease: EASE }} className="absolute inset-0">
-            <Image src={image} alt={name} fill priority sizes="100vw" className="object-cover object-center" />
+            initial={{ scale: 1.1, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 1.6, ease: EASE }} className="absolute inset-0">
+            <Image src={image} alt={name} fill priority sizes="100vw" className="object-cover object-[62%_center]" />
           </motion.div>
         ) : null}
 
-        {/* transparency scrim: deep warm olive over the text (left) half, fading to reveal the plate */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#1b1d18] from-[4%] via-[#1b1d18]/80 via-[48%] to-transparent to-[84%]" />
-        {/* mobile legibility + bottom grounding into the next section */}
-        <div className="absolute inset-0 bg-[#1b1d18]/45 lg:bg-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-background to-transparent" />
+        {/* scrim: dark over the text (left), fading early so the plate reads clearly on the right */}
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0f110b] from-0% via-[#0f110b]/55 via-[38%] to-transparent to-[68%]" />
+        {/* cinematic top + bottom vignette for depth (grounds the text, no washed band) */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0f110b]/55 via-transparent via-[32%] to-[#0f110b]/85" />
+        {/* mobile legibility */}
+        <div className="absolute inset-0 bg-[#0f110b]/40 lg:bg-transparent" />
+        {/* thin gold inset frame */}
+        <div className="pointer-events-none absolute inset-4 border border-[#cfc78f]/15 sm:inset-6" />
 
         {/* text */}
         <div className="relative z-10 flex min-h-[94svh] items-center">
