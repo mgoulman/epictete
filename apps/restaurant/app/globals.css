@@ -28,7 +28,7 @@ input[type="number"] {
   --duration-normal: 300ms;
   --duration-slow: 500ms;
 
-  /* Epictete Brand Colors - Olive Green */
+  /* Epictete Brand Colors - Olive Green (secondary accent, not app chrome) */
   --color-olive-50: #f7f7f0;
   --color-olive-100: #ede9d9;
   --color-olive-200: #ddd8b5;
@@ -40,13 +40,22 @@ input[type="number"] {
   --color-olive-800: #40412a;
   --color-olive-900: #383827;
 
+  /* Primary = operational chrome/action color */
+  --color-primary-action: #20231f;
+  --color-primary-action-hover: #111310;
+  --color-primary-action-foreground: #ffffff;
+  --color-primary-soft: #ecebe4;
+  --color-chrome: #20231f;
+  --color-chrome-foreground: #ffffff;
+
   /* Accent colors (Epictete Olive Green) */
   --color-accent: #606338;
   --color-accent-hover: #4d4f2e;
   --color-accent-foreground: #faf9f5;
+  --color-accent-soft: #eef0e4;
   --color-ring: #606338;
 
-  /* Light theme colors (warm cream palette) */
+  /* Light theme colors — aligned to the deployed (main) theme */
   --color-primary: #faf9f5;
   --color-primary-foreground: #1a1a18;
   --color-secondary: #f5f3ed;
@@ -65,7 +74,7 @@ input[type="number"] {
   --shadow-sm: 0 1px 2px rgb(46 44 32 / 0.04), 0 2px 6px -2px rgb(46 44 32 / 0.07);
   --shadow-md: 0 4px 14px -3px rgb(46 44 32 / 0.10), 0 2px 6px -3px rgb(46 44 32 / 0.06);
   --shadow-soft: 0 4px 16px -2px rgb(20 20 19 / 0.10), 0 2px 6px -2px rgb(20 20 19 / 0.06);
-  --shadow-hero: 0 10px 30px -8px rgb(77 79 46 / 0.35), 0 4px 10px -4px rgb(46 44 32 / 0.20);
+  --shadow-hero: 0 12px 28px -14px rgb(31 33 29 / 0.36), 0 4px 10px -6px rgb(31 33 29 / 0.18);
 
   /* Radius scale (3 steps) */
   --radius-sm: 8px;
@@ -73,33 +82,39 @@ input[type="number"] {
   --radius-lg: 16px;
 
   /* Depth gradients (the refined-olive richness) */
-  --gradient-hero: linear-gradient(135deg, #6b7a2e 0%, #4d4f2e 100%);
-  --gradient-hero-sheen: linear-gradient(135deg, rgb(255 255 255 / 0.14) 0%, rgb(255 255 255 / 0) 55%);
-  --gradient-card: linear-gradient(180deg, rgb(255 255 255 / 0.6) 0%, rgb(255 255 255 / 0) 40%);
+  --gradient-hero: linear-gradient(135deg, #20231f 0%, #34382f 100%);
+  --gradient-hero-sheen: linear-gradient(135deg, rgb(255 255 255 / 0.12) 0%, rgb(255 255 255 / 0) 58%);
+  --gradient-card: linear-gradient(180deg, rgb(255 255 255 / 0.72) 0%, rgb(255 255 255 / 0) 42%);
 
   /* Semantic states (money/stock/staff) — translucent -bg so they read on cream AND dark */
-  --color-positive: #3f7d3f;
-  --color-positive-bg: rgb(63 125 63 / 0.12);
-  --color-warning: #b5701a;
-  --color-warning-bg: rgb(181 112 26 / 0.14);
-  --color-danger: #b5342f;
-  --color-danger-bg: rgb(181 52 47 / 0.12);
-  --color-info: #2f5fa0;
-  --color-info-bg: rgb(47 95 160 / 0.12);
+  --color-positive: #2f7d58;
+  --color-positive-bg: rgb(47 125 88 / 0.12);
+  --color-warning: #b7791f;
+  --color-warning-bg: rgb(183 121 31 / 0.14);
+  --color-danger: #b93a35;
+  --color-danger-bg: rgb(185 58 53 / 0.12);
+  --color-info: #2f6fa3;
+  --color-info-bg: rgb(47 111 163 / 0.12);
 
   /* Dark theme colors (deep olive/charcoal) */
-  --color-primary-dark: #141413;
-  --color-primary-foreground-dark: #faf9f5;
-  --color-secondary-dark: #1e1e1c;
+  --color-primary-dark: #11120f;
+  --color-primary-foreground-dark: #f3f2eb;
+  --color-secondary-dark: #22241f;
   --color-secondary-foreground-dark: #e5e4dc;
   --color-muted-dark: #6b6b5f;
-  --color-muted-foreground-dark: #a8a89a;
-  --color-background-dark: #0f0f0e;
-  --color-foreground-dark: #faf9f5;
-  --color-card-dark: #1a1a18;
-  --color-card-foreground-dark: #faf9f5;
-  --color-border-dark: #2d2d28;
-  --color-border-strong-dark: #3b3a33;
+  --color-muted-foreground-dark: #aaa89d;
+  --color-background-dark: #11120f;
+  --color-foreground-dark: #f3f2eb;
+  --color-card-dark: #191b17;
+  --color-card-foreground-dark: #f3f2eb;
+  --color-border-dark: #303229;
+  --color-border-strong-dark: #434537;
+  --color-primary-action-dark: #f3f2eb;
+  --color-primary-action-hover-dark: #ffffff;
+  --color-primary-action-foreground-dark: #11120f;
+  --color-primary-soft-dark: #252720;
+  --color-chrome-dark: #11120f;
+  --color-chrome-foreground-dark: #f3f2eb;
 }
 
 /* Apply theme colors based on class */
@@ -124,6 +139,12 @@ input[type="number"] {
   --color-card-foreground: var(--color-card-foreground-dark);
   --color-border: var(--color-border-dark);
   --color-border-strong: var(--color-border-strong-dark);
+  --color-primary-action: var(--color-primary-action-dark);
+  --color-primary-action-hover: var(--color-primary-action-hover-dark);
+  --color-primary-action-foreground: var(--color-primary-action-foreground-dark);
+  --color-primary-soft: var(--color-primary-soft-dark);
+  --color-chrome: var(--color-chrome-dark);
+  --color-chrome-foreground: var(--color-chrome-foreground-dark);
 
   /* Semantic foregrounds brightened for the charcoal surface */
   --color-positive: #6fbf6f;
@@ -154,6 +175,16 @@ body {
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading), serif;
   text-wrap: balance;
+}
+
+.backoffice-ui,
+.backoffice-ui h1,
+.backoffice-ui h2,
+.backoffice-ui h3,
+.backoffice-ui h4,
+.backoffice-ui h5,
+.backoffice-ui h6 {
+  font-family: var(--font-body), system-ui, sans-serif;
 }
 
 /* Selection color */
