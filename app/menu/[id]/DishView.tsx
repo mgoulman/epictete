@@ -37,29 +37,33 @@ export function DishView({
 }: Props) {
   return (
     <main className="bg-background">
-      {/* ─── HERO · full-bleed plate, cinematic scrim + gold frame ─── */}
-      <section className="relative min-h-[94svh] overflow-hidden bg-[#0f110b]">
-        {image ? (
-          <motion.div
-            initial={{ scale: 1.1, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 1.6, ease: EASE }} className="absolute inset-0">
-            <Image src={image} alt={name} fill priority sizes="100vw" className="object-cover object-[62%_center]" />
-          </motion.div>
-        ) : null}
+      {/* ─── HERO · whole plate stacked on mobile, cinematic full-bleed on desktop ─── */}
+      <section className="relative overflow-hidden bg-[#0f110b] lg:min-h-[94svh]">
+        {/* PLATE — full 4:3 (whole dish, uncropped) on mobile, full-bleed on desktop */}
+        <div className="relative aspect-4/3 w-full lg:absolute lg:inset-0 lg:aspect-auto lg:h-full">
+          {image ? (
+            <motion.div
+              initial={{ scale: 1.08, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 1.6, ease: EASE }} className="absolute inset-0">
+              <Image src={image} alt={name} fill priority sizes="100vw"
+                className="object-cover object-center lg:object-[62%_center]" />
+            </motion.div>
+          ) : null}
+          {/* mobile: soften the plate's bottom edge into the text area */}
+          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#0f110b] to-transparent lg:hidden" />
+          {/* desktop scrim: dark over the text (left), plate stays clear on the right */}
+          <div className="absolute inset-0 hidden bg-gradient-to-r from-[#0f110b] from-0% via-[#0f110b]/55 via-[38%] to-transparent to-[68%] lg:block" />
+          {/* desktop cinematic top + bottom vignette for depth */}
+          <div className="absolute inset-0 hidden bg-gradient-to-b from-[#0f110b]/55 via-transparent via-[32%] to-[#0f110b]/85 lg:block" />
+        </div>
 
-        {/* scrim: dark over the text (left), fading early so the plate reads clearly on the right */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0f110b] from-0% via-[#0f110b]/55 via-[38%] to-transparent to-[68%]" />
-        {/* cinematic top + bottom vignette for depth (grounds the text, no washed band) */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0f110b]/55 via-transparent via-[32%] to-[#0f110b]/85" />
-        {/* mobile legibility */}
-        <div className="absolute inset-0 bg-[#0f110b]/40 lg:bg-transparent" />
-        {/* thin gold inset frame */}
-        <div className="pointer-events-none absolute inset-4 border border-[#cfc78f]/15 sm:inset-6" />
+        {/* gold inset frame (desktop) */}
+        <div className="pointer-events-none absolute inset-6 hidden border border-[#cfc78f]/15 lg:block" />
 
         {/* text */}
-        <div className="relative z-10 flex min-h-[94svh] items-center">
+        <div className="relative z-10 lg:flex lg:min-h-[94svh] lg:items-center">
           <div className="mx-auto w-full max-w-6xl px-6 sm:px-10">
-            <div className="max-w-xl pt-24">
+            <div className="max-w-xl pt-9 pb-14 lg:pt-24 lg:pb-0">
               <motion.div {...reveal(0)} className="flex items-center justify-between">
                 <Link href={backHref}
                   className="inline-flex items-center gap-2 text-sm text-[#f3f1e7]/60 transition-colors hover:text-[#cfc78f]">
@@ -67,13 +71,13 @@ export function DishView({
                 </Link>
               </motion.div>
 
-              <motion.div {...reveal(0.04)} className="mt-10 flex items-center gap-4">
+              <motion.div {...reveal(0.04)} className="mt-8 flex items-center gap-4 lg:mt-10">
                 <span className="h-px w-10 bg-[#cfc78f]/50" />
                 <p className="text-xs uppercase tracking-[0.42em] text-[#cfc78f]">{catLabel}</p>
               </motion.div>
 
               <motion.h1 {...reveal(0.1)}
-                className="mt-5 font-heading text-[3.1rem] font-medium leading-[0.96] tracking-[-0.01em] text-[#f6f4ea] sm:text-6xl lg:text-[4.9rem]">
+                className="mt-5 font-heading text-[2.35rem] font-medium leading-[1.03] tracking-[-0.01em] text-[#f6f4ea] sm:text-5xl lg:text-[4.9rem] lg:leading-[0.96]">
                 {name}
               </motion.h1>
 
@@ -85,13 +89,13 @@ export function DishView({
 
               {description && (
                 <motion.p {...reveal(0.18)}
-                  className="mt-7 max-w-md font-heading text-xl italic leading-relaxed text-[#f3f1e7]/80 sm:text-2xl">
+                  className="mt-6 max-w-md font-heading text-lg italic leading-relaxed text-[#f3f1e7]/80 sm:text-xl lg:mt-7 lg:text-2xl">
                   {description}
                 </motion.p>
               )}
 
-              <motion.div {...reveal(0.24)} className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-3">
-                <span className="font-heading text-[2.6rem] leading-none text-[#cfc78f]">
+              <motion.div {...reveal(0.24)} className="mt-9 flex flex-wrap items-center gap-x-8 gap-y-3 lg:mt-10">
+                <span className="font-heading text-[2.2rem] leading-none text-[#cfc78f] sm:text-[2.6rem]">
                   {price}<span className="ml-2 align-middle text-sm tracking-wide text-[#f3f1e7]/55">DHS</span>
                 </span>
                 {tags.length > 0 && (
@@ -108,7 +112,7 @@ export function DishView({
                 )}
               </motion.div>
 
-              <motion.div {...reveal(0.3)} className="mt-12">
+              <motion.div {...reveal(0.3)} className="mt-10 lg:mt-12">
                 <Link href="/reservation"
                   className="inline-flex items-center justify-center rounded-full border border-[#f3f1e7]/35 px-8 py-3.5 text-sm font-medium tracking-wide text-[#f6f4ea] backdrop-blur-sm transition-colors hover:border-[#cfc78f] hover:text-[#cfc78f]">
                   Réserver une table
@@ -118,7 +122,7 @@ export function DishView({
           </div>
         </div>
 
-        <div className="absolute bottom-7 left-1/2 z-10 hidden -translate-x-1/2 text-[#f3f1e7]/40 sm:block">
+        <div className="absolute bottom-7 left-1/2 z-10 hidden -translate-x-1/2 text-[#f3f1e7]/40 lg:block">
           <motion.div animate={{ y: [0, 8, 0] }} transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}>
             <ChevronDown size={26} />
           </motion.div>
