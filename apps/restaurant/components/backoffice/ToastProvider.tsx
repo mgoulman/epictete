@@ -223,7 +223,7 @@ const VARIANT_STYLE: Record<ToastVariant, { icon: typeof Info; accent: string; i
   error:   { icon: XCircle,        accent: 'bg-red-500',     iconClass: 'text-red-500' },
   warning: { icon: AlertTriangle,  accent: 'bg-amber-500',   iconClass: 'text-amber-500' },
   info:    { icon: Info,           accent: 'bg-sky-500',     iconClass: 'text-sky-500' },
-  loading: { icon: Loader2,        accent: 'bg-[#606338]',   iconClass: 'text-[#606338]' },
+  loading: { icon: Loader2,        accent: 'bg-[var(--color-accent)]',   iconClass: 'text-[var(--color-accent)]' },
 };
 
 function ToastCard({ toast, onDismiss }: { toast: ToastRecord; onDismiss: () => void }) {
@@ -243,7 +243,7 @@ function ToastCard({ toast, onDismiss }: { toast: ToastRecord; onDismiss: () => 
         {toast.action && (
           <button
             onClick={() => { toast.action!.onClick(); onDismiss(); }}
-            className="mt-2 text-sm font-medium text-[#606338] hover:underline"
+            className="mt-2 text-sm font-medium text-[var(--color-accent)] hover:underline"
           >
             {toast.action.label}
           </button>

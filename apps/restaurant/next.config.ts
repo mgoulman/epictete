@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@epictete/core"],
@@ -34,19 +33,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSentryConfig(nextConfig, {
-  org: "mg-tech-ey",
-  project: "epictete-backoffice",
-
-  // Source-map upload token (build-time secret; set in CI / Vercel env).
-  authToken: process.env.SENTRY_AUTH_TOKEN,
-
-  // Upload a wider set of client files for better production stack traces.
-  widenClientFileUpload: true,
-
-  // Proxy Sentry ingestion through the app to survive ad-blockers.
-  tunnelRoute: "/monitoring",
-
-  // Only print build output in CI.
-  silent: !process.env.CI,
-});
+export default nextConfig;

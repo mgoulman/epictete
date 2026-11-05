@@ -393,7 +393,7 @@ function InventoryCategoriesSection() {
   };
 
   return (
-    <PermissionGate permission="inventory.write" fallback={<p className="text-muted-foreground">Vous n&apos;avez pas la permission de gérer les catégories d&apos;inventaire.</p>}>
+    <PermissionGate permission="settings.write" fallback={<p className="text-muted-foreground">Vous n&apos;avez pas la permission de gérer les catégories d&apos;inventaire.</p>}>
       <div className="bg-secondary border border-border rounded-xl p-5 space-y-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>

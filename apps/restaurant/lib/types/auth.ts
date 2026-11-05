@@ -1,8 +1,8 @@
 // Auth Types for RBAC System
 
-// Eight primary roles. 'regular' is kept as a zero-access fallback for
-// accounts with no role assigned (and for legacy data) — it is NOT one of the
-// eight and grants nothing beyond the dashboard.
+// Primary roles. 'regular' is kept as a zero-access fallback for accounts with
+// no role assigned (and for legacy data) — it grants nothing beyond the
+// dashboard. ('serveur' was removed with the Salle feature.)
 export type RoleName =
   | 'admin'
   | 'manager'
@@ -10,7 +10,6 @@ export type RoleName =
   | 'marketing'
   | 'cuisine'
   | 'rh'
-  | 'serveur'
   | 'intern'
   | 'regular';
 
@@ -20,45 +19,27 @@ export type PermissionName =
   | 'menu.delete'
   | 'recipes.read'
   | 'recipes.write'
-  | 'salle.read'
-  | 'salle.write'
-  | 'salle.serve'
-  | 'finance.read'
-  | 'finance.write'
-  | 'inventory.read'
-  | 'inventory.write'
   | 'reports.read'
   | 'reports.write'
-  | 'memos.write'
   | 'personnel.read'
-  | 'personnel.write'
-  | 'transport.read'
-  | 'transport.write'
   | 'marketing.read'
   | 'marketing.write'
   | 'users.read'
   | 'users.write'
   | 'users.delete'
   | 'users.manage'
-  | 'audit.read'
   | 'settings.read'
   | 'settings.write';
 
 export type ResourceType =
   | 'menu'
   | 'recipes'
-  | 'salle'
-  | 'finance'
-  | 'inventory'
   | 'reports'
-  | 'memos'
   | 'personnel'
-  | 'transport'
   | 'marketing'
   | 'users'
-  | 'audit'
   | 'settings';
-export type ActionType = 'read' | 'write' | 'delete' | 'manage' | 'serve';
+export type ActionType = 'read' | 'write' | 'delete' | 'manage';
 
 export interface Role {
   id: string;
@@ -148,16 +129,10 @@ export interface Session {
 export const ALL_PERMISSIONS: PermissionName[] = [
   'menu.read', 'menu.write', 'menu.delete',
   'recipes.read', 'recipes.write',
-  'salle.read', 'salle.write', 'salle.serve',
-  'finance.read', 'finance.write',
-  'inventory.read', 'inventory.write',
   'reports.read', 'reports.write',
-  'memos.write',
-  'personnel.read', 'personnel.write',
-  'transport.read', 'transport.write',
+  'personnel.read',
   'marketing.read', 'marketing.write',
   'users.read', 'users.write', 'users.delete', 'users.manage',
-  'audit.read',
   'settings.read', 'settings.write',
 ];
 
@@ -168,22 +143,14 @@ export const ROLE_PERMISSIONS: Record<RoleName, PermissionName[]> = {
   manager: [
     'menu.read', 'menu.write', 'menu.delete',
     'recipes.read', 'recipes.write',
-    'salle.read', 'salle.write', 'salle.serve',
-    'finance.read', 'finance.write',
-    'inventory.read', 'inventory.write',
     'reports.read', 'reports.write',
-    'memos.write',
-    'personnel.read', 'personnel.write',
-    'transport.read', 'transport.write',
+    'personnel.read',
     'marketing.read', 'marketing.write',
     'users.read',
-    'audit.read',
     'settings.read',
   ],
-  // Finance / comptable
+  // Finance / comptable — now scoped to Reports (accounting lives in Odoo)
   finance: [
-    'finance.read', 'finance.write',
-    'inventory.read', 'inventory.write',
     'reports.read', 'reports.write',
     'menu.read',
   ],
@@ -192,25 +159,19 @@ export const ROLE_PERMISSIONS: Record<RoleName, PermissionName[]> = {
     'marketing.read', 'marketing.write',
     'menu.read',
   ],
-  // Kitchen / chef
+  // Kitchen / chef — menu + recipe cards
   cuisine: [
     'menu.read', 'menu.write',
     'recipes.read', 'recipes.write',
-    'inventory.read', 'inventory.write',
   ],
-  // HR / personnel & transport
+  // HR — read-only staff list (personnel management lives in Odoo) + user list
   rh: [
-    'personnel.read', 'personnel.write',
-    'transport.read', 'transport.write',
+    'personnel.read',
     'users.read',
   ],
-  // Waiter / floor service
-  serveur: [
-    'salle.read', 'salle.serve',
-  ],
-  // Intern / stagiaire — observer + can record stock (achat / sortie)
+  // Intern / stagiaire — menu observer
   intern: [
-    'menu.read', 'salle.read', 'inventory.read', 'inventory.write',
+    'menu.read',
   ],
   // Zero-access fallback (no role assigned / legacy)
   regular: [],
@@ -221,22 +182,12 @@ export const ROLE_PERMISSIONS: Record<RoleName, PermissionName[]> = {
 // wins, so more specific routes (e.g. /admin/salle/service) are listed first.
 // Routes not listed here (e.g. /admin dashboard) require only authentication.
 export const ROUTE_PERMISSIONS: ReadonlyArray<readonly [string, PermissionName]> = [
-  ['/admin/salle/mes-tables', 'salle.serve'],
-  ['/admin/salle/service', 'salle.serve'],
-  ['/admin/salle', 'salle.write'],
   ['/admin/menus', 'menu.read'],
   ['/admin/menu', 'menu.read'],
-  ['/admin/recipes', 'recipes.read'],
-  ['/admin/cuisine', 'inventory.read'],
-  ['/admin/inventory', 'inventory.read'],
-  ['/admin/finance', 'finance.read'],
   ['/admin/reports', 'reports.read'],
-  ['/admin/personnel', 'personnel.read'],
-  ['/admin/transport', 'transport.read'],
   ['/admin/marketing', 'marketing.read'],
   ['/admin/docs', 'marketing.read'],
   ['/admin/users', 'users.manage'],
-  ['/admin/audit', 'audit.read'],
   ['/admin/settings', 'settings.read'],
 ];
 
@@ -271,44 +222,12 @@ export const BACKOFFICE_NAV: NavItem[] = [
     permission: 'menu.read',
     children: [
       { key: 'menuItems', label: 'Menu Items', href: '/admin/menu', icon: 'UtensilsCrossed', permission: 'menu.read' },
-      { key: 'menus', label: 'Menus', href: '/admin/menus', icon: 'FileText', permission: 'menu.read' },
-      { key: 'recipes', label: 'Fiches Techniques', href: '/admin/recipes', icon: 'BookOpen', permission: 'recipes.read' }
+      { key: 'menus', label: 'Menus', href: '/admin/menus', icon: 'FileText', permission: 'menu.read' }
     ]
   },
-  {
-    key: 'salle',
-    label: 'Salle',
-    href: '/admin/salle',
-    icon: 'Armchair',
-    permission: 'salle.read',
-    children: [
-      { key: 'floorPlan', label: 'Plan de Salle', href: '/admin/salle', icon: 'Map', permission: 'salle.write' },
-      { key: 'service', label: 'Service', href: '/admin/salle/service', icon: 'ClipboardList', permission: 'salle.serve' },
-      { key: 'myTables', label: 'Mes Tables', href: '/admin/salle/mes-tables', icon: 'Armchair', permission: 'salle.serve' }
-    ]
-  },
-  { key: 'cuisine', label: 'Cuisine', href: '/admin/cuisine', icon: 'ChefHat', permission: 'inventory.read' },
   { key: 'users', label: 'Users', href: '/admin/users', icon: 'Users', permission: 'users.manage' },
-  { key: 'personnel', label: 'Personnel', href: '/admin/personnel', icon: 'UserCog', permission: 'personnel.read' },
-  { key: 'transport', label: 'Transport', href: '/admin/transport', icon: 'Bus', permission: 'transport.read' },
   { key: 'marketing', label: 'Marketing', href: '/admin/marketing', icon: 'Megaphone', permission: 'marketing.read' },
   { key: 'docs', label: 'Docs', href: '/admin/docs', icon: 'FileText', permission: 'marketing.read' },
-  {
-    key: 'finance',
-    label: 'Finance',
-    href: '/admin/finance',
-    icon: 'DollarSign',
-    permission: 'finance.read',
-    defaultOpen: true,
-    children: [
-      { key: 'overview', label: 'Overview', href: '/admin/finance?tab=overview', icon: 'BarChart3', permission: 'finance.read' },
-      { key: 'sales', label: 'Sales', href: '/admin/finance?tab=sales', icon: 'TrendingUp', permission: 'finance.read' },
-      { key: 'dailyPurchases', label: 'Achats & Stock', href: '/admin/inventory', icon: 'ShoppingCart', permission: 'inventory.read' },
-      { key: 'inventory', label: 'Inventory', href: '/admin/finance?tab=inventory', icon: 'Package', permission: 'finance.read' },
-      { key: 'vendors', label: 'Vendors', href: '/admin/finance?tab=vendors', icon: 'Users', permission: 'finance.read' },
-      { key: 'import', label: 'Import', href: '/admin/finance?tab=import', icon: 'Upload', permission: 'finance.read' }
-    ]
-  },
   {
     key: 'reports',
     label: 'Reports',
@@ -323,10 +242,5 @@ export const BACKOFFICE_NAV: NavItem[] = [
       { key: 'stockMovements', label: 'Mouvements Stock', href: '/admin/reports?tab=movements', icon: 'ArrowUpDown' }
     ]
   },
-  // Open to all authenticated users — recipients read reports addressed to them
-  // here; authoring is gated by memos.write inside the page.
-  { key: 'memos', label: 'Mémos', href: '/admin/memos', icon: 'Send' },
-  { key: 'approvals', label: 'Approbations', href: '/admin/approvals', icon: 'ClipboardList' },
-  { key: 'auditLogs', label: 'Audit Logs', href: '/admin/audit', icon: 'ScrollText', permission: 'audit.read' },
   { key: 'settings', label: 'Settings', href: '/admin/settings', icon: 'Settings', permission: 'settings.read' }
 ];

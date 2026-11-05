@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, getServerSession } from '@/lib/auth/supabase-server';
 import { createAuditLog } from '@/lib/auth/audit';
-import { approvalRequiredFor, submitApprovalRequest } from '@/lib/approvals';
 import type { PermissionName } from '@/lib/types/auth';
+import { getMenuCategoryRows, getMenuItemRows } from '@/lib/site-data';
 
 // Generic DB query proxy for client-side components.
 // Access is enforced per-table against the RBAC resource the table belongs to:
@@ -76,6 +76,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ data: null, error: { message: 'Table not allowed' } }, { status: 403 });
     }
 
+    // Blob-first: the public menu now reads from the Odoo-sourced snapshot
+    // (not Postgres). Same row shape, so menu components are unchanged.
+    if (action === 'select' && (table === 'menu_categories' || table === 'menu_items')) {
+      let rows: Record<string, unknown>[] =
+        table === 'menu_categories' ? await getMenuCategoryRows() : await getMenuItemRows();
+      for (const f of (filters || []) as Filter[]) {
+        rows = rows.filter((r) => {
+          const v = r[f.column];
+          switch (f.op) {
+            case '=': case 'eq': return v === f.value;
+            case '!=': case 'neq': return v !== f.value;
+            case '>': return (v as number) > (f.value as number);
+            case '>=': return (v as number) >= (f.value as number);
+            case '<': return (v as number) < (f.value as number);
+            case '<=': return (v as number) <= (f.value as number);
+            case 'ILIKE': return String(v ?? '').toLowerCase().includes(String(f.value).replace(/%/g, '').toLowerCase());
+            case 'IN': return Array.isArray(f.value) && (f.value as unknown[]).includes(v);
+            default: return true;
+          }
+        });
+      }
+      for (const o of ([...((orders || []) as OrderBy[])]).reverse()) {
+        rows = [...rows].sort((a, b) => {
+          const av = a[o.column] as number | string; const bv = b[o.column] as number | string;
+          if (av === bv) return 0;
+          const cmp = av < bv ? -1 : 1;
+          return o.ascending ? cmp : -cmp;
+        });
+      }
+      if (limitVal) rows = rows.slice(0, limitVal);
+      return NextResponse.json({ data: single ? (rows[0] ?? null) : rows, error: null });
+    }
+
     // Authorize per-table/per-action, except anonymous public marketing reads.
     const isPublicRead = action === 'select' && PUBLIC_READ_TABLES.has(table);
     let userId: string | null = null;
@@ -90,25 +123,6 @@ export async function POST(request: NextRequest) {
         const needed = resource ? requiredPermission(resource, action) : null;
         if (!needed || !session.permissions.includes(needed)) {
           return NextResponse.json({ data: null, error: { message: 'Forbidden' } }, { status: 403 });
-        }
-
-        // Approval gate: hold configured modules' writes for review.
-        if (action !== 'select') {
-          const moduleName = TABLE_RESOURCE[table];
-          if (moduleName) {
-            const rule = await approvalRequiredFor(moduleName, session);
-            if (rule) {
-              await submitApprovalRequest({
-                module: moduleName,
-                action: 'db_query',
-                payload: { action, table, data, filters },
-                summary: `${action} ${table}`,
-                session,
-                rule,
-              });
-              return NextResponse.json({ data: null, error: null, pending: true });
-            }
-          }
         }
       }
     }

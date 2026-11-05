@@ -1,9 +1,7 @@
-// Server-side notification helpers: create notifications and (re)generate the
-// data-driven low-stock alerts. Web Push fan-out is layered on top of
-// createNotification() so any new notification can also be pushed.
+// Server-side notification helpers: create in-app notifications and resolve
+// their configured recipients. (Web Push was removed with the PWA.)
 
 import db from '@/lib/db';
-import { sendPushToAll } from '@/lib/push';
 import { CONFIGURABLE_TYPES } from '@/lib/notification-types';
 
 export type NotificationType = 'low_stock' | 'new_reservation' | 'daily_summary';
@@ -20,7 +18,6 @@ interface CreateNotificationInput {
   link?: string | null;
   requiredPermission?: string | null;
   dedupKey?: string | null;
-  push?: boolean; // also send a web push (default true; overridden off by the type's push channel)
   targetRoles?: string[] | null;  // explicit recipient roles (overrides config)
   targetUsers?: string[] | null;  // explicit recipient user ids (overrides config)
   system?: boolean;               // skip the enabled check + recipient config lookup
@@ -30,7 +27,6 @@ interface TypeConfig {
   enabled: boolean;
   recipient_roles?: string[];
   recipient_users?: string[];
-  pushEnabled: boolean;           // channels.push (default true)
   raw: Record<string, unknown>;   // full config jsonb (threshold_mad, lead_time_days, …)
 }
 
@@ -40,12 +36,10 @@ async function getTypeConfig(type: string): Promise<TypeConfig | null> {
   );
   if (rows.length === 0) return null;
   const c = rows[0].config || {};
-  const channels = (c.channels && typeof c.channels === 'object') ? c.channels as Record<string, unknown> : {};
   return {
     enabled: rows[0].enabled,
     recipient_roles: Array.isArray(c.recipient_roles) ? (c.recipient_roles as string[]) : undefined,
     recipient_users: Array.isArray(c.recipient_users) ? (c.recipient_users as string[]) : undefined,
-    pushEnabled: channels.push !== false,
     raw: c,
   };
 }
@@ -75,12 +69,10 @@ export async function getNotificationConfig(
 export async function createNotification(input: CreateNotificationInput): Promise<string | null> {
   let targetRoles = input.targetRoles ?? null;
   let targetUsers = input.targetUsers ?? null;
-  let pushAllowed = input.push !== false;
 
   if (!input.system && CONFIGURED_TYPES.has(input.type)) {
     const cfg = await getTypeConfig(input.type);
     if (cfg && !cfg.enabled) return null;
-    if (cfg && !cfg.pushEnabled) pushAllowed = false;  // push channel turned off for this type
     if (targetRoles === null && targetUsers === null) {
       targetRoles = cfg?.recipient_roles ?? null;
       targetUsers = cfg?.recipient_users ?? null;
@@ -105,63 +97,6 @@ export async function createNotification(input: CreateNotificationInput): Promis
     ]
   );
 
-  const id = rows[0]?.id ?? null;
-  if (id && pushAllowed) {
-    // Fire-and-forget; never let push failures break the caller.
-    sendPushToAll({
-      title: input.title,
-      body: input.message ?? '',
-      url: input.link ?? '/admin',
-    }).catch(() => {});
-  }
-  return id;
+  return rows[0]?.id ?? null;
 }
 
-/**
- * Reconcile low-stock notifications with the current inventory state:
- * one active alert per product at/under its minimum stock, and remove alerts
- * for products that have been restocked. No-op when the alert type is disabled.
- */
-export async function generateLowStockNotifications(): Promise<void> {
-  const { rows: settingRows } = await db.query<{ enabled: boolean }>(
-    "SELECT enabled FROM notification_settings WHERE type = 'low_stock'"
-  );
-  if (settingRows.length && !settingRows[0].enabled) {
-    // Disabled: clear any existing low-stock alerts.
-    await db.query("DELETE FROM notifications WHERE type = 'low_stock'");
-    return;
-  }
-
-  // Products currently at/under their (positive) minimum stock.
-  const { rows: low } = await db.query<{ id: string; name: string; quantity: string; unit: string; minimum_stock: string }>(
-    `SELECT id, name, quantity, unit, minimum_stock
-     FROM inventory_items
-     WHERE minimum_stock > 0 AND quantity <= minimum_stock`
-  );
-
-  const currentKeys = low.map(i => `low_stock:${i.id}`);
-
-  // Remove alerts for products that are no longer low.
-  if (currentKeys.length) {
-    await db.query(
-      "DELETE FROM notifications WHERE type = 'low_stock' AND dedup_key <> ALL($1::text[])",
-      [currentKeys]
-    );
-  } else {
-    await db.query("DELETE FROM notifications WHERE type = 'low_stock'");
-  }
-
-  // Insert any new ones (dedup_key keeps it idempotent).
-  for (const item of low) {
-    await createNotification({
-      type: 'low_stock',
-      title: `Stock bas : ${item.name}`,
-      message: `${item.quantity} ${item.unit} restant(s) (seuil : ${item.minimum_stock} ${item.unit}).`,
-      severity: 'warning',
-      link: '/admin/inventory',
-      requiredPermission: 'inventory.read',
-      dedupKey: `low_stock:${item.id}`,
-      push: false, // bulk reconcile — avoid a push storm; pushes fire on first creation below
-    });
-  }
-}

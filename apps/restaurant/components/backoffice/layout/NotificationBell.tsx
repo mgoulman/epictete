@@ -33,10 +33,10 @@ const SEVERITY_ICON: Record<string, React.ElementType> = {
   info: Info,
 };
 const SEVERITY_COLOR: Record<string, string> = {
-  warning: 'text-amber-500',
-  danger: 'text-red-500',
-  success: 'text-green-500',
-  info: 'text-[#606338]',
+  warning: 'text-[var(--color-warning)]',
+  danger: 'text-[var(--color-danger)]',
+  success: 'text-[var(--color-positive)]',
+  info: 'text-[var(--color-info)]',
 };
 
 export function NotificationBell() {
@@ -125,7 +125,7 @@ export function NotificationBell() {
               <button
                 onClick={markAllRead}
                 disabled={loading}
-                className="flex items-center gap-1 text-[12px] text-[#606338] hover:underline"
+                className="flex items-center gap-1 text-[12px] text-[var(--color-accent)] hover:underline"
               >
                 {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
                 Tout marquer comme lu
@@ -146,7 +146,7 @@ export function NotificationBell() {
                   <button
                     key={n.id}
                     onClick={() => openNotification(n)}
-                    className={`w-full flex items-start gap-3 px-4 py-3 text-left border-b border-border/60 hover:bg-secondary transition-colors ${n.is_read ? '' : 'bg-[#606338]/5'}`}
+                    className={`w-full flex items-start gap-3 px-4 py-3 text-left border-b border-border/60 hover:bg-secondary transition-colors ${n.is_read ? '' : 'bg-[var(--color-accent)]/5'}`}
                   >
                     <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${SEVERITY_COLOR[n.severity] || 'text-muted-foreground'}`} />
                     <div className="flex-1 min-w-0">
@@ -154,7 +154,7 @@ export function NotificationBell() {
                       {n.message && <p className="text-[12px] text-muted-foreground mt-0.5">{n.message}</p>}
                       <p className="text-[11px] text-muted-foreground mt-1">{timeAgo(n.created_at)}</p>
                     </div>
-                    {!n.is_read && <span className="w-2 h-2 rounded-full bg-[#606338] mt-1.5 shrink-0" />}
+                    {!n.is_read && <span className="w-2 h-2 rounded-full bg-[var(--color-accent)] mt-1.5 shrink-0" />}
                   </button>
                 );
               })

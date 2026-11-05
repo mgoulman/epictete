@@ -75,14 +75,6 @@ export function CanManageUsers({ children, fallback }: { children: React.ReactNo
   );
 }
 
-export function CanViewFinance({ children, fallback }: { children: React.ReactNode; fallback?: React.ReactNode }) {
-  return (
-    <PermissionGate permission="finance.read" fallback={fallback}>
-      {children}
-    </PermissionGate>
-  );
-}
-
 export function CanViewMarketing({ children, fallback }: { children: React.ReactNode; fallback?: React.ReactNode }) {
   return (
     <PermissionGate permission="marketing.read" fallback={fallback}>

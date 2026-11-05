@@ -1,0 +1,32 @@
+# Keep the Vercel upload to just what builds apps/restaurant.
+# The monorepo root carries a huge odoo/ tree + data dumps the web build never needs.
+odoo/
+node_modules
+**/node_modules
+.next
+**/.next
+.turbo
+**/.turbo
+.git
+
+# Loose data / media dumps at the repo root (not part of the web build)
+*.xlsx
+*.xls
+*.csv
+*.pdf
+*.sql
+marketing/
+marketing page images/
+exports/
+excel-categories/
+contracts/
+audit_achats/
+scam/
+training/
+materiel_odoo/
+epictete-lacaisse-archive/
+epictete_carte_design/
+epictete_drinks_review/
+epictete_pizza_builder/
+epictete_reels/
+epictete_undo/

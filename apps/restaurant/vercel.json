@@ -1,16 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/lacaisse-sync",
-      "schedule": "1 1 * * *"
-    },
-    {
-      "path": "/api/cron/daily-summary",
-      "schedule": "30 1 * * *"
-    },
-    {
-      "path": "/api/cron/alerts",
-      "schedule": "0 7 * * *"
-    }
-  ]
-}
+{}

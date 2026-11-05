@@ -81,10 +81,6 @@ export function BackofficeShell({ children }: BackofficeShellProps) {
     if (!isLoading && !user && pathname !== '/login') {
       router.push('/login');
     }
-    // Role-based landing: send waiters to their own "Mes tables" workspace.
-    if (!isLoading && user && user.role === 'serveur' && pathname === '/admin') {
-      router.push('/admin/salle/mes-tables');
-    }
   }, [user, isLoading, router, pathname]);
 
   // Login page should render immediately without auth check
@@ -94,7 +90,7 @@ export function BackofficeShell({ children }: BackofficeShellProps) {
 
   if (isLoading || showSplash) {
     return (
-      <div className="min-h-screen bg-[#F0E7CE] flex flex-col items-center justify-center">
+      <div className="min-h-screen bg-[var(--color-background)] flex flex-col items-center justify-center">
         <div className="relative w-40 h-40 mb-6 animate-pulse">
           <Image
             src="/logos/logo-icon.png"
@@ -104,8 +100,8 @@ export function BackofficeShell({ children }: BackofficeShellProps) {
             priority
           />
         </div>
-        <div className="w-8 h-8 border-3 border-[#606338] border-t-transparent rounded-full animate-spin" />
-        <p className="mt-4 text-[#606338] text-sm font-medium">{t.backoffice.loading}</p>
+        <div className="w-8 h-8 border-3 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin" />
+        <p className="mt-4 text-[var(--color-accent)] text-sm font-medium">{t.backoffice.loading}</p>
       </div>
     );
   }
@@ -116,7 +112,7 @@ export function BackofficeShell({ children }: BackofficeShellProps) {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="min-h-screen bg-background">
+      <div className="backoffice-ui min-h-screen bg-background">
         <Suspense fallback={null}>
           <Sidebar
             isCollapsed={sidebarCollapsed}

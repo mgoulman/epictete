@@ -28,7 +28,7 @@ export function TestimonialsEditor({ locale, reviews, onChange }: TestimonialsEd
   };
 
   const inputClass =
-    'w-full py-2 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/40';
+    'w-full py-2 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none focus:border-[var(--color-accent)]/40';
 
   return (
     <div className="space-y-3">
@@ -38,7 +38,7 @@ export function TestimonialsEditor({ locale, reviews, onChange }: TestimonialsEd
         </span>
         <button
           onClick={addReview}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#606338] hover:bg-[#4d4f2e] text-white rounded-lg text-xs font-medium transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-primary-action)] hover:bg-[var(--color-primary-action-hover)] text-[var(--color-primary-action-foreground)] rounded-lg text-xs font-medium transition-colors"
         >
           <Plus className="w-3 h-3" />
           {mt.addReview}

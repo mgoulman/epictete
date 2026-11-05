@@ -24,7 +24,6 @@ import {
   BarChart3,
   Package,
   Upload,
-  Download,
   Armchair,
   Map,
   ClipboardList,
@@ -39,7 +38,6 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth, usePermissions } from '@/lib/auth/hooks';
-import { usePWA } from '@/components/backoffice/PWAProvider';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { BACKOFFICE_NAV } from '@/lib/types/auth';
 import type { PermissionName, NavItem } from '@/lib/types/auth';
@@ -85,7 +83,6 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { hasPermission, isAdmin } = usePermissions();
-  const { isInstalled, canInstall, triggerInstall } = usePWA();
   const { t } = useTranslation();
 
   const navLabels = t.backoffice.nav as Record<string, string>;
@@ -177,7 +174,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
 
       <aside
         className={`
-          fixed left-0 top-0 h-full bg-[var(--color-olive-900)] text-white/80 z-50
+          fixed left-0 top-0 h-full bg-[var(--color-chrome)] text-white/80 z-50
           flex flex-col transition-all duration-200
           ${isCollapsed ? 'w-[72px]' : 'w-[260px]'}
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -190,7 +187,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
           ${isCollapsed ? 'justify-center px-2' : 'justify-between pl-5 pr-3'}
         `}>
           <Link href="/admin" className={`flex items-center gap-3 no-underline ${isCollapsed ? '' : 'flex-1 min-w-0'}`}>
-            <div className="w-10 h-10 rounded-xl bg-[#EDE6D6] flex items-center justify-center shadow-lg shadow-black/20 shrink-0 overflow-hidden">
+            <div className="w-10 h-10 rounded-lg bg-[var(--color-accent-soft)] flex items-center justify-center shadow-lg shadow-black/20 shrink-0 overflow-hidden">
               <Image
                 src="/logos/logo-icon.png"
                 alt="Epictète"
@@ -259,7 +256,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                       className={`
                         w-full flex items-center gap-3 rounded-lg transition-all py-2.5 px-3
                         ${isActive
-                          ? 'bg-[var(--color-olive-600)] text-white shadow-[var(--shadow-sm)]'
+                          ? 'bg-white/[0.10] text-white shadow-[var(--shadow-sm)]'
                           : 'text-white/65 hover:bg-white/[0.07] hover:text-white'
                         }
                       `}
@@ -291,7 +288,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                               className={`
                                 flex items-center gap-2.5 rounded-md no-underline transition-all py-2 px-2.5
                                 ${isChildActive
-                                  ? 'bg-[var(--color-olive-600)] text-white shadow-[var(--shadow-sm)]'
+                                  ? 'bg-white/[0.10] text-white shadow-[var(--shadow-sm)]'
                                   : 'text-white/65 hover:bg-white/[0.07] hover:text-white'
                                 }
                               `}
@@ -324,7 +321,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                       <motion.span
                         layoutId="bo-nav-active"
                         transition={{ type: 'spring', stiffness: 420, damping: 36 }}
-                        className="absolute inset-0 -z-10 rounded-lg bg-[var(--color-olive-600)] shadow-[var(--shadow-sm)]"
+                        className="absolute inset-0 -z-10 rounded-lg bg-white/[0.10] shadow-[var(--shadow-sm)]"
                       />
                     )}
                     <Icon className="w-[18px] h-[18px] shrink-0" />
@@ -349,7 +346,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                     <motion.span
                       layoutId="bo-nav-active"
                       transition={{ type: 'spring', stiffness: 420, damping: 36 }}
-                      className="absolute inset-0 -z-10 rounded-lg bg-[var(--color-olive-600)] shadow-[var(--shadow-sm)]"
+                      className="absolute inset-0 -z-10 rounded-lg bg-white/[0.10] shadow-[var(--shadow-sm)]"
                     />
                   )}
                   <Icon className="w-[18px] h-[18px] shrink-0" />
@@ -366,7 +363,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
         {user && (
           <div className="border-t border-white/10 p-3">
             <div className={`flex items-center gap-3 p-2 ${isCollapsed ? 'justify-center' : ''}`}>
-              <div className="w-9 h-9 rounded-full bg-[var(--color-olive-600)] flex items-center justify-center text-[13px] font-semibold text-white shrink-0">
+              <div className="w-9 h-9 rounded-full bg-white/[0.10] ring-1 ring-white/10 flex items-center justify-center text-[13px] font-semibold text-white shrink-0">
                 {getInitials(user.full_name)}
               </div>
               {!isCollapsed && (
@@ -381,23 +378,6 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
               )}
             </div>
 
-            {/* Install App button */}
-            {canInstall && !isInstalled && (
-              <button
-                onClick={triggerInstall}
-                title={isCollapsed ? t.backoffice.sidebar.installApp : undefined}
-                className={`
-                  w-full flex items-center gap-3 rounded-lg transition-all mt-2
-                  ${isCollapsed ? 'py-2.5 justify-center' : 'py-2.5 px-3'}
-                  text-white/80 hover:bg-white/[0.08]
-                `}
-              >
-                <Download className="w-[18px] h-[18px] shrink-0" />
-                {!isCollapsed && (
-                  <span className="text-[13px] font-medium">{t.backoffice.sidebar.installApp}</span>
-                )}
-              </button>
-            )}
 
             {/* Logout button */}
             <button

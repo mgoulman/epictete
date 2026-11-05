@@ -11,8 +11,8 @@ export function Card({ children, className = "", hover = true }: CardProps) {
   return (
     <div
       className={`
-        bg-card rounded-2xl border border-border overflow-hidden
-        ${hover ? "transition-all duration-300 hover:border-accent/50 hover:shadow-lg" : ""}
+        bg-card rounded-[var(--radius)] border border-border overflow-hidden shadow-[var(--shadow-xs)]
+        ${hover ? "transition-all duration-200 hover:border-accent/40 hover:shadow-[var(--shadow-md)]" : ""}
         ${className}
       `}
     >
@@ -69,7 +69,7 @@ interface CardTitleProps {
 
 export function CardTitle({ children, className = "" }: CardTitleProps) {
   return (
-    <h3 className={`text-xl font-heading font-semibold text-foreground ${className}`}>
+    <h3 className={`text-lg font-semibold text-foreground ${className}`}>
       {children}
     </h3>
   );

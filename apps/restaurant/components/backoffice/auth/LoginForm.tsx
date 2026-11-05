@@ -116,7 +116,7 @@ export function LoginForm() {
                 outline: 'none',
                 transition: 'border-color 0.15s'
               }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = '#606338'; }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-accent)'; }}
               onBlur={(e) => { e.currentTarget.style.borderColor = '#2d2d28'; }}
             />
           </div>
@@ -152,7 +152,7 @@ export function LoginForm() {
                 outline: 'none',
                 transition: 'border-color 0.15s'
               }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = '#606338'; }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-accent)'; }}
               onBlur={(e) => { e.currentTarget.style.borderColor = '#2d2d28'; }}
             />
           </div>
@@ -163,7 +163,7 @@ export function LoginForm() {
             style={{
               width: '100%',
               padding: '12px',
-              background: isLoading ? '#4d4f2e' : 'linear-gradient(135deg, #606338, #4d4f2e)',
+              background: isLoading ? '#34382f' : 'linear-gradient(135deg, #20231f, #34382f)',
               border: 'none',
               borderRadius: '8px',
               color: 'white',

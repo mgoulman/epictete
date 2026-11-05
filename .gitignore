@@ -35,6 +35,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# secrets / credentials (keep local copy, never commit)
+epictete-492501-b1efb2fc36ec.json
+*-service-account*.json
+
 # typescript
 *.tsbuildinfo
 odoo/.ssh/

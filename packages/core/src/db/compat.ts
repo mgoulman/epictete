@@ -337,9 +337,24 @@ export interface CreateDbConfig {
   audit?: AuditFn;
 }
 
+/** A tenant-scoped query fn bound to a single transaction client (see `tx`). */
+export type TxQuery = <T = Record<string, unknown>>(
+  text: string,
+  params?: unknown[],
+) => Promise<{ rows: T[]; rowCount: number }>;
+
 export interface CompatDb {
   from<T = Record<string, unknown>>(table: string): TableRef<T>;
   query<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<{ rows: T[]; rowCount: number }>;
+  /**
+   * Run several statements atomically inside ONE tenant-scoped transaction. Unlike
+   * `query` (which wraps each call in its own BEGIN/COMMIT), every statement issued
+   * through the provided `q` shares a single transaction with the tenant GUC + RLS
+   * role set once up front — so a mid-way failure rolls the whole thing back. Use it
+   * for cross-table operations that must not half-apply (e.g. a supplier delivery
+   * that touches stock, movements and the vendor ledger together).
+   */
+  tx<T>(fn: (q: TxQuery) => Promise<T>): Promise<T>;
   /**
    * Platform-level escape hatch: a plain pool.query that NEVER enters the tenant
    * transaction wrapper. Use only for cross-tenant identity/session lookups that
@@ -389,6 +404,30 @@ export function createDb(config: CreateDbConfig): CompatDb {
     async query<T = Record<string, unknown>>(text: string, params?: unknown[]) {
       const r = await execute(text, params);
       return { rows: r.rows as T[], rowCount: r.rowCount || 0 };
+    },
+    async tx<T>(fn: (q: TxQuery) => Promise<T>): Promise<T> {
+      const tctx = getTenantContext();
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        if (tctx?.tenantId) {
+          if (rlsRole) await client.query(`SET LOCAL ROLE ${rlsRole}`);
+          await client.query("SELECT set_config('app.tenant_id', $1, true)", [tctx.tenantId]);
+          if (tctx.userId) await client.query("SELECT set_config('app.user_id', $1, true)", [tctx.userId]);
+        }
+        const q: TxQuery = async (text, params) => {
+          const r = await client.query(text, params);
+          return { rows: r.rows, rowCount: r.rowCount || 0 };
+        };
+        const result = await fn(q);
+        await client.query("COMMIT");
+        return result;
+      } catch (e) {
+        try { await client.query("ROLLBACK"); } catch { /* ignore */ }
+        throw e;
+      } finally {
+        client.release();
+      }
     },
     async unsafeQuery<T = Record<string, unknown>>(text: string, params?: unknown[]) {
       const r = await pool.query(text, params);

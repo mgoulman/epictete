@@ -33,7 +33,7 @@ export function BilingualField({
 
   const InputComponent = multiline ? 'textarea' : 'input';
   const inputClass =
-    'w-full py-2 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none focus:border-[#606338]/40 placeholder:text-muted-foreground/50';
+    'w-full py-2 px-3 bg-card border border-border rounded-lg text-foreground text-sm outline-none focus:border-[var(--color-accent)]/40 placeholder:text-muted-foreground/50';
 
   return (
     <div className="space-y-2">
@@ -173,7 +173,7 @@ export function SectionEditorWrapper({ section, row, onSaved, children }: Sectio
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#606338] hover:bg-[#4d4f2e] text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-primary-action)] hover:bg-[var(--color-primary-action-hover)] text-[var(--color-primary-action-foreground)] rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
         >
           {saving ? (
             <Loader2 className="w-4 h-4 animate-spin" />

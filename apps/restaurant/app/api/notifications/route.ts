@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { getServerSession } from '@/lib/auth/supabase-server';
 import { createAuditLog } from '@/lib/auth/audit';
-import { generateLowStockNotifications } from '@/lib/notifications';
 
 interface NotificationRow {
   id: string;
@@ -22,9 +21,6 @@ interface NotificationRow {
 export async function GET() {
   const session = await getServerSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  // Refresh data-driven alerts (cheap; idempotent via dedup_key).
-  try { await generateLowStockNotifications(); } catch { /* best-effort */ }
 
   const { rows } = await db.query<NotificationRow>(
     `SELECT id, type, title, message, severity, link, required_permission, target_roles, target_users, is_read, created_at

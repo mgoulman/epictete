@@ -3,9 +3,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LogOut, Settings, Menu, Search, ChevronRight, Home, Download, Globe } from 'lucide-react';
+import { LogOut, Settings, Menu, Search, ChevronRight, Home, Globe } from 'lucide-react';
 import { useAuth } from '@/lib/auth/hooks';
-import { usePWA } from '@/components/backoffice/PWAProvider';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { NotificationBell } from './NotificationBell';
 
@@ -21,14 +20,9 @@ const PAGE_KEYS: Record<string, string> = {
   '/admin/menu': 'menu',
   '/admin/users': 'users',
   '/admin/marketing': 'marketing',
-  '/admin/finance': 'finance',
-  '/admin/audit': 'audit',
+  '/admin/reports': 'reports',
   '/admin/settings': 'settings',
   '/admin/docs': 'docs',
-  '/admin/personnel': 'personnel',
-  '/admin/transport': 'transport',
-  '/admin/salle': 'salle',
-  '/admin/recipes': 'recipes',
   '/admin/menus': 'menus',
 };
 
@@ -75,7 +69,6 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
-  const { isInstalled, canInstall, triggerInstall } = usePWA();
   const { t, locale, setLocale } = useTranslation();
 
   const pageTitles = getPageTitles(t);
@@ -129,7 +122,7 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
                 ) : (
                   <Link
                     href={crumb.href}
-                    className="text-[11px] text-muted no-underline flex items-center gap-1 hover:text-[#606338]"
+                    className="text-[11px] text-muted no-underline flex items-center gap-1 hover:text-[var(--color-accent)]"
                   >
                     {index === 0 && <Home className="w-2.5 h-2.5" />}
                     {crumb.label}
@@ -149,7 +142,7 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
       {/* Center section: Search */}
       <div className="hidden md:flex flex-[0_1_400px] lg:flex-[0_1_400px]">
         <div className="relative w-full">
-          <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${isSearchFocused ? 'text-[#606338]' : 'text-muted'}`} />
+          <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${isSearchFocused ? 'text-[var(--color-accent)]' : 'text-muted'}`} />
           <input
             type="text"
             placeholder={t.backoffice.header.search}
@@ -160,7 +153,7 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
             className={`
               w-full py-2.5 pl-10 pr-12 rounded-lg text-[13px] text-foreground outline-none transition-all bg-card
               ${isSearchFocused
-                ? 'border border-[#606338]/40'
+                ? 'border border-[var(--color-accent)]/40'
                 : 'border border-border'
               }
             `}
@@ -173,17 +166,6 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
 
       {/* Right section: Notifications + Profile */}
       <div className="flex items-center gap-2 shrink-0">
-        {/* Install App */}
-        {canInstall && !isInstalled && (
-          <button
-            onClick={triggerInstall}
-            className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#606338] text-white text-sm font-medium hover:bg-[#4d4f2e] transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">{t.backoffice.header.install}</span>
-          </button>
-        )}
-
         {/* Language Toggle */}
         <button
           onClick={() => setLocale(locale === 'fr' ? 'en' : 'fr')}
@@ -209,7 +191,7 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
               }
             `}
           >
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#606338] to-[#4d4f2e] flex items-center justify-center text-white text-[13px] font-semibold">
+            <div className="w-8 h-8 rounded-lg bg-[var(--color-primary-action)] flex items-center justify-center text-[var(--color-primary-action-foreground)] text-[13px] font-semibold">
               {user?.full_name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
             </div>
             <div className="hidden md:block text-left">
@@ -232,7 +214,7 @@ export function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
                 <p className="text-xs text-muted-foreground mt-1 m-0">
                   {user?.email}
                 </p>
-                <span className="inline-block mt-2 px-2 py-1 text-[11px] rounded-md bg-[#606338]/10 text-[#606338] capitalize font-medium">
+                <span className="inline-block mt-2 px-2 py-1 text-[11px] rounded-md bg-[var(--color-accent)]/10 text-[var(--color-accent)] capitalize font-medium">
                   {user?.role}
                 </span>
               </div>

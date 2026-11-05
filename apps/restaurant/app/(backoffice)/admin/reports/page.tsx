@@ -1583,7 +1583,7 @@ export default function ReportsPage() {
     setCashSheet(cs => ({ ...cs, payment_sources: (cs.payment_sources || []).map((p, i) => i === idx ? { ...p, ...patch } : p) }));
 
   return (
-    <PermissionGate permission="finance.read" fallback={<div className="p-8 text-center text-muted-foreground">Access denied</div>}>
+    <PermissionGate permission="reports.read" fallback={<div className="p-8 text-center text-muted-foreground">Access denied</div>}>
       <div className="space-y-6">
         {/* Header */}
         <div>

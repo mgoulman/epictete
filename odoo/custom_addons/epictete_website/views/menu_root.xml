@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_website_root" name="Site Web" sequence="55"
+              groups="group_website_editor"/>
+
+    <menuitem id="menu_website_menu" name="Menu" parent="menu_website_root" sequence="10"/>
+    <menuitem id="menu_website_items" name="Plats" parent="menu_website_menu"
+              action="action_menu_item" sequence="10"/>
+    <menuitem id="menu_website_categories" name="Categories" parent="menu_website_menu"
+              action="action_menu_category" sequence="20"/>
+
+    <menuitem id="menu_website_pages" name="Contenu des pages" parent="menu_website_root"
+              action="action_section" sequence="20"/>
+</odoo>

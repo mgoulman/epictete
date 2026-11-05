@@ -8,15 +8,13 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "dev:restaurant": "pnpm --filter @epictete/restaurant dev",
-    "build:restaurant": "pnpm --filter @epictete/restaurant build",
-    "dev:saas": "pnpm --filter @epictete/saas dev",
-    "build:saas": "pnpm --filter @epictete/saas build"
+    "build:restaurant": "pnpm --filter @epictete/restaurant build"
   },
   "devDependencies": {
     "tsx": "^4.19.0",
     "turbo": "^2.5.0"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["@sentry/cli", "sharp", "unrs-resolver", "core-js"]
+    "onlyBuiltDependencies": ["sharp", "unrs-resolver", "core-js"]
   }
 }

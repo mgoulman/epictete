@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
 import { createAuditLog } from '@/lib/auth/audit';
 import db from '@/lib/db';
+import { getSectionRows } from '@/lib/site-data';
 
 // GET - Fetch site content (public, no auth needed)
 export async function GET(request: NextRequest) {
@@ -9,13 +10,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const section = searchParams.get('section');
 
-    let query = db.from('site_content').select('*');
-    if (section) query = query.eq('section', section);
+    // Blob-first: content now comes from the Odoo-sourced snapshot, not Postgres.
+    let rows = await getSectionRows();
+    if (section) rows = rows.filter((r) => r.section === section);
 
-    const { data, error } = await query;
-    if (error) throw error;
-
-    return NextResponse.json({ data });
+    return NextResponse.json({ data: rows });
   } catch (error) {
     console.error('Site content GET error:', error);
     return NextResponse.json({ error: 'Failed to fetch site content' }, { status: 500 });

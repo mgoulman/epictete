@@ -2,7 +2,7 @@
 
 // Auth components
 export { LoginForm } from './auth/LoginForm';
-export { PermissionGate, AdminOnly, CanManageUsers, CanViewFinance, CanViewMarketing, CanEditMenu } from './auth/PermissionGate';
+export { PermissionGate, AdminOnly, CanManageUsers, CanViewMarketing, CanEditMenu } from './auth/PermissionGate';
 
 // Layout components
 export { Sidebar } from './layout/Sidebar';

@@ -3,15 +3,13 @@
 //
 // Every layer — React error boundaries, the global unhandled-error net, the
 // client fetch helper, and server route handlers — funnels through reportError().
-// Today it logs locally; wiring Sentry (or any tracker) is a one-file change here,
-// so no call site ever imports the SDK directly.
+// It logs locally; wiring a tracker (Sentry or any other) is a one-file change
+// here, so no call site ever imports an SDK directly.
 //
-//   reportError(err, { where: 'inventory.save', extra: { itemId } });
+//   reportError(err, { where: 'reports.save', extra: { entryId } });
 //
 // Isomorphic: safe on both server and client.
 // ───────────────────────────────────────────────────────────────────────────
-
-import * as Sentry from '@sentry/nextjs';
 
 export interface ErrorContext {
   /** Logical origin, e.g. 'api:/api/reports', 'boundary:backoffice', 'fetch'. */
@@ -23,8 +21,8 @@ export interface ErrorContext {
 }
 
 /**
- * Report an error to logs (and, once provisioned, to Sentry).
- * Never throws — reporting must not create a second failure.
+ * Report an error to logs. Never throws — reporting must not create a second
+ * failure.
  */
 export function reportError(error: unknown, context: ErrorContext = {}): void {
   const { where = 'app', extra, level = 'error' } = context;
@@ -33,16 +31,6 @@ export function reportError(error: unknown, context: ErrorContext = {}): void {
     if (level === 'warning') console.warn(tag, error, extra ?? '');
     else if (level === 'info') console.info(tag, error, extra ?? '');
     else console.error(tag, error, extra ?? '');
-
-    // ── Forward to Sentry ──────────────────────────────────────────────────
-    // level 'error' → captureException (full issue + stack); 'warning'/'info'
-    // → captureMessage at that level. Context is attached as extra + a `where` tag.
-    const scope = { level, tags: { where }, extra: extra ?? {} };
-    if (level === 'error') {
-      Sentry.captureException(error, scope);
-    } else {
-      Sentry.captureMessage(errorMessage(error, where), scope);
-    }
   } catch {
     // Swallow — observability must never crash the caller.
   }

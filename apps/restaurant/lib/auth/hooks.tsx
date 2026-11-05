@@ -26,9 +26,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const data = await res.json();
         setUser(data.user || null);
-        // Auto-record presence on app load (fires for any logged-in user,
-        // independent of landing page; idempotent + no-ops if not scheduled).
-        if (data.user) fetch("/api/presence/checkin", { method: "POST" }).catch(() => {});
       } else {
         setUser(null);
       }
@@ -64,8 +61,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setUser(data.user);
-      // Record presence right after signing in.
-      fetch("/api/presence/checkin", { method: "POST" }).catch(() => {});
       setIsLoading(false);
       return { error: null };
     } catch (err) {
