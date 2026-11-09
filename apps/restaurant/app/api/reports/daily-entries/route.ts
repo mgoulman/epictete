@@ -1,56 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
+import { enforce, getCurrentUserId } from '@/lib/auth/supabase-server';
 import { createAuditLog } from '@/lib/auth/audit';
+import { odooGetEntry, odooGetEntriesMonth, odooUpsertEntry } from '@/lib/odoo-cash';
+
+// Daily entries (the per-day summary that backs the cash ledger) are stored in
+// Odoo (epictete_feuille_caisse addon). This route is a thin authenticated proxy.
 
 export async function GET(request: NextRequest) {
   const denied = await enforce('reports.read'); if (denied) return denied;
   try {
-    const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
     const month = searchParams.get('month');
 
     if (date) {
-      const { data, error } = await supabase
-        .from('daily_entries')
-        .select('*')
-        .eq('entry_date', date)
-        .maybeSingle();
-
-      if (error) throw error;
-      return NextResponse.json({ entry: data });
+      const entry = await odooGetEntry(date);
+      return NextResponse.json({ entry });
     }
 
     if (month) {
-      // month format: 2026-04
-      const startDate = `${month}-01`;
-      const [y, m] = month.split('-').map(Number);
-      const lastDay = new Date(y, m, 0).getDate();
-      const endDate = `${month}-${String(lastDay).padStart(2, '0')}`;
-
-      const { data, error } = await supabase
-        .from('daily_entries')
-        .select('*')
-        .gte('entry_date', startDate)
-        .lte('entry_date', endDate)
-        .order('entry_date', { ascending: true });
-
-      if (error) throw error;
-
-      // Also get POS sales totals for cross-reference
-      const { data: posTotals } = await supabase
-        .from('sales_items')
-        .select('sale_date, selling_price, quantity')
-        .gte('sale_date', startDate)
-        .lte('sale_date', endDate);
-
-      const posByDate: Record<string, number> = {};
-      for (const item of posTotals || []) {
-        const d = item.sale_date;
-        posByDate[d] = (posByDate[d] || 0) + (item.selling_price || 0) * (item.quantity || 1);
-      }
-
-      return NextResponse.json({ entries: data || [], posTotals: posByDate });
+      const entries = await odooGetEntriesMonth(month);
+      // POS cross-reference (sales_items) is no longer sourced here.
+      return NextResponse.json({ entries, posTotals: {} });
     }
 
     return NextResponse.json({ error: 'Provide date or month parameter' }, { status: 400 });
@@ -63,100 +34,30 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const denied = await enforce('reports.write'); if (denied) return denied;
   try {
-    const supabase = await createSupabaseServerClient();
     const body = await request.json();
-
-    const { data: user } = await supabase.auth.getUser();
-
-    const entry = {
-      entry_date: body.entry_date,
-      revenue_card: body.revenue_card || 0,
-      revenue_cash: body.revenue_cash || 0,
-      revenue_transfer: body.revenue_transfer || 0,
-      glovo_ttc_espece: body.glovo_ttc_espece || 0,
-      glovo_ttc_online: body.glovo_ttc_online || 0,
-      expense_cash: body.expense_cash || 0,
-      expense_cash_desc: body.expense_cash_desc || null,
-      expense_card_pro: body.expense_card_pro || 0,
-      expense_card_pro_desc: body.expense_card_pro_desc || null,
-      expense_tpe: body.expense_tpe || 0,
-      expense_tpe_desc: body.expense_tpe_desc || null,
-      withdrawal_pro: body.withdrawal_pro || 0,
-      withdrawal_pro_desc: body.withdrawal_pro_desc || null,
-      withdrawal_perso: body.withdrawal_perso || 0,
-      withdrawal_perso_desc: body.withdrawal_perso_desc || null,
-      espece_reste: body.espece_reste || 0,
-      observations: body.observations || null,
-      status: body.status || 'draft',
-      created_by: user?.user?.id || null,
-    };
-
-    if (!entry.entry_date) {
+    if (!body.entry_date) {
       return NextResponse.json({ error: 'entry_date is required' }, { status: 400 });
     }
 
-    // Upsert: create or update for the same date
-    const { data, error } = await supabase
-      .from('daily_entries')
-      .upsert(entry, { onConflict: 'entry_date' })
-      .select()
-      .single();
-
-    if (error) throw error;
+    const entry = await odooUpsertEntry(body);
 
     await createAuditLog({
-      userId: (user?.user?.id as string) || null,
+      userId: await getCurrentUserId(),
       action: 'upsert',
       resourceType: 'daily_entry',
-      resourceId: String(entry.entry_date),
-      newValues: data,
+      resourceId: String(body.entry_date),
+      newValues: { entry_date: body.entry_date },
     });
 
-    return NextResponse.json({ success: true, entry: data });
+    return NextResponse.json({ success: true, entry });
   } catch (error) {
     console.error('Daily entries POST error:', error);
     return NextResponse.json({ error: 'Failed to save daily entry' }, { status: 500 });
   }
 }
 
-export async function PATCH(request: NextRequest) {
-  const denied = await enforce('reports.write'); if (denied) return denied;
-  try {
-    const supabase = await createSupabaseServerClient();
-    const body = await request.json();
-    const { id, ...updates } = body;
-
-    if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 });
-    }
-
-    // Handle validation
-    if (updates.status === 'validated') {
-      const { data: user } = await supabase.auth.getUser();
-      updates.validated_by = user?.user?.id || null;
-      updates.validated_at = new Date().toISOString();
-    }
-
-    const { data, error } = await supabase
-      .from('daily_entries')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    await createAuditLog({
-      userId: await getCurrentUserId(),
-      action: 'update',
-      resourceType: 'daily_entry',
-      resourceId: String(id),
-      newValues: data,
-    });
-
-    return NextResponse.json({ success: true, entry: data });
-  } catch (error) {
-    console.error('Daily entries PATCH error:', error);
-    return NextResponse.json({ error: 'Failed to update daily entry' }, { status: 500 });
-  }
+// Validation/locking by row id was part of the (now hidden) suivi/recap tabs and
+// the Neon schema. The Odoo-backed store is keyed by date; use POST to upsert.
+export async function PATCH() {
+  return NextResponse.json({ error: 'Not supported' }, { status: 501 });
 }
