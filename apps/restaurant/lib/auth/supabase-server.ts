@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server';
 import { SignJWT, jwtVerify } from 'jose';
 import db from '@/lib/db';
 import type { AuthUser, PermissionName, RoleName, ProfileWithRole } from '@/lib/types/auth';
+import { isBackofficeAllowed } from '@/lib/types/auth';
 
 // JWT signing/verification secret. Required — no insecure fallback. Resolved
 // lazily so a missing var fails at first auth use (with a clear error) rather
@@ -21,22 +22,23 @@ function getJwtSecret(): Uint8Array {
 
 // ─── JWT helpers ────────────────────────────────────────────────────────────
 
-export async function createJWT(userId: string, role?: RoleName, perms?: string[]): Promise<string> {
+export async function createJWT(userId: string, role?: RoleName, perms?: string[], email?: string): Promise<string> {
   // Embed the role and the user's permissions so edge middleware can authorize
   // routes without a DB call — and so it works for custom/legacy roles, not just
-  // the built-in ones. Live checks (API routes, getServerSession) still read the
-  // DB; the JWT claims refresh on next login.
-  return new SignJWT({ sub: userId, role, perms })
+  // the built-in ones. The email is embedded so the edge middleware can enforce
+  // the backoffice allowlist. Live checks (API routes, getServerSession) still
+  // read the DB; the JWT claims refresh on next login.
+  return new SignJWT({ sub: userId, role, perms, email })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('7d')
     .sign(getJwtSecret());
 }
 
-export async function verifyJWT(token: string): Promise<{ sub: string; role?: RoleName; perms?: string[] } | null> {
+export async function verifyJWT(token: string): Promise<{ sub: string; role?: RoleName; perms?: string[]; email?: string } | null> {
   try {
     const { payload } = await jwtVerify(token, getJwtSecret());
-    return payload as { sub: string; role?: RoleName; perms?: string[] };
+    return payload as { sub: string; role?: RoleName; perms?: string[]; email?: string };
   } catch {
     return null;
   }
@@ -66,6 +68,7 @@ export async function createSupabaseServerClient() {
         if (!userId) return { data: { user: null }, error: { message: 'Not authenticated' } };
         const { rows } = await db.query('SELECT id, email FROM users WHERE id = $1', [userId]);
         if (rows.length === 0) return { data: { user: null }, error: { message: 'User not found' } };
+        if (!isBackofficeAllowed(rows[0].email as string)) return { data: { user: null }, error: { message: 'Access restricted' } };
         return { data: { user: { id: rows[0].id, email: rows[0].email } }, error: null };
       },
       async signInWithPassword({ email, password }: { email: string; password: string }) {
@@ -101,6 +104,8 @@ export async function getServerSession(): Promise<AuthUser | null> {
   const profile = profileRows[0];
 
   if (!profile.is_active) return null;
+  // Backoffice allowlist: refuse any session that isn't an approved operator.
+  if (!isBackofficeAllowed(profile.email)) return null;
 
   const { rows: permRows } = await db.query<{ name: string }>(
     `SELECT p.name FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id WHERE rp.role_id = $1`,

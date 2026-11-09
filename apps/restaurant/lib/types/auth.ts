@@ -201,6 +201,19 @@ export function requiredPermissionForPath(pathname: string): PermissionName | nu
   return null;
 }
 
+// ── Backoffice allowlist ────────────────────────────────────────────────────
+// For the moment the web backoffice is reduced to the Feuille de Caisse and is
+// restricted to a single operator. Only these emails may hold a backoffice
+// session; everyone else is refused at login and in the edge middleware.
+export const BACKOFFICE_ALLOWED_EMAILS: readonly string[] = [
+  'alaoui.adiib@epictete.ma',
+];
+
+export function isBackofficeAllowed(email?: string | null): boolean {
+  if (!email) return false;
+  return BACKOFFICE_ALLOWED_EMAILS.includes(email.trim().toLowerCase());
+}
+
 // Navigation items with required permissions
 export interface NavItem {
   key: string;
@@ -213,34 +226,5 @@ export interface NavItem {
 }
 
 export const BACKOFFICE_NAV: NavItem[] = [
-  { key: 'dashboard', label: 'Dashboard', href: '/admin', icon: 'LayoutDashboard' },
-  {
-    key: 'menuManagement',
-    label: 'Menu Management',
-    href: '/admin/menu',
-    icon: 'UtensilsCrossed',
-    permission: 'menu.read',
-    children: [
-      { key: 'menuItems', label: 'Menu Items', href: '/admin/menu', icon: 'UtensilsCrossed', permission: 'menu.read' },
-      { key: 'menus', label: 'Menus', href: '/admin/menus', icon: 'FileText', permission: 'menu.read' }
-    ]
-  },
-  { key: 'users', label: 'Users', href: '/admin/users', icon: 'Users', permission: 'users.manage' },
-  { key: 'marketing', label: 'Marketing', href: '/admin/marketing', icon: 'Megaphone', permission: 'marketing.read' },
-  { key: 'docs', label: 'Docs', href: '/admin/docs', icon: 'FileText', permission: 'marketing.read' },
-  {
-    key: 'reports',
-    label: 'Reports',
-    href: '/admin/reports',
-    icon: 'ClipboardList',
-    permission: 'reports.read',
-    children: [
-      { key: 'dailyEntry', label: 'Saisie Journalière', href: '/admin/reports?tab=daily', icon: 'Calendar' },
-      { key: 'suiviJournalier', label: 'Suivi Journalier', href: '/admin/reports?tab=suivi', icon: 'Table' },
-      { key: 'recapMensuel', label: 'Récap Mensuel', href: '/admin/reports?tab=recap', icon: 'BarChart3' },
-      { key: 'expenses', label: 'Dépenses', href: '/admin/reports?tab=expenses', icon: 'Receipt' },
-      { key: 'stockMovements', label: 'Mouvements Stock', href: '/admin/reports?tab=movements', icon: 'ArrowUpDown' }
-    ]
-  },
-  { key: 'settings', label: 'Settings', href: '/admin/settings', icon: 'Settings', permission: 'settings.read' }
+  { key: 'feuilleCaisse', label: 'Feuille de Caisse', href: '/admin/reports', icon: 'ClipboardList' },
 ];

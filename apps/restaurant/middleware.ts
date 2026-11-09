@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
-import { ROLE_PERMISSIONS, requiredPermissionForPath } from "@/lib/types/auth";
+import { ROLE_PERMISSIONS, requiredPermissionForPath, isBackofficeAllowed } from "@/lib/types/auth";
 import type { RoleName } from "@/lib/types/auth";
 
 const MENU_HOST = "menu.epictetelerestaurant.ma";
@@ -43,7 +43,7 @@ export default async function middleware(request: NextRequest) {
 
   // Check JWT from cookie — no network call needed
   const token = request.cookies.get("auth_token")?.value;
-  let user: { id: string; role?: RoleName; perms?: string[] } | null = null;
+  let user: { id: string; role?: RoleName; perms?: string[]; email?: string } | null = null;
 
   if (token) {
     try {
@@ -53,6 +53,7 @@ export default async function middleware(request: NextRequest) {
           id: payload.sub,
           role: payload.role as RoleName | undefined,
           perms: Array.isArray(payload.perms) ? (payload.perms as string[]) : undefined,
+          email: typeof payload.email === "string" ? payload.email : undefined,
         };
       }
     } catch {
@@ -60,16 +61,29 @@ export default async function middleware(request: NextRequest) {
     }
   }
 
-  if (isProtectedRoute && !user) {
+  // Backoffice allowlist: only approved operators may hold a session. Any other
+  // session (including stale tokens issued before the allowlist, which carry no
+  // email claim) is cleared and sent back to the login page.
+  const allowed = !!user && isBackofficeAllowed(user.email);
+
+  if (isProtectedRoute && !allowed) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(loginUrl);
+    if (!user) loginUrl.searchParams.set("redirect", pathname);
+    const res = NextResponse.redirect(loginUrl);
+    if (user) res.cookies.delete("auth_token");
+    return res;
   }
 
-  if (isAuthRoute && user) {
+  if (isAuthRoute && allowed) {
     const redirectTo =
-      request.nextUrl.searchParams.get("redirect") || "/admin";
+      request.nextUrl.searchParams.get("redirect") || "/admin/reports";
     return NextResponse.redirect(new URL(redirectTo, request.url));
+  }
+
+  // For the moment the backoffice is reduced to the Feuille de Caisse: confine
+  // every protected path to /admin/reports.
+  if (isProtectedRoute && allowed && !pathname.startsWith("/admin/reports")) {
+    return NextResponse.redirect(new URL("/admin/reports", request.url));
   }
 
   // Route-level authorization. Prefer the user's real permissions embedded in

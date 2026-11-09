@@ -4,6 +4,7 @@ import db from '@/lib/db';
 import { createJWT } from '@/lib/auth/supabase-server';
 import { createAuditLog } from '@/lib/auth/audit';
 import type { PermissionName, RoleName } from '@/lib/types/auth';
+import { isBackofficeAllowed } from '@/lib/types/auth';
 
 async function logAuthEvent(
   action: 'login_success' | 'login_failed' | 'login_blocked',
@@ -48,6 +49,13 @@ export async function POST(request: Request) {
 
     const user = users[0];
 
+    // Backoffice is restricted to a single operator for the moment.
+    if (!isBackofficeAllowed(user.email as string)) {
+      await logAuthEvent('login_blocked', email, user.id as string, request);
+      await createAuditLog({ userId: user.id as string, action: 'login_blocked', resourceType: 'auth', newValues: { email } });
+      return NextResponse.json({ error: 'Access restricted' }, { status: 403 });
+    }
+
     // Check profile
     const { rows: profiles } = await db.query(
       `SELECT p.*, r.name as role_name FROM profiles p LEFT JOIN roles r ON r.id = p.role_id WHERE p.id = $1`,
@@ -77,6 +85,7 @@ export async function POST(request: Request) {
       user.id as string,
       (profile.role_name as RoleName) || 'regular',
       perms.map(p => p.name as string),
+      user.email as string,
     );
     const cookieStore = await cookies();
     cookieStore.set('auth_token', token, {

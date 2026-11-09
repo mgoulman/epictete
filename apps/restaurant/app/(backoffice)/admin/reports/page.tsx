@@ -380,7 +380,9 @@ export default function ReportsPage() {
   const rp = t.backoffice.reportsPage;
 
   const tabParam = searchParams.get('tab') as TabType | null;
-  const validTabs: TabType[] = ['daily', 'suivi', 'recap', 'expenses', 'movements', 'frais-divers', 'paie'];
+  // For the moment the backoffice is reduced to the Feuille de Caisse (the
+  // 'daily' tab); any other ?tab= falls back to it.
+  const validTabs: TabType[] = ['daily'];
   const activeTab: TabType = tabParam && validTabs.includes(tabParam) ? tabParam : 'daily';
   const setActiveTab = (tab: TabType) => router.push(`/admin/reports?tab=${tab}`, { scroll: false });
 
@@ -1591,16 +1593,10 @@ export default function ReportsPage() {
           <p className="text-muted-foreground text-sm mt-1">{rp.subtitle}</p>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs — reduced to the Feuille de Caisse for the moment */}
         <div className="flex gap-1 p-1 bg-secondary rounded-xl w-fit flex-wrap">
           {([
             { id: 'daily' as TabType, label: rp.tabs.daily, icon: Calendar },
-            { id: 'suivi' as TabType, label: rp.tabs.suivi, icon: Table },
-            { id: 'recap' as TabType, label: rp.tabs.recap, icon: BarChart3 },
-            { id: 'expenses' as TabType, label: rp.tabs.expenses, icon: Receipt },
-            { id: 'movements' as TabType, label: rp.tabs.movements, icon: ArrowUpDown },
-            { id: 'frais-divers' as TabType, label: 'Frais Divers', icon: DollarSign },
-            { id: 'paie' as TabType, label: 'La Paie', icon: Receipt },
           ]).map(tab => (
             <button
               key={tab.id}
