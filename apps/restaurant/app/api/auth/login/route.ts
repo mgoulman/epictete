@@ -81,9 +81,14 @@ export async function POST(request: Request) {
 
     // Create JWT and set cookie (role + real permissions embedded for edge
     // route authorization — works for custom/legacy roles too).
+    // Allowlisted backoffice operators are elevated to admin-level authorization
+    // so the single retained feature (Feuille de Caisse) works regardless of the
+    // operator's underlying role (e.g. Adib is a "manager"). Page access is still
+    // confined to /admin/reports by the middleware.
+    const effectiveRole: RoleName = 'admin';
     const token = await createJWT(
       user.id as string,
-      (profile.role_name as RoleName) || 'regular',
+      effectiveRole,
       perms.map(p => p.name as string),
       user.email as string,
     );
@@ -106,7 +111,7 @@ export async function POST(request: Request) {
         email: user.email,
         full_name: profile.full_name,
         avatar_url: profile.avatar_url,
-        role: (profile.role_name as RoleName) || 'regular',
+        role: effectiveRole,
         permissions: perms.map(p => p.name) as PermissionName[],
       },
     });

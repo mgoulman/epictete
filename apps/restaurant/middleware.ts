@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
-import { ROLE_PERMISSIONS, requiredPermissionForPath, isBackofficeAllowed } from "@/lib/types/auth";
+import { ROLE_PERMISSIONS, requiredPermissionForPath } from "@/lib/types/auth";
 import type { RoleName } from "@/lib/types/auth";
 
 const MENU_HOST = "menu.epictetelerestaurant.ma";
@@ -61,20 +61,18 @@ export default async function middleware(request: NextRequest) {
     }
   }
 
-  // Backoffice allowlist: only approved operators may hold a session. Any other
-  // session (including stale tokens issued before the allowlist, which carry no
-  // email claim) is cleared and sent back to the login page.
-  const allowed = !!user && isBackofficeAllowed(user.email);
-
-  if (isProtectedRoute && !allowed) {
+  // Authentication only. The backoffice allowlist itself is enforced in the Node
+  // layers (login route + server session), which read the BACKOFFICE_ALLOWED_EMAILS
+  // env var reliably; the edge middleware cannot, so it only checks for a valid
+  // session and confines navigation. A non-allowlisted user can never obtain a
+  // token (login refuses) and the data APIs reject them via the server session.
+  if (isProtectedRoute && !user) {
     const loginUrl = new URL("/login", request.url);
-    if (!user) loginUrl.searchParams.set("redirect", pathname);
-    const res = NextResponse.redirect(loginUrl);
-    if (user) res.cookies.delete("auth_token");
-    return res;
+    loginUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
-  if (isAuthRoute && allowed) {
+  if (isAuthRoute && user) {
     const redirectTo =
       request.nextUrl.searchParams.get("redirect") || "/admin/reports";
     return NextResponse.redirect(new URL(redirectTo, request.url));
@@ -82,7 +80,7 @@ export default async function middleware(request: NextRequest) {
 
   // For the moment the backoffice is reduced to the Feuille de Caisse: confine
   // every protected path to /admin/reports.
-  if (isProtectedRoute && allowed && !pathname.startsWith("/admin/reports")) {
+  if (isProtectedRoute && user && !pathname.startsWith("/admin/reports")) {
     return NextResponse.redirect(new URL("/admin/reports", request.url));
   }
 

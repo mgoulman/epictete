@@ -117,7 +117,10 @@ export async function getServerSession(): Promise<AuthUser | null> {
     email: profile.email || '',
     full_name: profile.full_name,
     avatar_url: profile.avatar_url,
-    role: (profile.role_name as RoleName) || 'regular',
+    // Allowlisted operators (only ones that reach here) are elevated to admin-level
+    // authorization so the retained Feuille de Caisse works regardless of their
+    // underlying role. Page access stays confined to /admin/reports via middleware.
+    role: 'admin',
     permissions: permRows.map(r => r.name) as PermissionName[],
   };
 }
