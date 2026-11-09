@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
           const buf = Buffer.from(it.image, 'base64');
           const { ext, type } = sniff(buf);
           const blob = await put(`site/menu/${it.id}.${ext}`, buf, {
-            access: 'public', addRandomSuffix: false, contentType: type,
+            access: 'public', addRandomSuffix: false, allowOverwrite: true, contentType: type,
           });
           image = blob.url;
           imagesMirrored++;
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
   };
   try {
     await put(SNAPSHOT_PATH, JSON.stringify(snapshot), {
-      access: 'public', addRandomSuffix: false, contentType: 'application/json',
+      access: 'public', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json',
     });
   } catch (e) {
     return NextResponse.json({ ok: false, error: `snapshot write failed: ${(e as Error).message}` }, { status: 500 });
