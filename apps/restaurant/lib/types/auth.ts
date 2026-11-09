@@ -206,7 +206,8 @@ export function requiredPermissionForPath(pathname: string): PermissionName | nu
 // restricted to a single operator. Only these emails may hold a backoffice
 // session; everyone else is refused at login and in the edge middleware.
 export const BACKOFFICE_ALLOWED_EMAILS: readonly string[] = [
-  'alaoui.adiib@epictete.ma',
+  'alaoui.adiib@epictete.ma', // Adib — daily operator
+  'admin@epictete.com',       // Admin — kept for management access
 ];
 
 export function isBackofficeAllowed(email?: string | null): boolean {
