@@ -37,6 +37,7 @@ export interface SnapshotItem {
   allergens: string[];
   tags: string[];
   image: string | null; // Blob URL (or null)
+  image_hash?: string | null; // Odoo image change-hash, used by /api/publish to skip re-mirroring unchanged images
 }
 export interface SnapshotSection {
   fr: Record<string, string>;
