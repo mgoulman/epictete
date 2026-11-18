@@ -37,6 +37,14 @@ export async function odooUpsertSheet(body: Json): Promise<Json> {
   return data.sheet as Json;
 }
 
+// All sheets in date-ascending order (optionally from a start date). Used to build
+// the running cash balance from the same source of truth as the per-day sheets.
+export async function odooListSheets(from?: string): Promise<Json[]> {
+  const qs = from ? `?from=${encodeURIComponent(from)}` : '';
+  const data = await odooFetch(`/epictete/cash/sheets${qs}`);
+  return (data.sheets as Json[] | undefined) ?? [];
+}
+
 // ── Daily entries ───────────────────────────────────────────────────────────
 export async function odooGetEntry(date: string): Promise<Json | null> {
   const data = await odooFetch(`/epictete/cash/entry?date=${encodeURIComponent(date)}`);

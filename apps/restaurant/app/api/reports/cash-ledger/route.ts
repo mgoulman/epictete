@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, enforce } from '@/lib/auth/supabase-server';
+import { enforce } from '@/lib/auth/supabase-server';
+import { odooListSheets } from '@/lib/odoo-cash';
 import { computeRunningBalance, LEDGER_START_DATE, LEDGER_OPENING_BALANCE } from '@/lib/finance/cash-ledger';
 
 // GET /api/reports/cash-ledger
@@ -14,25 +15,15 @@ export async function GET(request: NextRequest) {
   const denied = await enforce('reports.read');
   if (denied) return denied;
   try {
-    const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
 
-    const { data, error } = await supabase
-      .from('cash_sheets')
-      .select(
-        'entry_date, total_ca, total_cb, glovo_ttc_espece, glovo_ttc_online, payment_sources, paid_items, unpaid_items, paid_outside_items, custom_columns, column_flags',
-      )
-      .order('entry_date', { ascending: true });
-
-    if (error) throw error;
-
-    // Start on LEDGER_START_DATE with LEDGER_OPENING_BALANCE carried in (0 = fresh
-    // start). Only sheets from the start date onward build the running balance;
-    // earlier days are excluded.
-    const all = (data as Array<Record<string, unknown>>) || [];
-    const fromStart = all.filter((s) => String(s.entry_date) >= LEDGER_START_DATE);
-    const rows = computeRunningBalance(fromStart, LEDGER_OPENING_BALANCE);
+    // Read every sheet from the single source of truth (Odoo), already date-ascending,
+    // starting on LEDGER_START_DATE with LEDGER_OPENING_BALANCE carried in (0 = fresh
+    // start). This is the SAME store the per-day sheet route reads/writes, so the
+    // cumulative reconciles exactly with each day's "reste en espèces".
+    const fromStart = await odooListSheets(LEDGER_START_DATE);
+    const rows = computeRunningBalance(fromStart as Array<Record<string, unknown>>, LEDGER_OPENING_BALANCE);
     const allTime = rows.length ? rows[rows.length - 1].closing : LEDGER_OPENING_BALANCE;
 
     if (date) {
